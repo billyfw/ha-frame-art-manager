@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ANCWBFW Frame Art Manager</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="gallery">Gallery</button>
+      <button class="tab-btn" data-tab="upload">Upload</button>
+      <button class="tab-btn" data-tab="tvs">TVs</button>
+      <button class="tab-btn" data-tab="tags">Tags</button>
+      <button class="tab-btn" data-tab="sync">Sync</button>
+      <button class="tab-btn" data-tab="advanced">Advanced</button>
+      <span class="nav-title">ANCWBFW Frame Art Manager</span>
+    </nav>
+
+    <!-- Gallery Tab -->
+    <div id="gallery-tab" class="tab-content active">
+      <div class="controls">
+        <div class="control-item control-search">
+          <span class="control-icon">🔍</span>
+          <input type="text" id="search-input" placeholder="Search images..." />
+        </div>
+        <div class="control-item control-filter">
+          <button type="button" id="clear-tag-filter-btn" class="clear-filter-btn" style="display: none;" title="Clear filter">✕</button>
+          <div class="custom-multiselect">
+            <button type="button" id="tag-filter-btn" class="multiselect-button">
+              <span id="tag-filter-text">All Tags</span>
+              <span class="dropdown-arrow">▼</span>
+            </button>
+            <div id="tag-filter-dropdown" class="multiselect-dropdown">
+              <div id="tv-shortcuts" class="tv-shortcuts">
+                <!-- TV shortcut checkboxes will be populated here -->
+              </div>
+              <div class="tags-header">TAGS</div>
+              <div class="multiselect-options">
+                <!-- Tag checkboxes will be populated here -->
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="control-item control-sort">
+          <select id="sort-order">
+            <option value="name">Name</option>
+            <option value="date">Date Added</option>
+          </select>
+          <button type="button" id="sort-direction-btn" class="sort-direction-btn" title="Toggle sort direction">
+            <span id="sort-direction-icon">⬆</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="bulk-actions" class="bulk-actions">
+        <div class="bulk-actions-info">
+          <span id="selected-count">0</span> images selected
+        </div>
+        <div class="bulk-actions-buttons">
+          <button id="bulk-tag-btn" class="btn-primary">Tag Selected</button>
+          <button id="clear-selection-btn" class="btn-secondary">Clear Selection</button>
+        </div>
+      </div>
+
+      <div id="image-grid" class="image-grid">
+        <!-- Images will be loaded here -->
+      </div>
+    </div>
+
+    <!-- Upload Tab -->
+    <div id="upload-tab" class="tab-content">
+      <div class="upload-section">
+        <h2>Upload New Image</h2>
+        <form id="upload-form" enctype="multipart/form-data">
+          <div class="form-group">
+            <label for="image-file">Select Image:</label>
+            <input type="file" id="image-file" name="image" accept="image/*" capture="environment" required />
+          </div>
+
+          <div class="form-group">
+            <label for="image-name">Image Name (optional):</label>
+            <input type="text" id="image-name" name="customName" placeholder="BillyAmandaWeddingTrees" />
+            <small class="form-hint">Leave blank to use original filename. A UUID will be added to prevent duplicates.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="matte-select">Matte:</label>
+            <select id="matte-select" name="matte">
+              <option value="none">None</option>
+              <option value="square_white">Square White</option>
+              <option value="square_black">Square Black</option>
+              <option value="square_beige">Square Beige</option>
+              <option value="modern_white">Modern White</option>
+              <option value="modern_black">Modern Black</option>
+              <option value="modern_beige">Modern Beige</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="filter-select">Filter:</label>
+            <select id="filter-select" name="filter">
+              <option value="none">None</option>
+              <option value="sepia">Sepia</option>
+              <option value="grayscale">Grayscale</option>
+              <option value="warm">Warm</option>
+              <option value="cool">Cool</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="tags-input">Tags (comma-separated):</label>
+            <input type="text" id="tags-input" name="tags" placeholder="nature, landscape, sunset" />
+          </div>
+
+          <button type="submit" class="btn-primary">Upload Image</button>
+        </form>
+
+        <div id="upload-status"></div>
+      </div>
+    </div>
+
+    <!-- TVs Tab -->
+    <div id="tvs-tab" class="tab-content">
+      <div class="section">
+        <h2>Manage TVs</h2>
+        
+        <form id="tv-form" class="inline-form">
+          <input type="text" id="tv-name" placeholder="TV Name" required />
+          <input type="text" id="tv-ip" placeholder="IP Address (e.g., 192.168.1.100)" required />
+          <button type="submit" class="btn-primary">Add TV</button>
+        </form>
+
+        <div id="tv-list" class="list">
+          <!-- TV list will be loaded here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Tags Tab -->
+    <div id="tags-tab" class="tab-content">
+      <div class="section">
+        <h2>Manage Tags</h2>
+        
+        <form id="tag-form" class="inline-form">
+          <input type="text" id="tag-name" placeholder="New Tag" required />
+          <button type="submit" class="btn-primary">Add Tag</button>
+        </form>
+
+        <div id="tag-list" class="tag-cloud">
+          <!-- Tag list will be loaded here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Sync Tab -->
+    <div id="sync-tab" class="tab-content">
+      <div class="section">
+        <h2>Sync Status</h2>
+        <button id="verify-sync-btn" class="btn-primary">Verify Sync</button>
+        
+        <div id="sync-results">
+          <!-- Sync results will be shown here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Metadata Tab -->
+    <!-- Advanced Tab -->
+    <div id="advanced-tab" class="tab-content">
+      <div class="section">
+        <h2>Advanced Settings</h2>
+        
+        <div class="subsection">
+          <h3>Library Path</h3>
+          <div class="info-box">
+            <span class="path-label">📁 Current Path:</span>
+            <code id="advanced-path-value" class="path-code">Loading...</code>
+          </div>
+        </div>
+
+        <div class="subsection">
+          <h3>Metadata Backend</h3>
+          <p>View the raw metadata.json file for debugging</p>
+          <button id="refresh-metadata-btn" class="btn-primary">Refresh Metadata</button>
+          
+          <div class="metadata-viewer">
+            <pre id="metadata-content" class="code-block">Loading metadata...</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Detail Modal -->
+  <div id="image-modal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <img id="modal-image" src="" alt="" />
+      <div class="modal-details">
+        <div class="modal-filename-container">
+          <h3 id="modal-filename"></h3>
+          <button id="edit-filename-btn" class="btn-icon" title="Edit name">✏️</button>
+        </div>
+        <div id="edit-filename-form" class="edit-filename-form" style="display: none;">
+          <input type="text" id="edit-filename-input" placeholder="Enter new name" />
+          <button id="save-filename-btn" class="btn-primary btn-small">Save</button>
+          <button id="cancel-filename-btn" class="btn-secondary btn-small">Cancel</button>
+        </div>
+        <p class="modal-actual-filename">
+          <small>File: <code id="modal-actual-filename"></code></small>
+        </p>
+        <p class="modal-dimensions">
+          <small>Resolution: <strong id="modal-resolution"></strong></small>
+        </p>
+        <div class="modal-controls">
+          <div class="form-group">
+            <label>Matte:</label>
+            <select id="modal-matte">
+              <option value="none">None</option>
+              <option value="square_white">Square White</option>
+              <option value="square_black">Square Black</option>
+              <option value="square_beige">Square Beige</option>
+              <option value="modern_white">Modern White</option>
+              <option value="modern_black">Modern Black</option>
+              <option value="modern_beige">Modern Beige</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Filter:</label>
+            <select id="modal-filter">
+              <option value="none">None</option>
+              <option value="sepia">Sepia</option>
+              <option value="grayscale">Grayscale</option>
+              <option value="warm">Warm</option>
+              <option value="cool">Cool</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tags:</label>
+            <input type="text" id="modal-tags" placeholder="tag1, tag2, tag3" />
+          </div>
+          <button id="modal-save-btn" class="btn-primary">Save Changes</button>
+          <button id="modal-delete-btn" class="btn-danger">Delete Image</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk Tag Modal -->
+  <div id="bulk-tag-modal" class="modal">
+    <div class="modal-content bulk-modal">
+      <span class="close" id="bulk-modal-close">&times;</span>
+      <div class="modal-details">
+        <h3>Add Tags to <span id="bulk-count">0</span> Images</h3>
+        <div class="form-group">
+          <label>Tags to Add (comma-separated):</label>
+          <input type="text" id="bulk-tags-input" placeholder="tag1, tag2, tag3" />
+          <small class="form-hint">These tags will be added to all selected images (existing tags will be kept)</small>
+        </div>
+        <div class="bulk-modal-actions">
+          <button id="add-bulk-tags-btn" class="btn-primary">Add Tags</button>
+          <button id="cancel-bulk-tags-btn" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TV Detail Modal -->
+  <div id="tv-modal" class="modal">
+    <div class="modal-content tv-modal">
+      <span class="close" id="tv-modal-close">&times;</span>
+      <div class="modal-details">
+        <h3>TV Details</h3>
+        <div class="form-group">
+          <label>TV Name:</label>
+          <input type="text" id="tv-modal-name" placeholder="TV Name" />
+        </div>
+        <div class="form-group">
+          <label>IP Address:</label>
+          <input type="text" id="tv-modal-ip" placeholder="192.168.1.100" />
+        </div>
+        <div class="form-group">
+          <label>Display Tags:</label>
+          <div class="custom-multiselect">
+            <button type="button" id="tv-modal-tags-btn" class="multiselect-button">
+              <span id="tv-modal-tags-text">All images</span>
+              <span class="dropdown-arrow">▼</span>
+            </button>
+            <div id="tv-modal-tags-dropdown" class="multiselect-dropdown">
+              <div class="multiselect-options" id="tv-modal-tags-options">
+                <!-- Tag checkboxes will be populated here -->
+              </div>
+            </div>
+          </div>
+          <small class="form-hint">Select which tags should be displayed on this TV (leave empty to show all images)</small>
+        </div>
+        <div class="modal-info">
+          <p><small>Added: <span id="tv-modal-date"></span></small></p>
+        </div>
+        <div class="tv-modal-actions">
+          <button id="tv-modal-save-btn" class="btn-primary">Save Changes</button>
+          <button id="tv-modal-delete-btn" class="btn-danger">Delete TV</button>
+          <button id="tv-modal-cancel-btn" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
