@@ -1428,8 +1428,39 @@ header h1 {
 .tv-modal-actions {
   display: flex;
   gap: 10px;
-  justify-content: flex-end;
+  justify-content: space-between;
   margin-top: 20px;
+}
+
+.tv-modal-actions-right {
+  display: flex;
+  gap: 10px;
+}
+
+/* Toggle buttons (segmented) */
+.toggle-group {
+  display: inline-flex;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.toggle-btn {
+  background: #f6f8fa;
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #24292f;
+}
+
+.toggle-btn + .toggle-btn {
+  border-left: 1px solid #d0d7de;
+}
+
+.toggle-btn.active {
+  background: #0366d6;
+  color: white;
 }
 
 /* TV Tag Picker Modal */
@@ -1504,14 +1535,66 @@ header h1 {
 }
 
 /* Advanced Tab */
+.advanced-tabs {
+  display: flex;
+  gap: 0;
+  margin: 20px 0;
+  border-bottom: 2px solid #e1e4e8;
+}
+
+.advanced-tab-btn {
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #586069;
+  transition: all 0.2s;
+  margin-bottom: -2px;
+}
+
+.advanced-tab-btn:hover {
+  color: #24292e;
+  background: #f6f8fa;
+}
+
+.advanced-tab-btn.active {
+  color: #3498db;
+  border-bottom-color: #3498db;
+  font-weight: 600;
+}
+
+.advanced-tab-content {
+  display: none;
+  animation: fadeIn 0.3s;
+}
+
+.advanced-tab-content.active {
+  display: block;
+}
+
 .subsection {
-  margin-bottom: 30px;
+  margin-bottom: 40px;
+  padding: 25px;
+  background: #fafbfc;
+  border: 1px solid #e1e4e8;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.subsection:last-child {
+  margin-bottom: 0;
 }
 
 .subsection h3 {
   color: #2c3e50;
-  margin-bottom: 10px;
+  margin-top: 0;
+  margin-bottom: 15px;
   font-size: 1.3rem;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e1e4e8;
 }
 
 .info-box {
