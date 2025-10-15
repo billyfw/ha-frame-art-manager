@@ -1,200 +1,769 @@
-# Frame Art Manager Add-on - Development Plan
+# Development Guide
 
-## Phase 2: Frame Art Manager Add-on Implementation
-
-### Overview
-Home Assistant add-on that provides a web interface for managing Samsung Frame TV artwork library.
-
-### Repository Structure
-```
-ha-frame-art-manager/
-├── README.md                    # Main repository README
-├── frame_art_manager/           # The actual add-on folder
-│   ├── config.yaml             # Add-on configuration (required by HA)
-│   ├── Dockerfile              # Container definition
-│   ├── build.yaml              # Build configuration for multiple architectures
-│   ├── README.md               # Add-on documentation (shows in HA UI)
-│   ├── CHANGELOG.md            # Version history
-│   ├── icon.png                # Add-on icon (108x108px)
-│   ├── logo.png                # Add-on logo (optional, for docs)
-│   ├── rootfs/                 # Root filesystem for the container
-│   │   └── usr/
-│   │       └── bin/
-│   │           └── run.sh      # Startup script
-│   └── app/                    # Our Node.js application
-│       ├── package.json
-│       ├── server.js           # Main Express server
-│       ├── metadata_helper.js  # Metadata operations
-│       ├── public/             # Static web files
-│       │   ├── index.html
-│       │   ├── css/
-│       │   │   └── style.css
-│       │   └── js/
-│       │       └── app.js
-│       └── routes/             # API endpoints
-│           ├── images.js
-│           ├── tvs.js
-│           └── tags.js
-└── repository.json              # HACS repository metadata
-```
-
-### Implementation Steps
-
-#### Step 2: Initialize new repo ✅
-- [x] Created GitHub repository: `ha-frame-art-manager`
-- [x] Cloned to local development environment
-
-#### Step 3: Build web interface features ✅
-- [x] Image upload with drag & drop
-- [x] Tag management (add/remove tags per image)
-- [x] Matte/filter selection per image
-- [x] TV management with detail modal
-- [x] TV tag filtering (assign tags to TVs to control which images display)
-- [x] Image gallery with thumbnails
-- [x] Image detail modal with rename functionality
-- [x] Image delete
-- [x] Bulk tagging operations (select multiple images, apply tags)
-- [x] Multi-tag filtering with checkbox dropdown
-- [x] Sort by name/date with direction toggle
-- [x] Search functionality
-- [x] Compact toolbar with icons and professional UI
-- [ ] Git LFS sync management (auto/manual?)
-
-#### Step 4: Add API endpoints ✅
-- [x] `GET /api/images` - Get all images with metadata
-- [x] `POST /api/images` - Upload new image
-- [x] `GET /api/images/:filename` - Get single image metadata
-- [x] `PUT /api/images/:filename` - Update image metadata
-- [x] `POST /api/images/:filename/rename` - Rename image (preserving UUID)
-- [x] `DELETE /api/images/:filename` - Delete image
-- [x] `POST /api/images/bulk-tag` - Add tags to multiple images
-- [x] `GET /api/tvs` - Get all TVs
-- [x] `POST /api/tvs` - Add new TV
-- [x] `PUT /api/tvs/:tvId` - Update TV name and IP
-- [x] `PUT /api/tvs/:tvId/tags` - Update TV tag filters
-- [x] `DELETE /api/tvs/:tvId` - Delete TV
-- [x] `GET /api/tags` - Get all tags
-- [x] `POST /api/tags` - Add new tag
-- [x] `DELETE /api/tags/:tag` - Delete tag
-- [x] `GET /api/health` - Health check with library path
-- [ ] `/api/sync` - Trigger Git LFS operations
-- [ ] `/api/display` - Call AppDaemon service to display image on TV (via HA REST API)
-- [ ] `/api/shuffle` - Start/stop shuffle via AppDaemon services
-
-#### Step 5: Create Add-on Container Files
-- [ ] Create `config.yaml` - Add-on metadata and configuration options
-- [ ] Create `Dockerfile` - Container build instructions
-- [ ] Create `build.yaml` - Multi-architecture build config
-- [ ] Create `rootfs/usr/bin/run.sh` - Startup script
-- [ ] Create add-on `README.md` - User documentation (shows in HA UI)
-- [ ] Create `CHANGELOG.md` - Version history
-- [ ] Add `icon.png` and `logo.png` - Add-on branding
-
-#### Step 6: Package for HACS
-- [ ] Create repository `README.md` with installation instructions
-- [ ] Set up GitHub releases with version tags
-- [ ] Test installation via HACS custom repository
-- [ ] Submit to HACS default repository
-
-### Technology Stack
-- **Backend**: Node.js + Express
-- **File Operations**: Node.js `fs` module
-- **Image Processing**: `sharp` library (for thumbnails)
-- **Git Operations**: `simple-git` library
-- **Frontend**: Vanilla HTML/CSS/JavaScript (or Alpine.js for reactivity)
-- **Container**: Alpine Linux base image
-
-### Local Development
-### Local Testing
-
-```bash
-cd frame_art_manager/app
-cp .env.example .env
-# Edit .env and set FRAME_ART_PATH to your local path
-npm install
-npm run dev
-```
-
-### Metadata Helper Functions Needed
-- ✅ `readMetadata()` - Load metadata.json
-- ✅ `writeMetadata(data)` - Save metadata.json
-- ✅ `addImage(filename, matte, filter, tags, dimensions)` - Add new image entry
-- ✅ `updateImage(filename, updates)` - Update existing image metadata
-- ✅ `renameImage(oldFilename, newFilename)` - Rename image in metadata
-- ✅ `deleteImage(filename)` - Remove image from metadata
-- ✅ `getAllImages()` - Return all image metadata
-- ✅ `getImagesByTag(tag)` - Query images by tag
-- ✅ `addTV(name, ip)` - Add TV to list
-- ✅ `updateTV(tvId, name, ip)` - Update TV details
-- ✅ `updateTVTags(tvId, tags)` - Update TV tag filters
-- ✅ `removeTV(tvId)` - Remove TV from list
-- ✅ `getAllTVs()` - Get all TVs
-- ✅ `addTag(tagName)` - Add tag to library
-- ✅ `removeTag(tagName)` - Remove tag from library
-- ✅ `getAllTags()` - Get all tags
-- ✅ `generateThumbnail(imagePath, thumbPath)` - Create thumbnail using sharp
-- [ ] `verifySync()` - Check consistency between actual files and metadata
-
-### Integration with Frame Art Repository
-- Accesses: `/config/www/frame_art/` (or local path via env var)
-- Reads/writes: `metadata.json`
-- Manages: `library/` and `thumbs/` directories
-- Git operations: Push/pull via Git LFS
-
-### Next Phase Dependencies
-- Will call AppDaemon services via HA REST API (Phase 3)
-- Services: `appdaemon.frame_art_display`, `appdaemon.frame_art_shuffle_start`, `appdaemon.frame_art_shuffle_stop`
+Complete technical reference for Frame Art Manager development.
 
 ---
 
-## Current Status (Updated: October 2025)
+## Table of Contents
 
-### ✅ Completed Features
+1. [Setup](#setup)
+2. [Architecture](#architecture)
+3. [API Reference](#api-reference)
+4. [Testing](#testing)
+5. [Code Patterns](#code-patterns)
 
-**Web Interface:**
-- Full-featured image gallery with search, filter, and sort
-- Image detail modal with rename, tag, matte/filter editing
-- Bulk operations (multi-select and tag multiple images)
-- TV management with detail modal and tag filtering
-- Drag & drop image upload
-- Responsive, professional UI with compact toolbar
+---
 
-**Backend API:**
-- Complete REST API for images, TVs, and tags
-- Image upload with automatic thumbnail generation
-- Metadata management with JSON persistence
-- File operations (upload, rename, delete) with UUID preservation
+## Setup
 
-**Key Features:**
-- **Image Rename**: Preserves UUID suffixes, sanitizes names, updates files + thumbnails + metadata
-- **TV Tag Filtering**: Assign tags to each TV to control which images display
-- **Multi-tag Filter**: Checkbox dropdown for selecting multiple tags
-- **Bulk Tagging**: Select multiple images and apply tags at once
-- **Sort Direction Toggle**: Click arrow to switch between ascending/descending
-- **Professional UI**: Compact toolbar with icons, hover effects, clean design
+### Prerequisites
+- Node.js 18+
+- Git with Git LFS
+- SSH keys configured for GitHub
 
-### 📋 Pending Features
-- Git LFS sync management interface
-- AppDaemon service integration for displaying images
-- Containerization (Dockerfile, config.yaml for Home Assistant)
-- HACS packaging and distribution
+### Installation
 
-### 🔧 Development Environment
 ```bash
 cd frame_art_manager/app
-cp .env.example .env
-# Edit .env to set your FRAME_ART_PATH
 npm install
-# Development with auto-reload:
-npm run dev
-# Or production:
-npm start
 ```
 
-Server runs on: http://localhost:8099
+### Configuration
 
-### 📚 Documentation
-- `docs/RENAME_FEATURE.md` - Image rename functionality
-- `docs/TV_TAG_FILTERING.md` - TV tag assignment and filtering
-- `docs/TV_DETAIL_MODAL.md` - TV detail modal implementation
-- See individual feature docs for detailed technical information
+```bash
+# Required
+export FRAME_ART_PATH="/path/to/frame_art"
+
+# Optional
+export PORT=8099
+export GIT_AUTO_PULL_ON_STARTUP=true
+```
+
+### Running
+
+```bash
+npm start          # Run tests, then start server
+npm run dev        # Start without tests (faster)
+npm test           # Run all tests
+```
+
+---
+
+## Architecture
+
+### Project Structure
+
+```
+frame_art_manager/app/
+├── server.js                    # Express entry point
+├── metadata_helper.js           # Data operations
+├── git_helper.js                # Git/LFS operations
+├── routes/                      # API endpoints
+│   ├── images.js               # Image CRUD
+│   ├── tvs.js                  # TV management
+│   ├── tags.js                 # Tag operations
+│   └── sync.js                 # Git sync
+├── public/                      # Frontend
+│   ├── index.html
+│   ├── css/style.css
+│   └── js/app.js
+└── tests/                       # Automated tests
+    ├── git-sync.test.js
+    ├── metadata-helper.test.js
+    └── file-coordination.test.js
+```
+
+### Technology Stack
+
+**Backend:**
+- Express 4.18+ (web framework)
+- multer (file uploads)
+- sharp (image processing)
+- simple-git (Git operations)
+
+**Frontend:**
+- Vanilla JavaScript (no frameworks)
+- Fetch API (HTTP requests)
+- CSS Grid/Flexbox (layout)
+
+**Storage:**
+- JSON file (metadata.json)
+- Filesystem (library/ + thumbs/)
+
+### Data Flow
+
+**Image Upload:**
+```
+User uploads file
+  ↓
+POST /api/images
+  ↓
+Multer saves to library/
+  ↓
+Generate UUID suffix
+  ↓
+Sharp creates thumbnail
+  ↓
+MetadataHelper.addImage()
+  ↓
+Write metadata.json
+  ↓
+Return success
+```
+
+**Image Rename:**
+```
+User submits new name
+  ↓
+POST /api/images/:filename/rename
+  ↓
+Extract UUID from old filename
+  ↓
+Sanitize new base name
+  ↓
+fs.rename (library file)
+  ↓
+fs.rename (thumbnail)
+  ↓
+MetadataHelper.renameImage()
+  ↓
+Update metadata.json
+  ↓
+Return new filename
+```
+
+### File System Structure
+
+```
+FRAME_ART_PATH/
+├── library/
+│   ├── landscape-a1b2c3d4.jpg    # Original images
+│   └── portrait-e5f6g7h8.jpg
+├── thumbs/
+│   ├── landscape-a1b2c3d4.jpg    # 400x300 thumbnails
+│   └── portrait-e5f6g7h8.jpg
+└── metadata.json                  # All metadata
+```
+
+### metadata.json Schema
+
+```json
+{
+  "images": {
+    "landscape-a1b2c3d4.jpg": {
+      "matte": "square_white",
+      "filter": "none",
+      "tags": ["landscape", "nature"],
+      "dimensions": {"width": 3840, "height": 2160},
+      "aspectRatio": 1.78,
+      "added": "2025-10-15T10:30:00.000Z"
+    }
+  },
+  "tvs": [
+    {
+      "id": "1234567890",
+      "name": "Living Room TV",
+      "ip": "192.168.1.100",
+      "home": "Madrone",
+      "tags": ["landscape"],
+      "added": "2025-10-15T09:00:00.000Z"
+    }
+  ],
+  "tags": ["landscape", "portrait", "nature"]
+}
+```
+
+---
+
+## API Reference
+
+All endpoints return JSON. Base URL: `http://localhost:8099`
+
+### Images
+
+#### Get All Images
+```http
+GET /api/images
+```
+
+**Response:**
+```json
+{
+  "landscape-a1b2.jpg": {
+    "matte": "square_white",
+    "filter": "none",
+    "tags": ["landscape"],
+    "dimensions": {"width": 3840, "height": 2160},
+    "added": "2025-10-15T10:30:00.000Z"
+  }
+}
+```
+
+#### Upload Image
+```http
+POST /api/images
+Content-Type: multipart/form-data
+
+Fields:
+  image: <file>
+  matte: "square_white" | "square_black" | "none"
+  filter: "soft" | "none"
+  tags: "landscape,nature" (comma-separated)
+  customName: "my-photo" (optional)
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "filename": "my-photo-a1b2c3d4.jpg",
+  "data": { /* image metadata */ }
+}
+```
+
+#### Update Image Metadata
+```http
+PUT /api/images/:filename
+Content-Type: application/json
+
+{
+  "matte": "square_black",
+  "filter": "soft",
+  "tags": ["landscape", "sunset"]
+}
+```
+
+#### Rename Image
+```http
+POST /api/images/:filename/rename
+Content-Type: application/json
+
+{
+  "newBaseName": "sunset-beach"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "oldFilename": "photo-a1b2c3d4.jpg",
+  "newFilename": "sunset-beach-a1b2c3d4.jpg"
+}
+```
+
+#### Delete Image
+```http
+DELETE /api/images/:filename
+```
+
+Deletes file, thumbnail, and metadata.
+
+#### Bulk Tag
+```http
+POST /api/images/bulk-tag
+Content-Type: application/json
+
+{
+  "filenames": ["photo1.jpg", "photo2.jpg"],
+  "tags": ["landscape", "nature"]
+}
+```
+
+#### Get Images by Tag
+```http
+GET /api/images/tag/:tagName
+```
+
+### TVs
+
+#### Get All TVs
+```http
+GET /api/tvs
+```
+
+#### Add TV
+```http
+POST /api/tvs
+Content-Type: application/json
+
+{
+  "name": "Living Room TV",
+  "ip": "192.168.1.100",
+  "home": "Madrone"
+}
+```
+
+#### Update TV
+```http
+PUT /api/tvs/:tvId
+Content-Type: application/json
+
+{
+  "name": "Living Room TV",
+  "ip": "192.168.1.101",
+  "home": "Maui"
+}
+```
+
+#### Update TV Tags
+```http
+PUT /api/tvs/:tvId/tags
+Content-Type: application/json
+
+{
+  "tags": ["landscape", "nature"]
+}
+```
+
+#### Delete TV
+```http
+DELETE /api/tvs/:tvId
+```
+
+### Tags
+
+#### Get All Tags
+```http
+GET /api/tags
+```
+
+**Response:**
+```json
+["landscape", "portrait", "nature", "abstract"]
+```
+
+#### Add Tag
+```http
+POST /api/tags
+Content-Type: application/json
+
+{
+  "tag": "sunset"
+}
+```
+
+#### Delete Tag
+```http
+DELETE /api/tags/:tag
+```
+
+Removes tag from library AND all images.
+
+### Sync
+
+#### Check and Pull
+```http
+GET /api/sync/check
+```
+
+Checks if behind remote, pulls if clean working tree.
+
+**Response:**
+```json
+{
+  "success": true,
+  "synced": true,
+  "pulledChanges": true,
+  "commitsReceived": 2,
+  "message": "Pulled 2 commits"
+}
+```
+
+### Static Files
+
+```http
+GET /library/:filename        # Original images
+GET /thumbs/:filename         # Thumbnails
+GET /                         # index.html (SPA)
+```
+
+---
+
+## Testing
+
+### Test Architecture
+
+We use a **minimal test framework** built on Node.js `assert` module:
+- Zero external dependencies
+- Fast execution (~15 seconds)
+- Isolated test environments in `/tmp`
+- Exit code 0 on success, 1 on failure
+
+### Test Suites
+
+**1. Git Sync (15 tests)**
+- Location: `tests/git-sync.test.js`
+- Tests Git/LFS operations
+- Uses isolated repo in `/tmp/frame-art-test-{timestamp}`
+- Clones from GitHub with `--depth 5`
+
+**2. Metadata Helper (16 tests)**
+- Location: `tests/metadata-helper.test.js`
+- Tests CRUD operations
+- Uses `/tmp/frame-art-metadata-test-{timestamp}`
+- Creates dummy 1x1 PNG images
+
+**3. File Coordination (9 tests)**
+- Location: `tests/file-coordination.test.js`
+- Tests rename/delete coordination
+- Verifies file + thumbnail + metadata sync
+- Uses `/tmp/frame-art-coord-test-{timestamp}`
+
+### Running Tests
+
+```bash
+# All tests
+npm test
+
+# Individual suites
+npm run test:git
+npm run test:metadata
+npm run test:coordination
+
+# With verbose output
+npm run test:verbose
+```
+
+### Test Output
+
+```
+🧪 Running Git Sync Tests...
+✓ GitHelper can be instantiated
+✓ verifyConfiguration returns valid structure
+✓ INTEGRATION: pull when 1 commit behind
+...
+15 passed, 0 failed
+
+🧪 Running Metadata Helper Tests...
+✓ MetadataHelper can be instantiated
+✓ addImage stores metadata correctly
+...
+16 passed, 0 failed
+
+🧪 Running File Coordination Tests...
+✓ rename updates all three resources
+✓ delete removes all three resources
+...
+9 passed, 0 failed
+```
+
+### Writing Tests
+
+**Pattern:**
+```javascript
+const assert = require('assert');
+
+test('descriptive test name', async () => {
+  // Arrange
+  const input = 'test data';
+  
+  // Act
+  const result = await functionUnderTest(input);
+  
+  // Assert
+  assert.strictEqual(result, expected);
+});
+```
+
+**Guidelines:**
+- Use descriptive test names
+- Prefix integration tests with "INTEGRATION:"
+- Test exact values, not fuzzy matches
+- Guarantee cleanup with try-finally
+- Suppress expected console errors
+
+---
+
+## Code Patterns
+
+### Backend Error Handling
+
+```javascript
+try {
+  const result = await operation();
+  res.json({ success: true, data: result });
+} catch (error) {
+  console.error('Operation failed:', error);
+  res.status(500).json({ error: error.message });
+}
+```
+
+### Frontend Fetch Pattern
+
+```javascript
+async function apiCall() {
+  try {
+    const response = await fetch('/api/endpoint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // Handle success
+    }
+  } catch (error) {
+    console.error('Request failed:', error);
+    alert('Operation failed');
+  }
+}
+```
+
+### MetadataHelper Usage
+
+```javascript
+const helper = new MetadataHelper(frameArtPath);
+
+// Add image
+await helper.addImage(filename, matte, filter, tags);
+
+// Update image
+await helper.updateImage(filename, { matte: 'square_black' });
+
+// Rename image
+await helper.renameImage(oldFilename, newFilename);
+
+// Delete image
+await helper.deleteImage(filename);
+
+// Get all images
+const images = await helper.getAllImages(); // Returns object
+
+// Get by tag
+const filtered = await helper.getImagesByTag('landscape'); // Returns object
+```
+
+### GitHelper Usage
+
+```javascript
+const git = new GitHelper(frameArtPath);
+
+// Verify configuration
+const config = await git.verifyConfiguration();
+// Returns: { isValid, hasRemote, hasLFS, remoteName, remoteUrl }
+
+// Check status
+const status = await git.getStatus();
+// Returns: { isClean, hasChanges, uncommittedFiles }
+
+// Pull if behind
+const result = await git.checkAndPullIfBehind();
+// Returns: { success, synced, pulledChanges, commitsReceived, skipped, reason }
+```
+
+### Modal Pattern
+
+```javascript
+// HTML
+<div id="myModal" class="modal">
+  <div class="modal-content">
+    <!-- Content -->
+  </div>
+</div>
+
+// JavaScript
+function openModal() {
+  document.getElementById('myModal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('myModal').classList.remove('active');
+}
+
+// Click outside to close
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('modal')) {
+    closeModal();
+  }
+});
+```
+
+### State Management
+
+```javascript
+// Global state
+let allImages = [];
+let allTags = [];
+let allTVs = [];
+let selectedImages = new Set();
+
+// Load data
+async function loadGallery() {
+  const response = await fetch('/api/images');
+  allImages = Object.entries(await response.json())
+    .map(([filename, data]) => ({ filename, ...data }));
+  renderGallery();
+}
+
+// Update UI
+function renderGallery() {
+  const container = document.getElementById('gallery');
+  container.innerHTML = allImages
+    .map(img => `<div class="card">${img.filename}</div>`)
+    .join('');
+}
+```
+
+---
+
+## Development Workflow
+
+### Making Changes
+
+1. Make changes in `frame_art_manager/app/`
+2. Write/update tests if needed
+3. Run `npm test` to verify
+4. Update docs if adding features
+5. Commit with clear message
+
+### Adding API Endpoints
+
+1. Create route handler in `routes/`
+2. Register in `server.js`
+3. Document in this file (API Reference section)
+4. Write tests if complex logic
+
+### Adding UI Features
+
+1. Update `public/index.html` (markup)
+2. Update `public/css/style.css` (styles)
+3. Update `public/js/app.js` (logic)
+4. Document in `FEATURES.md`
+
+### Debugging
+
+```bash
+# Check logs
+tail -f /var/log/frame-art.log
+
+# Inspect metadata
+cat $FRAME_ART_PATH/metadata.json | jq
+
+# Test API manually
+curl http://localhost:8099/api/images
+
+# Check Git status
+cd $FRAME_ART_PATH && git status
+```
+
+---
+
+## Performance Considerations
+
+### Current Optimizations
+- Thumbnail generation (reduces gallery load time)
+- Client-side filtering/sorting (no server round-trips)
+- Sharp library (fast image processing)
+- Static file serving (efficient)
+
+### Future Optimizations
+- Lazy loading (load images as user scrolls)
+- Image caching (browser cache headers)
+- Pagination (limit initial data load)
+- Web Workers (offload heavy operations)
+- Compression (gzip/brotli middleware)
+
+---
+
+## Security Considerations
+
+### Current Implementation
+- Filename sanitization (alphanumeric + hyphens)
+- MIME type validation (images only)
+- Path traversal prevention (path.basename)
+- File size limits (50MB)
+
+### Future Enhancements
+- Authentication middleware
+- Rate limiting
+- HTTPS support
+- Home Assistant OAuth integration
+
+---
+
+## Browser Compatibility
+
+**Target:**
+- Chrome/Edge 90+
+- Firefox 88+
+- Safari 14+
+- Mobile browsers (iOS 14+, Android Chrome)
+
+**Required Features:**
+- Fetch API
+- ES6 (arrow functions, const/let, template literals)
+- CSS Flexbox/Grid
+- File API
+
+---
+
+## Dependencies
+
+```json
+{
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.33.0",
+    "simple-git": "^3.28.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
+```
+
+---
+
+## Deployment
+
+### Development
+```bash
+npm run dev    # Hot reload with nodemon
+```
+
+### Production (Future)
+```bash
+npm start      # Tests + server
+```
+
+### Docker (Future)
+```bash
+docker build -t frame-art-manager .
+docker run -p 8099:8099 -v /path/to/frame_art:/data frame-art-manager
+```
+
+---
+
+## Troubleshooting
+
+**Tests failing?**
+- Check SSH keys: `ssh -T git@github.com`
+- Verify Git LFS: `git lfs version`
+- Check `/tmp` is writable
+
+**Server won't start?**
+- Verify `FRAME_ART_PATH` is set
+- Check port 8099 isn't in use
+- Ensure dependencies installed: `npm install`
+
+**Images not uploading?**
+- Check disk space
+- Verify sharp can process image
+- Check `library/` directory exists and is writable
+
+**Git sync not working?**
+- Verify Git repo is clean: `git status`
+- Check remote configured: `git remote -v`
+- Test SSH access: `git fetch --dry-run`
+
+---
+
+For user-facing features, see [FEATURES.md](FEATURES.md).  
+For progress tracking, see [STATUS.md](STATUS.md).

@@ -4,8 +4,13 @@
   "description": "Samsung Frame TV Art Manager - Backend API",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "npm test && node server.js",
+    "dev": "node server.js",
+    "test": "node tests/git-sync.test.js && node tests/metadata-helper.test.js && node tests/file-coordination.test.js",
+    "test:git": "node tests/git-sync.test.js",
+    "test:metadata": "node tests/metadata-helper.test.js",
+    "test:coordination": "node tests/file-coordination.test.js",
+    "test:verbose": "node tests/git-sync.test.js --verbose && node tests/metadata-helper.test.js --verbose && node tests/file-coordination.test.js --verbose"
   },
   "keywords": [
     "homeassistant",

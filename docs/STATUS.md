@@ -1,248 +1,507 @@
-# Implementation Status Summary
+# Project Status# Project Status
 
-**Last Updated**: October 14, 2025
 
-## Overview
-Frame Art Manager is a web-based application for managing Samsung Frame TV artwork libraries. Currently in active development, the core web interface and API are complete and functional.
 
----
+**Last Updated**: October 15, 2025  **Last Updated**: October 15, 2025  
 
-## ✅ Completed Features
+**Version**: 0.2.0  **Version**: 0.2.0  
 
-### Web Interface (100% Complete)
+**Phase**: 2 Complete (Web Interface + Testing)**Phase**: 2 Complete (Web Interface + Testing)
 
-#### Gallery Tab
-- ✅ Image grid with thumbnails (400x300px)
-- ✅ Search functionality (filter by name)
-- ✅ Multi-tag filtering (checkbox dropdown, OR logic)
-- ✅ Sort by name or date (with direction toggle)
+
+
+------
+
+
+
+## Quick Summary## Quick Summary
+
+
+
+✅ **Complete:** Core web interface, REST API, automated testing  ✅ **Complete:** Core web interface, API, automated testing  
+
+🔨 **In Progress:** Manual Git sync UI  🔨 **In Progress:** Manual Git sync UI  
+
+📋 **Next:** AppDaemon integration, containerization📋 **Next:** AppDaemon integration, containerization
+
+
+
+------
+
+
+
+## ✅ Phase 2 Complete## ✅ Completed Features
+
+
+
+### Web Interface### Web Interface (100% Complete)
+
+- ✅ Gallery tab (search, filter, sort, bulk operations)
+
+- ✅ Upload tab (drag & drop, metadata entry)#### Gallery Tab
+
+- ✅ TVs tab (CRUD, tag filtering, detail modal)- ✅ Image grid with thumbnails (400x300px)
+
+- ✅ Tags tab (library management)- ✅ Search functionality (filter by name)
+
+- ✅ Image detail modal (rename, edit metadata, delete)- ✅ Multi-tag filtering (checkbox dropdown, OR logic)
+
+- ✅ Professional, responsive UI- ✅ Sort by name or date (with direction toggle)
+
 - ✅ Compact toolbar with icons (🔍 🏷️ ⬆⬇)
-- ✅ Image selection (checkboxes)
-- ✅ Bulk tagging (select multiple, apply tags)
-- ✅ Image detail modal
-  - ✅ Full-size image preview
-  - ✅ Rename functionality (preserves UUID)
-  - ✅ Matte selection (7 options)
-  - ✅ Filter selection (5 options)
-  - ✅ Tag management (add/remove)
+
+### Backend API- ✅ Image selection (checkboxes)
+
+- ✅ 20 REST endpoints- ✅ Bulk tagging (select multiple, apply tags)
+
+- ✅ Image operations (upload, rename, delete, bulk tag)- ✅ Image detail modal
+
+- ✅ TV operations (CRUD, tag assignment)  - ✅ Full-size image preview
+
+- ✅ Tag operations (CRUD)  - ✅ Rename functionality (preserves UUID)
+
+- ✅ Sync operations (check and pull)  - ✅ Matte selection (7 options)
+
+- ✅ Metadata persistence (JSON file)  - ✅ Filter selection (5 options)
+
+- ✅ Thumbnail generation (Sharp, 400×300)  - ✅ Tag management (add/remove)
+
   - ✅ Delete image (with confirmation)
-- ✅ Date display on cards ("Jan 5, 2025" format)
-- ✅ Professional, responsive UI
 
-#### Upload Tab
-- ✅ File input with drag & drop support
-- ✅ Mobile camera support
+### Git Integration- ✅ Date display on cards ("Jan 5, 2025" format)
+
+- ✅ Auto-pull on server startup (configurable)- ✅ Professional, responsive UI
+
+- ✅ Auto-pull on page load (if behind remote)
+
+- ✅ Skip pull if uncommitted changes#### Upload Tab
+
+- ✅ Tilde expansion in FRAME_ART_PATH- ✅ File input with drag & drop support
+
+- ✅ Unified sync method (checkAndPullIfBehind)- ✅ Mobile camera support
+
 - ✅ Matte selection
-- ✅ Filter selection
-- ✅ Tag input (comma-separated)
-- ✅ Automatic thumbnail generation
-- ✅ UUID suffix generation
-- ✅ Dimension extraction
-- ✅ Redirect to gallery after upload
 
-#### TVs Tab
-- ✅ TV list view (read-only rows)
+### Testing- ✅ Filter selection
+
+- ✅ 40 automated tests (100% passing)- ✅ Tag input (comma-separated)
+
+  - Git sync: 15 tests- ✅ Automatic thumbnail generation
+
+  - Metadata CRUD: 16 tests- ✅ UUID suffix generation
+
+  - File coordination: 9 tests- ✅ Dimension extraction
+
+- ✅ Isolated test environments in `/tmp`- ✅ Redirect to gallery after upload
+
+- ✅ Integration tests with real Git operations
+
+- ✅ ~15 second execution time#### TVs Tab
+
+- ✅ Runs before server start (`npm start`)- ✅ TV list view (read-only rows)
+
 - ✅ Add TV form (name + IP)
-- ✅ TV detail modal
+
+---- ✅ TV detail modal
+
   - ✅ Edit name and IP
-  - ✅ Tag filtering (multi-select)
+
+## 🔨 In Progress  - ✅ Tag filtering (multi-select)
+
   - ✅ Delete TV (with confirmation)
-- ✅ Tag status display
-- ✅ Clickable rows with hover effects
 
-#### Tags Tab
-- ✅ Tag list display (tag cloud)
-- ✅ Add new tag
+### Manual Git Sync UI- ✅ Tag status display
+
+- [ ] Pull latest button- ✅ Clickable rows with hover effects
+
+- [ ] Push changes button
+
+- [ ] Sync status indicator#### Tags Tab
+
+- [ ] Last sync timestamp- ✅ Tag list display (tag cloud)
+
+- [ ] Conflict resolution interface- ✅ Add new tag
+
 - ✅ Delete tag (removes from all images)
-- ✅ Tag count display
 
-#### Advanced Tab
+---- ✅ Tag count display
+
+
+
+## 📋 Pending Work#### Advanced Tab
+
 - ✅ Library path display
-- ✅ Metadata viewer (raw JSON)
-- ✅ System information
 
-### Backend API (100% Complete)
+### Phase 3: AppDaemon Integration- ✅ Metadata viewer (raw JSON)
 
-#### Images Endpoints
+- [ ] Display image on TV (call AppDaemon service)- ✅ System information
+
+- [ ] Start shuffle mode
+
+- [ ] Stop shuffle mode### Backend API (100% Complete)
+
+- [ ] Query current image
+
+- [ ] Integration with Home Assistant REST API#### Images Endpoints
+
 - ✅ `GET /api/images` - List all images
-- ✅ `POST /api/images` - Upload image (multipart/form-data)
-- ✅ `GET /api/images/:filename` - Get single image
-- ✅ `PUT /api/images/:filename` - Update metadata
-- ✅ `POST /api/images/:filename/rename` - Rename with UUID preservation
-- ✅ `DELETE /api/images/:filename` - Delete image + thumbnail + metadata
-- ✅ `POST /api/images/bulk-tag` - Bulk tag operation
+
+### Phase 4: Containerization- ✅ `POST /api/images` - Upload image (multipart/form-data)
+
+- [ ] Dockerfile (Alpine Linux base)- ✅ `GET /api/images/:filename` - Get single image
+
+- [ ] Add-on config.yaml- ✅ `PUT /api/images/:filename` - Update metadata
+
+- [ ] Multi-architecture builds (amd64, armv7, arm64)- ✅ `POST /api/images/:filename/rename` - Rename with UUID preservation
+
+- [ ] Volume mount configuration- ✅ `DELETE /api/images/:filename` - Delete image + thumbnail + metadata
+
+- [ ] Health check endpoint- ✅ `POST /api/images/bulk-tag` - Bulk tag operation
+
+- [ ] Build automation (GitHub Actions)
 
 #### TVs Endpoints
-- ✅ `GET /api/tvs` - List all TVs
-- ✅ `POST /api/tvs` - Add new TV
-- ✅ `PUT /api/tvs/:tvId` - Update TV name and IP
-- ✅ `PUT /api/tvs/:tvId/tags` - Update TV tag filters
-- ✅ `DELETE /api/tvs/:tvId` - Delete TV
-- ✅ `POST /api/tvs/:tvId/test` - Test connection (placeholder)
 
-#### Tags Endpoints
+### Phase 5: Distribution- ✅ `GET /api/tvs` - List all TVs
+
+- [ ] HACS repository setup- ✅ `POST /api/tvs` - Add new TV
+
+- [ ] GitHub releases with version tags- ✅ `PUT /api/tvs/:tvId` - Update TV name and IP
+
+- [ ] Installation documentation- ✅ `PUT /api/tvs/:tvId/tags` - Update TV tag filters
+
+- [ ] User guide- ✅ `DELETE /api/tvs/:tvId` - Delete TV
+
+- [ ] Submit to HACS default repository- ✅ `POST /api/tvs/:tvId/test` - Test connection (placeholder)
+
+
+
+---#### Tags Endpoints
+
 - ✅ `GET /api/tags` - List all tags
-- ✅ `POST /api/tags` - Add new tag
+
+## 📊 Project Statistics- ✅ `POST /api/tags` - Add new tag
+
 - ✅ `DELETE /api/tags/:tag` - Delete tag
 
-#### System Endpoints
-- ✅ `GET /api/health` - Health check with library path
+**Codebase:**
 
-#### Static File Serving
-- ✅ `GET /library/:filename` - Serve original images
+- Backend: ~600 lines (server, helpers, routes)#### System Endpoints
+
+- Frontend: ~2,400 lines (HTML, CSS, JavaScript)- ✅ `GET /api/health` - Health check with library path
+
+- Tests: ~900 lines (3 test suites)
+
+- Documentation: 4 core files#### Static File Serving
+
+- **Total**: ~4,000 lines- ✅ `GET /library/:filename` - Serve original images
+
 - ✅ `GET /thumbs/:filename` - Serve thumbnails
 
-### Metadata Helper (100% Complete)
+**Features:**
 
-#### Core Operations
-- ✅ `readMetadata()` - Load metadata.json
-- ✅ `writeMetadata(data)` - Save metadata.json
+- API Endpoints: 20### Metadata Helper (100% Complete)
+
+- UI Tabs: 6
+
+- Helper Methods: 30+#### Core Operations
+
+- Test Coverage: 40 tests- ✅ `readMetadata()` - Load metadata.json
+
+- Test Pass Rate: 100%- ✅ `writeMetadata(data)` - Save metadata.json
+
 - ✅ `ensureDirectories()` - Create directories if needed
-- ✅ `generateThumbnail(src, dest)` - Create thumbnail with sharp
 
-#### Image Methods
-- ✅ `addImage(filename, matte, filter, tags, dimensions)`
-- ✅ `updateImage(filename, updates)`
+**Performance:**- ✅ `generateThumbnail(src, dest)` - Create thumbnail with sharp
+
+- Test Execution: ~15 seconds
+
+- Thumbnail Generation: <1 second per image#### Image Methods
+
+- Page Load: <500ms (local)- ✅ `addImage(filename, matte, filter, tags, dimensions)`
+
+- Git Pull: 1-3 seconds (LFS files)- ✅ `updateImage(filename, updates)`
+
 - ✅ `renameImage(oldFilename, newFilename)`
-- ✅ `deleteImage(filename)`
+
+---- ✅ `deleteImage(filename)`
+
 - ✅ `getAllImages()`
-- ✅ `getImagesByTag(tag)`
 
-#### TV Methods
-- ✅ `addTV(name, ip)`
-- ✅ `updateTV(tvId, name, ip)`
-- ✅ `updateTVTags(tvId, tags)`
-- ✅ `removeTV(tvId)`
-- ✅ `getAllTVs()`
+## 🗓️ Development Timeline- ✅ `getImagesByTag(tag)`
 
-#### Tag Methods
-- ✅ `addTag(tagName)`
-- ✅ `removeTag(tagName)`
-- ✅ `getAllTags()`
 
-### File Operations (100% Complete)
-- ✅ UUID suffix generation (8-char hex)
-- ✅ Filename sanitization (lowercase, alphanumeric + hyphens)
-- ✅ Thumbnail generation (400x300, JPEG quality 85)
+
+### Q4 2025 (Current)#### TV Methods
+
+- ✅ October 1-10: Core web interface- ✅ `addTV(name, ip)`
+
+- ✅ October 11-14: Git LFS integration- ✅ `updateTV(tvId, name, ip)`
+
+- ✅ October 15: Automated testing- ✅ `updateTVTags(tvId, tags)`
+
+- 🔨 October 16-20: Manual sync UI- ✅ `removeTV(tvId)`
+
+- 📋 October 21-31: Polish and bug fixes- ✅ `getAllTVs()`
+
+
+
+### Q1 2026#### Tag Methods
+
+- January: AppDaemon integration- ✅ `addTag(tagName)`
+
+- February: Docker containerization- ✅ `removeTag(tagName)`
+
+- March: Testing and refinement- ✅ `getAllTags()`
+
+
+
+### Q2 2026### File Operations (100% Complete)
+
+- April: HACS packaging- ✅ UUID suffix generation (8-char hex)
+
+- May: Documentation finalization- ✅ Filename sanitization (lowercase, alphanumeric + hyphens)
+
+- June: Public release- ✅ Thumbnail generation (400x300, JPEG quality 85)
+
 - ✅ Dimension extraction from images
-- ✅ File upload with multer
+
+---- ✅ File upload with multer
+
 - ✅ File rename (library + thumbnails)
-- ✅ File delete (library + thumbnails + metadata)
 
-### UI Features (100% Complete)
-- ✅ Tab navigation system
-- ✅ Modal system (image detail, TV detail, bulk tag)
-- ✅ Custom multi-select dropdowns with checkboxes
+## 🎯 Milestones- ✅ File delete (library + thumbnails + metadata)
+
+
+
+### Milestone 1: Core Functionality ✅### UI Features (100% Complete)
+
+- Web interface for image management- ✅ Tab navigation system
+
+- REST API for all operations- ✅ Modal system (image detail, TV detail, bulk tag)
+
+- Metadata persistence- ✅ Custom multi-select dropdowns with checkboxes
+
 - ✅ Click-outside-to-close behavior
-- ✅ Hover effects and transitions
-- ✅ Responsive design
-- ✅ Professional compact toolbar
-- ✅ Date formatting ("Jan 5, 2025")
+
+### Milestone 2: Git Integration ✅- ✅ Hover effects and transitions
+
+- Auto-sync on startup and page load- ✅ Responsive design
+
+- Safe pull logic (skip if uncommitted)- ✅ Professional compact toolbar
+
+- Automated testing- ✅ Date formatting ("Jan 5, 2025")
+
 - ✅ Dynamic button text updates
-- ✅ Selection state management
-- ✅ Sort direction toggle (⬆⬇)
+
+### Milestone 3: Manual Sync UI 🔨- ✅ Selection state management
+
+- User-initiated pull/push- ✅ Sort direction toggle (⬆⬇)
+
+- Status indicators
+
+- Conflict handling---
+
+
+
+### Milestone 4: AppDaemon Integration 📋## ⏳ In Progress
+
+- Display images on TVs
+
+- Shuffle mode controlNone currently - core features complete!
+
+- HA service integration
 
 ---
 
-## ⏳ In Progress
+### Milestone 5: Distribution 📋
 
-None currently - core features complete!
+- Docker container## 📋 Pending Features
 
----
+- HA add-on
 
-## 📋 Pending Features
+- HACS release### Git LFS Integration (Step 3)
 
-### Git LFS Integration (Step 3)
 - ⬜ Sync status display
-- ⬜ Manual sync trigger (push/pull)
+
+---- ⬜ Manual sync trigger (push/pull)
+
 - ⬜ Conflict resolution UI
-- ⬜ Git operation logging
+
+## 🐛 Known Issues- ⬜ Git operation logging
+
 - ⬜ Auto-sync on changes (optional)
 
-### AppDaemon Integration (Phase 3)
-- ⬜ Display image on TV endpoint
-- ⬜ Start shuffle mode endpoint
-- ⬜ Stop shuffle mode endpoint
-- ⬜ TV status checking
-- ⬜ Home Assistant authentication
+*None currently - all tests passing*
 
-### Containerization (Step 5)
-- ⬜ `config.yaml` - Add-on configuration
-- ⬜ `Dockerfile` - Container build
+### AppDaemon Integration (Phase 3)
+
+---- ⬜ Display image on TV endpoint
+
+- ⬜ Start shuffle mode endpoint
+
+## 💡 Future Enhancements- ⬜ Stop shuffle mode endpoint
+
+- ⬜ TV status checking
+
+### Short Term- ⬜ Home Assistant authentication
+
+- Keyboard shortcuts (Esc, Ctrl+A, Delete)
+
+- Lazy loading for large galleries### Containerization (Step 5)
+
+- Image preview on hover- ⬜ `config.yaml` - Add-on configuration
+
+- Batch delete- ⬜ `Dockerfile` - Container build
+
 - ⬜ `build.yaml` - Multi-arch builds
-- ⬜ `rootfs/usr/bin/run.sh` - Startup script
-- ⬜ Add-on README.md
-- ⬜ CHANGELOG.md
-- ⬜ Icon and logo images
+
+### Medium Term- ⬜ `rootfs/usr/bin/run.sh` - Startup script
+
+- Database migration (SQLite)- ⬜ Add-on README.md
+
+- Real-time updates (WebSockets)- ⬜ CHANGELOG.md
+
+- Image editing (crop, rotate)- ⬜ Icon and logo images
+
+- Playlist management
 
 ### HACS Distribution (Step 6)
-- ⬜ Repository README.md
-- ⬜ GitHub releases with tags
-- ⬜ Testing via HACS custom repository
-- ⬜ Submit to HACS default repository
+
+### Long Term- ⬜ Repository README.md
+
+- Multi-user support- ⬜ GitHub releases with tags
+
+- Cloud storage integration- ⬜ Testing via HACS custom repository
+
+- Mobile app- ⬜ Submit to HACS default repository
+
+- TV remote control API
 
 ### Enhancement Ideas
-- ⬜ Image usage statistics (which images displayed most)
-- ⬜ Backup/restore metadata
-- ⬜ Batch upload multiple files
-- ⬜ Image preview on hover
-- ⬜ Infinite scroll for large galleries
-- ⬜ Advanced search (multiple criteria)
-- ⬜ Tag autocomplete
-- ⬜ TV connection testing (actual implementation)
-- ⬜ User authentication
-- ⬜ Image rotation/crop tools
-- ⬜ Duplicate detection
-- ⬜ Export images by tag
 
----
+---- ⬜ Image usage statistics (which images displayed most)
+
+- ⬜ Backup/restore metadata
+
+## 📈 Progress Tracking- ⬜ Batch upload multiple files
+
+- ⬜ Image preview on hover
+
+### Features Completed- ⬜ Infinite scroll for large galleries
+
+```- ⬜ Advanced search (multiple criteria)
+
+████████████████████████████████████████ 100%- ⬜ Tag autocomplete
+
+Phase 2: Web Interface- ⬜ TV connection testing (actual implementation)
+
+```- ⬜ User authentication
+
+- ⬜ Image rotation/crop tools
+
+### Testing Coverage- ⬜ Duplicate detection
+
+```- ⬜ Export images by tag
+
+████████████████████████████████████████ 100%
+
+40/40 tests passing---
+
+```
 
 ## 🔧 Technical Stack
 
-### Current
-- **Backend**: Node.js + Express.js
-- **Image Processing**: sharp
-- **File Upload**: multer
-- **Frontend**: Vanilla JavaScript (no frameworks)
-- **Data Storage**: JSON file (metadata.json)
-- **Development**: nodemon for hot reload
-
-### Future Considerations
-- Database migration (SQLite/PostgreSQL)
-- Real-time updates (WebSocket)
-- Background job queue (Bull)
-- API versioning
-- TypeScript conversion
-
----
-
-## 📊 Project Statistics
-
-### Code
-- **Backend**: ~330 lines (metadata_helper.js) + ~150 lines (routes)
-- **Frontend JS**: ~1,100 lines (app.js)
-- **Frontend CSS**: ~1,200 lines (style.css)
-- **Frontend HTML**: ~320 lines (index.html)
-
-### Features
-- **API Endpoints**: 18 implemented
-- **UI Tabs**: 6 tabs
-- **Modals**: 3 (image detail, TV detail, bulk tag)
-- **Metadata Fields**: 6 per image (filename, matte, filter, tags, added, dimensions)
-
 ### Documentation
-- **Main Docs**: 5 files (DEVELOPMENT.md + 4 in docs/)
-- **Feature Docs**: 3 files (RENAME, TV_TAG_FILTERING, TV_DETAIL_MODAL)
+
+```### Current
+
+████████████████████████████████████████ 100%- **Backend**: Node.js + Express.js
+
+All features documented- **Image Processing**: sharp
+
+```- **File Upload**: multer
+
+- **Frontend**: Vanilla JavaScript (no frameworks)
+
+### Overall Project- **Data Storage**: JSON file (metadata.json)
+
+```- **Development**: nodemon for hot reload
+
+████████████████░░░░░░░░░░░░░░░░░░░░░░░░  40%
+
+2 of 5 phases complete### Future Considerations
+
+```- Database migration (SQLite/PostgreSQL)
+
+- Real-time updates (WebSocket)
+
+---- Background job queue (Bull)
+
+- API versioning
+
+## 🔗 Related Documents- TypeScript conversion
+
+
+
+- [README.md](README.md) - Project overview and quick start---
+
+- [DEVELOPMENT.md](DEVELOPMENT.md) - Technical guide (setup, API, testing)
+
+- [FEATURES.md](FEATURES.md) - UI guide and workflows## 📊 Project Statistics
+
+
+
+---### Code
+
+- **Backend**: ~330 lines (metadata_helper.js) + ~150 lines (routes)
+
+## 📝 Change Log- **Frontend JS**: ~1,100 lines (app.js)
+
+- **Frontend CSS**: ~1,200 lines (style.css)
+
+### Version 0.2.0 (October 15, 2025)- **Frontend HTML**: ~320 lines (index.html)
+
+- ✅ Automated testing (40 tests)
+
+- ✅ File coordination tests### Features
+
+- ✅ Clean test output- **API Endpoints**: 18 implemented
+
+- ✅ Documentation consolidation- **UI Tabs**: 6 tabs
+
+- **Modals**: 3 (image detail, TV detail, bulk tag)
+
+### Version 0.1.0 (October 14, 2025)- **Metadata Fields**: 6 per image (filename, matte, filter, tags, added, dimensions)
+
+- ✅ Complete web interface
+
+- ✅ REST API (20 endpoints)### Documentation
+
+- ✅ Git LFS auto-sync- **Main Docs**: 5 files (DEVELOPMENT.md + 4 in docs/)
+
+- ✅ Professional UI- **Feature Docs**: 3 files (RENAME, TV_TAG_FILTERING, TV_DETAIL_MODAL)
+
 - **Total Pages**: ~50 pages of documentation
 
----
+### Version 0.0.1 (October 1, 2025)
 
-## 🚀 Getting Started
+- ✅ Initial project setup---
 
-### Development Setup
+- ✅ Basic image upload
+
+- ✅ Metadata helper## 🚀 Getting Started
+
+
+
+---### Development Setup
+
 ```bash
-cd frame_art_manager/app
-cp .env.example .env
+
+**Status**: ✅ Production ready for local use  cd frame_art_manager/app
+
+**Next**: Manual Git sync UI implementationcp .env.example .env
+
 # Edit .env to set your FRAME_ART_PATH
 npm install
 npm run dev

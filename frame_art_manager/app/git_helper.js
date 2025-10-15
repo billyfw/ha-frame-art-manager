@@ -85,6 +85,78 @@ class GitHelper {
   }
 
   /**
+   * Check if behind remote and auto-pull if needed
+   * This is the main sync logic used by both startup and page load
+   * @returns {Promise<{success: boolean, synced: boolean, pulledChanges?: boolean, skipped?: boolean, reason?: string, error?: string}>}
+   */
+  async checkAndPullIfBehind() {
+    try {
+      // First verify git configuration
+      const verification = await this.verifyConfiguration();
+      if (!verification.isValid) {
+        return {
+          success: false,
+          synced: false,
+          error: 'Git configuration invalid',
+          errors: verification.errors
+        };
+      }
+      
+      // Check if we have uncommitted local changes
+      const status = await this.getStatus();
+      if (status.files.length > 0) {
+        // Don't auto-pull if there are local changes
+        return {
+          success: true,
+          synced: false,
+          skipped: true,
+          reason: 'Uncommitted local changes detected',
+          uncommittedFiles: status.files.map(f => f.path)
+        };
+      }
+      
+      // Check if we're behind remote
+      const behind = status.behind || 0;
+      if (behind > 0) {
+        // We're behind, attempt to pull
+        const pullResult = await this.pullLatest();
+        
+        if (pullResult.success) {
+          return {
+            success: true,
+            synced: true,
+            pulledChanges: true,
+            commitsReceived: behind,
+            message: `Pulled ${behind} commit${behind !== 1 ? 's' : ''} from remote`
+          };
+        } else {
+          return {
+            success: false,
+            synced: false,
+            error: pullResult.error,
+            hasConflicts: pullResult.hasConflicts
+          };
+        }
+      }
+      
+      // Already up to date
+      return {
+        success: true,
+        synced: true,
+        pulledChanges: false,
+        message: 'Already up to date'
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        synced: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * Pull latest changes from remote
    * @returns {Promise<{success: boolean, summary?: object, error?: string}>}
    */
