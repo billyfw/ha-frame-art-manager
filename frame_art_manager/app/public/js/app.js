@@ -315,18 +315,18 @@ function updateSyncButtonState(state, text, syncStatus, _unused, errorMessage) {
     syncText.textContent = text;
   }
   
-  // Update badge with Xu/Yd format
+  // Update badge with up/down triangle format
   if (state === 'unsynced' && syncStatus) {
     const uploadCount = syncStatus.upload.count;
     const downloadCount = syncStatus.download.count;
     
     let badgeText = '';
     if (uploadCount > 0 && downloadCount > 0) {
-      badgeText = `${uploadCount}u/${downloadCount}d`;
+      badgeText = `${uploadCount}▲/${downloadCount}▼`;
     } else if (uploadCount > 0) {
-      badgeText = `${uploadCount}u`;
+      badgeText = `${uploadCount}▲`;
     } else if (downloadCount > 0) {
-      badgeText = `${downloadCount}d`;
+      badgeText = `${downloadCount}▼`;
     }
     
     if (badgeText) {
@@ -355,9 +355,15 @@ function updateSyncButtonState(state, text, syncStatus, _unused, errorMessage) {
       const plural = syncStatus.upload.newImages !== 1 ? 's' : '';
       lines.push(`${syncStatus.upload.newImages} new image${plural} to upload`);
     }
-    if (syncStatus.upload.updatedImages > 0) {
-      const plural = syncStatus.upload.updatedImages !== 1 ? 's' : '';
-      lines.push(`${syncStatus.upload.updatedImages} image update${plural} to upload`);
+    if (syncStatus.upload.modifiedImages > 0) {
+      const count = syncStatus.upload.modifiedImages;
+      const text = count === 1 ? 'image modification' : 'image modifications';
+      lines.push(`${count} ${text} to upload`);
+    }
+    if (syncStatus.upload.deletedImages > 0) {
+      const count = syncStatus.upload.deletedImages;
+      const text = count === 1 ? 'image deletion' : 'image deletions';
+      lines.push(`${count} ${text} to upload`);
     }
     
     // Download changes
@@ -365,11 +371,21 @@ function updateSyncButtonState(state, text, syncStatus, _unused, errorMessage) {
       const plural = syncStatus.download.newImages !== 1 ? 's' : '';
       lines.push(`${syncStatus.download.newImages} new image${plural} to download`);
     }
-    if (syncStatus.download.updatedImages > 0) {
-      const plural = syncStatus.download.updatedImages !== 1 ? 's' : '';
-      lines.push(`${syncStatus.download.updatedImages} image update${plural} to download`);
+    if (syncStatus.download.modifiedImages > 0) {
+      const count = syncStatus.download.modifiedImages;
+      const text = count === 1 ? 'image modification' : 'image modifications';
+      lines.push(`${count} ${text} to download`);
+    }
+    if (syncStatus.download.deletedImages > 0) {
+      const count = syncStatus.download.deletedImages;
+      const text = count === 1 ? 'image deletion' : 'image deletions';
+      lines.push(`${count} ${text} to download`);
     }
     
+    // Add blank line before "Click to sync" if there are any changes
+    if (lines.length > 0) {
+      lines.push('');
+    }
     lines.push('Click to sync');
     tooltip = lines.join('\n');
   } else if (state === 'error' && errorMessage) {

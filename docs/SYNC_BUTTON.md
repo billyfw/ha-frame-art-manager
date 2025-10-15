@@ -1,6 +1,28 @@
 # Sync Button Implementation
 
-**Implemented:** October 15, 2025  
+*### 4. **Automatic Status Updates**
+- Updates on page load (after initial sync check)
+- Updates after manual sync operations
+- Queries `/api/sync/status` endpoint
+
+### 5. **Semantic Sync Counts**
+The sync button displays **semantic** image counts, not raw file counts:
+- **Filters out**: thumbnails, metadata.json
+- **Counts only**: actual library images
+- **Badge format**: `3▲` (3 to upload), `2▼` (2 to download), or `3▲/2▼` (both)
+- **Tooltip breakdown**: Shows new images, modifications, and deletions separately
+  - Example: 
+    ```
+    2 new images to upload
+    1 image modification to upload
+    1 image deletion to upload
+    
+    Click to sync
+    ```
+
+This means when you upload 1 image, even though Git sees 3 files changed (image + thumbnail + metadata), the badge shows `1▲` because semantically you're uploading 1 image to your gallery.
+
+### 6. **Conflict Handling**mented:** October 15, 2025  
 **Status:** ✅ Complete
 
 ---
@@ -20,7 +42,7 @@ The button displays 4 different states with distinct visual styling:
 |-------|------|-------|-------|---------|
 | **Synced** | ✅ | Green | None | All changes synced to cloud |
 | **Syncing** | 🔄 (spinning) | Blue | None | Sync in progress |
-| **Unsynced** | ⚠️ | Orange | Count | N changes not synced |
+| **Unsynced** | ⚠️ | Orange | Count | N changes not synced (e.g., `3▲/2▼`) |
 | **Error** | ❌ | Red | None | Sync error occurred |
 
 ### 2. **Interactive Sync Button**
@@ -82,11 +104,19 @@ Returns current sync status:
 {
   "success": true,
   "status": {
-    "unsynced": true,
-    "unsyncedCount": 3,
-    "ahead": 1,
-    "behind": 0,
-    "modifiedFiles": ["metadata.json"],
+    "upload": {
+      "count": 4,
+      "newImages": 2,
+      "modifiedImages": 1,
+      "deletedImages": 1
+    },
+    "download": {
+      "count": 6,
+      "newImages": 3,
+      "modifiedImages": 2,
+      "deletedImages": 1
+    },
+    "hasChanges": true,
     "branch": "main",
     "isMainBranch": true,
     "lastSync": { "timestamp": "...", "commit": "..." }
