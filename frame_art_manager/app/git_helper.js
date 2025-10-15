@@ -261,6 +261,146 @@ class GitHelper {
   }
 
   /**
+   * Parse file list to extract semantic image counts (ignoring thumbnails and metadata)
+   * @param {Array} files - Array of file paths
+   * @param {Array} newImageFiles - Array of new image file paths to check against
+   * @returns {Object} - {newImages: number, updatedImages: number}
+   */
+  parseImageChanges(files, newImageFiles = []) {
+    let newImages = 0;
+    let updatedImages = 0;
+    
+    // Filter to only library files (ignore thumbs and metadata.json)
+    const imageFiles = files.filter(file => {
+      const filePath = file.path || file;
+      return filePath.startsWith('library/') && 
+             !filePath.startsWith('thumbs/') && 
+             filePath !== 'metadata.json';
+    });
+    
+    // Categorize each image file
+    imageFiles.forEach(file => {
+      const filePath = file.path || file;
+      const status = file.working_dir || file.index || 'M'; // M = modified, A = added, etc
+      
+      // Check if this is a new file (added) or if it's in the newImageFiles list
+      if (status === 'A' || status === '?' || newImageFiles.includes(filePath)) {
+        newImages++;
+      } else {
+        updatedImages++;
+      }
+    });
+    
+    return { newImages, updatedImages };
+  }
+
+  /**
+   * Get semantic sync status with upload/download counts
+   * @returns {Promise<Object>}
+   */
+  async getSemanticSyncStatus() {
+    try {
+      const status = await this.git.status();
+      
+      // Parse local uncommitted changes
+      const localChanges = this.parseImageChanges(status.files);
+      
+      // Get list of new image files from local changes (for cross-referencing with commits)
+      const newImageFiles = status.files
+        .filter(file => {
+          const filePath = file.path || file;
+          const fileStatus = file.working_dir || file.index;
+          return (fileStatus === 'A' || fileStatus === '?') && 
+                 filePath.startsWith('library/') && 
+                 !filePath.startsWith('thumbs/');
+        })
+        .map(file => file.path || file);
+      
+      // Parse unpushed commits (ahead)
+      let unpushedChanges = { newImages: 0, updatedImages: 0 };
+      if (status.ahead > 0) {
+        try {
+          // Get diff of commits ahead
+          const log = await this.git.log({
+            from: status.tracking,
+            to: 'HEAD'
+          });
+          
+          // Collect all files from these commits
+          const commitFiles = [];
+          for (const commit of log.all) {
+            const diff = await this.git.show([commit.hash, '--name-status', '--format=']);
+            const lines = diff.split('\n').filter(line => line.trim());
+            lines.forEach(line => {
+              const [statusCode, ...pathParts] = line.split('\t');
+              const path = pathParts.join('\t');
+              if (path) {
+                commitFiles.push({ path, status: statusCode });
+              }
+            });
+          }
+          
+          unpushedChanges = this.parseImageChanges(commitFiles, newImageFiles);
+        } catch (err) {
+          console.error('Error parsing unpushed commits:', err);
+        }
+      }
+      
+      // Parse unpulled commits (behind)
+      let unpulledChanges = { newImages: 0, updatedImages: 0 };
+      if (status.behind > 0) {
+        try {
+          // Get diff of commits behind
+          const log = await this.git.log({
+            from: 'HEAD',
+            to: status.tracking
+          });
+          
+          // Collect all files from these commits
+          const commitFiles = [];
+          for (const commit of log.all) {
+            const diff = await this.git.show([commit.hash, '--name-status', '--format=']);
+            const lines = diff.split('\n').filter(line => line.trim());
+            lines.forEach(line => {
+              const [statusCode, ...pathParts] = line.split('\t');
+              const path = pathParts.join('\t');
+              if (path) {
+                commitFiles.push({ path, status: statusCode });
+              }
+            });
+          }
+          
+          unpulledChanges = this.parseImageChanges(commitFiles);
+        } catch (err) {
+          console.error('Error parsing unpulled commits:', err);
+        }
+      }
+      
+      // Combine upload counts (local + unpushed)
+      const uploadCount = localChanges.newImages + localChanges.updatedImages + 
+                         unpushedChanges.newImages + unpushedChanges.updatedImages;
+      
+      const downloadCount = unpulledChanges.newImages + unpulledChanges.updatedImages;
+      
+      return {
+        upload: {
+          count: uploadCount,
+          newImages: localChanges.newImages + unpushedChanges.newImages,
+          updatedImages: localChanges.updatedImages + unpushedChanges.updatedImages
+        },
+        download: {
+          count: downloadCount,
+          newImages: unpulledChanges.newImages,
+          updatedImages: unpulledChanges.updatedImages
+        },
+        hasChanges: uploadCount > 0 || downloadCount > 0
+      };
+    } catch (error) {
+      throw new Error(`Failed to get semantic sync status: ${error.message}`);
+    }
+  }
+
+  /**
    * Get timestamp of last successful push
    * @returns {Promise<{timestamp: string, commit: string}>}
    */

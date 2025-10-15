@@ -619,4 +619,11 @@ The add-on automatically uses `/config/www/frame_art` when deployed in Home Assi
 
 **Core application is feature-complete and stable.** Ready to proceed with containerization and Home Assistant integration. Web interface provides comprehensive management of image library and TV configurations.
 
-**Next Priority**: Git LFS sync implementation and AppDaemon service integration.
+**Next Priority**: Auto-commit/push integration for Git LFS, then AppDaemon service integration.
+
+**Recent Updates (October 15, 2025)**:
+- ✅ Sync button/indicator implemented (combined UI in toolbar)
+- ✅ Manual pull from remote via button click
+- ✅ Status updates on page load
+- ✅ Conflict detection and error handling
+- 📝 See `docs/SYNC_BUTTON.md` for implementation details

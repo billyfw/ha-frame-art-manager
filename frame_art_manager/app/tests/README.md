@@ -4,6 +4,41 @@ This folder contains automated tests for the Frame Art Manager application.
 
 ## Test Files
 
+### semantic-sync.test.js
+Tests semantic sync status parsing that filters thumbnails and metadata for user-friendly counts.
+
+**Coverage:**
+- **Unit tests:** `parseImageChanges()` parsing logic with mock data
+- **Integration tests:** Real Git operations in temporary repo
+- Image change parsing (filters thumbnails, metadata.json)
+- Distinguishing new vs updated images
+- Upload/download count calculation (local + remote)
+- Remote commit detection (goes back commits, verifies download counts)
+- Local file operations (create, modify images)
+- Full upload flow: image + thumbnail + metadata → 1 semantic count
+- Multiple images counted separately
+- Semantic status structure validation
+
+**Test breakdown:**
+- 5 unit tests for parsing logic
+- 7 integration tests with real Git repo
+- 4 structure/validation tests
+- 6 remote change scenario tests
+
+**Run individually:**
+```bash
+npm run test:semantic
+```
+
+**Example output:**
+```
+✓ Thumbnails are filtered out correctly
+✓ INTEGRATION: Local uncommitted new image detected
+  Upload: 1 new, 0 updated
+✓ INTEGRATION: Full upload flow correctly parsed: 3 raw files → 1 semantic image
+📊 Passed: 22, Total: 22
+```
+
 ### git-sync.test.js
 Tests Git/LFS sync functionality using an isolated test repository.
 
@@ -13,7 +48,11 @@ Tests Git/LFS sync functionality using an isolated test repository.
 - Pull operations (behind by 1 commit, 2 commits, etc.)
 - Uncommitted changes detection
 - Working tree updates
-- Idempotency
+- Idempotency (integration test only)
+
+**Test breakdown:**
+- 6 structural/validation tests (instantiation, configuration, status)
+- 6 integration tests with real Git operations in temporary repo
 
 **Run individually:**
 ```bash
@@ -61,6 +100,7 @@ npm test
 
 **Run individual test suites:**
 ```bash
+npm run test:semantic     # Semantic sync tests only
 npm run test:git          # Git sync tests only
 npm run test:metadata     # Metadata helper tests only
 npm run test:coordination # File coordination tests only
@@ -161,9 +201,14 @@ test('descriptive test name', async () => {
 ## Test Coverage
 
 ### ✅ Tested
-- Git sync functionality (15 tests)
-- Metadata CRUD operations (16 tests)
-- File coordination (rename, delete, upload) (11 tests)
+- **Semantic sync status parsing (22 tests)**
+  - Unit tests: Parsing logic, filtering, categorization
+  - Integration tests: Real Git operations, file creation, remote detection
+- **Git sync functionality (12 tests)**
+  - Structural tests: Configuration, status, return types
+  - Integration tests: Pull operations, idempotency, working tree updates
+- **Metadata CRUD operations (16 tests)**
+- **File coordination (rename, delete, upload) (9 tests)**
 - Image management workflows
 - TV management workflows
 - Tag operations
@@ -171,6 +216,8 @@ test('descriptive test name', async () => {
 - Error handling
 - Rollback scenarios
 - Filename sanitization
+
+**Total: 59 automated tests**
 
 ### ⏳ Future Testing
 - API endpoint responses (supertest)

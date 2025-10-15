@@ -36,18 +36,23 @@
           </div>
         </div>
         <div class="control-item control-sort">
+          <button type="button" id="sort-direction-btn" class="sort-direction-btn" title="Toggle sort direction">
+            <span id="sort-direction-icon">⬆</span>
+          </button>
           <select id="sort-order">
             <option value="name">Name</option>
             <option value="date">Date Added</option>
           </select>
-          <button type="button" id="sort-direction-btn" class="sort-direction-btn" title="Toggle sort direction">
-            <span id="sort-direction-icon">⬆</span>
-          </button>
         </div>
         <div class="control-item control-settings">
           <button type="button" id="open-advanced-btn" class="btn-icon btn-settings" title="Advanced settings">⚙</button>
         </div>
       </div>
+        <button type="button" id="sync-btn" class="btn-icon btn-sync" title="Sync with cloud">
+          <span id="sync-icon">☁️</span>
+          <span id="sync-text">Synced</span>
+          <span id="sync-badge" class="sync-badge" style="display: none;">0</span>
+        </button>
       </div>
 
       <div id="bulk-actions" class="bulk-actions">
@@ -80,8 +85,8 @@
 
           <div class="form-group">
             <label for="image-name">Image Name (optional):</label>
-            <input type="text" id="image-name" name="customName" placeholder="BillyAmandaWeddingTrees" />
-            <small class="form-hint">Leave blank to use original filename. A UUID will be added to prevent duplicates.</small>
+            <input type="text" id="image-name" name="customName" placeholder="e.g. BillyAmandaWeddingTrees" />
+            <small class="form-hint">Leave blank to use original filename. UUID will be added to prevent duplicates. Name will be made lower case and special characters will become dashes.</small>
           </div>
 
           <div class="form-group">

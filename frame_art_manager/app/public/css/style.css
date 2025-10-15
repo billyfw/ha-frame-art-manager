@@ -123,6 +123,93 @@ header h1 {
   color: #2c3e50;
 }
 
+/* Sync Button/Indicator */
+.btn-sync {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  height: 42px;
+  min-width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  background: white;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.btn-sync:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #cbd2d8;
+}
+
+.btn-sync:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+#sync-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+#sync-text {
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.sync-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #e74c3c;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Sync button states - cloud icon with color coding */
+.btn-sync.synced {
+  color: #27ae60;
+  border-color: #27ae60;
+}
+
+.btn-sync.syncing {
+  color: #3498db;
+  border-color: #3498db;
+  cursor: wait;
+}
+
+.btn-sync.unsynced {
+  color: #f39c12;
+  border-color: #f39c12;
+}
+
+.btn-sync.error {
+  color: #e74c3c;
+  border-color: #e74c3c;
+}
+
+/* Spinning animation for syncing state */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.btn-sync.syncing #sync-icon {
+  animation: spin 2s linear infinite;
+}
+
 /* Controls */
 .controls {
   display: flex;
@@ -181,6 +268,7 @@ header h1 {
   white-space: nowrap;
 }
 
+.control-sync,
 .control-settings {
   flex: 0 0 auto;
   border-right: none !important;
@@ -617,6 +705,11 @@ header h1 {
   border: 1px solid #ddd;
   border-radius: 5px;
   font-size: 1rem;
+}
+
+.form-group input::placeholder {
+  color: #bbb;
+  font-style: italic;
 }
 
 .form-hint {
