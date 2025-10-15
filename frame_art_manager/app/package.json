@@ -6,7 +6,7 @@
   "scripts": {
     "start": "npm test && node server.js",
     "dev": "node server.js",
-    "test": "node tests/semantic-sync.test.js && node tests/git-sync.test.js && node tests/metadata-helper.test.js && node tests/file-coordination.test.js",
+    "test": "node tests/run-all-tests.js",
     "test:semantic": "node tests/semantic-sync.test.js",
     "test:git": "node tests/git-sync.test.js",
     "test:metadata": "node tests/metadata-helper.test.js",

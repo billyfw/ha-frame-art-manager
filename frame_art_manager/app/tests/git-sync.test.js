@@ -112,11 +112,15 @@ async function runTests() {
   // Cleanup
   await cleanupTestRepo();
   
-  console.log(`\n${passed} passed, ${failed} failed${skipped > 0 ? `, ${skipped} skipped` : ''}\n`);
-  
-  if (failed > 0) {
-    process.exit(1);
+  logSection('📊 Test Results');
+  console.log(`${colors.green}Passed: ${passed}${colors.reset}`);
+  console.log(`${colors.red}Failed: ${failed}${colors.reset}`);
+  if (skipped > 0) {
+    console.log(`${colors.yellow}Skipped: ${skipped}${colors.reset}`);
   }
+  console.log(`Total: ${tests.length}`);
+  
+  process.exit(failed > 0 ? 1 : 0);
 }
 
 // ============================================================================
