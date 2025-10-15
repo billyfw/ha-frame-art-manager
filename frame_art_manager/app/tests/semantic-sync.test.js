@@ -685,9 +685,7 @@ async function runTests() {
   
   logSection('📊 Test Results');
   console.log(`${colors.green}Passed: ${passed}${colors.reset}`);
-  if (failed > 0) {
-    console.log(`${colors.red}Failed: ${failed}${colors.reset}`);
-  }
+  console.log(`${colors.red}Failed: ${failed}${colors.reset}`);
   if (skipped > 0) {
     console.log(`${colors.yellow}Skipped: ${skipped}${colors.reset}`);
   }

@@ -14,6 +14,31 @@ const fs = require('fs').promises;
 const os = require('os');
 const MetadataHelper = require('../metadata_helper');
 
+// Color output helpers
+const colors = {
+  green: '\x1b[32m',
+  red: '\x1b[31m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  reset: '\x1b[0m'
+};
+
+function logSuccess(msg) {
+  console.log(`${colors.green}✓${colors.reset} ${msg}`);
+}
+
+function logError(msg) {
+  console.log(`${colors.red}✗${colors.reset} ${msg}`);
+}
+
+function logInfo(msg) {
+  console.log(`${colors.yellow}ℹ${colors.reset} ${msg}`);
+}
+
+function logSection(msg) {
+  console.log(`\n${colors.blue}${msg}${colors.reset}`);
+}
+
 // Test utilities
 const tests = [];
 let testPath;
@@ -368,10 +393,10 @@ async function runTests() {
     for (const test of tests) {
       try {
         await test.fn();
-        console.log(`✓ ${test.name}`);
+        logSuccess(test.name);
         passed++;
       } catch (error) {
-        console.error(`✗ ${test.name}`);
+        logError(`${test.name}`);
         console.error(`  ${error.message}`);
         if (error.stack) {
           console.error(`  ${error.stack.split('\n').slice(1, 3).join('\n')}`);
@@ -383,11 +408,12 @@ async function runTests() {
     await cleanupTestEnv();
   }
   
-  console.log(`\n${passed} passed, ${failed} failed`);
+  logSection('📊 Test Results');
+  console.log(`${colors.green}Passed: ${passed}${colors.reset}`);
+  console.log(`${colors.red}Failed: ${failed}${colors.reset}`);
+  console.log(`Total: ${tests.length}`);
   
-  if (failed > 0) {
-    process.exit(1);
-  }
+  process.exit(failed > 0 ? 1 : 0);
 }
 
 // Run if called directly
