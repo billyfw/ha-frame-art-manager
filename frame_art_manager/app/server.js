@@ -1,3 +1,6 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -13,11 +16,18 @@ const PORT = process.env.PORT || 8099;
 
 // Get the frame art path from environment variable or use defaults
 // Production (Home Assistant add-on): /config/www/frame_art
-// Development: Local path
+// Development: Set FRAME_ART_PATH in .env file
 const FRAME_ART_PATH = process.env.FRAME_ART_PATH || 
   (process.env.NODE_ENV === 'production' 
     ? '/config/www/frame_art' 
-    : '/Users/billywaldman/devprojects/ha-config/www/frame_art');
+    : null);
+
+// Validate that FRAME_ART_PATH is set
+if (!FRAME_ART_PATH) {
+  console.error('ERROR: FRAME_ART_PATH environment variable is not set.');
+  console.error('Please create a .env file based on .env.example and set your FRAME_ART_PATH.');
+  process.exit(1);
+}
 
 // Middleware
 app.use(cors());

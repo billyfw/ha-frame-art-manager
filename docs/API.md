@@ -415,7 +415,7 @@ GET /api/health
 ```json
 {
   "status": "ok",
-  "frameArtPath": "/Users/billywaldman/devprojects/ha-config/www/frame_art",
+  "frameArtPath": "/config/www/frame_art",
   "timestamp": "2025-01-15T12:00:00.000Z"
 }
 ```

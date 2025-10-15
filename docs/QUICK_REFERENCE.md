@@ -3,10 +3,13 @@
 ## Quick Start
 
 ### Setup
+## Quick Start
+
 ```bash
-cd /Users/billywaldman/devprojects/ha-frame-art-manager/frame_art_manager/app
-export FRAME_ART_PATH="/Users/billywaldman/devprojects/ha-config/www/frame_art"
-npm install
+cd frame_art_manager/app
+cp .env.example .env
+# Edit .env and set your FRAME_ART_PATH
+npm run dev
 ```
 
 ### Run Development Server

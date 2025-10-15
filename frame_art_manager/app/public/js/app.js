@@ -71,10 +71,12 @@ document.addEventListener('DOMContentLoaded', () => {
   initTVForm();
   initTagForm();
   initModal();
-  initSyncButton();
   initMetadataViewer();
   initBulkActions();
   initTVModal();
+  initTVTagPickerModal();
+  initSettingsNavigation();
+  initUploadNavigation();
 });
 
 // Load and display library path
@@ -98,30 +100,71 @@ async function loadLibraryPath() {
   }
 }
 
-// Tab Navigation
+// Tab Navigation (simplified - no actual tabs, just for switchToTab function)
 function initTabs() {
-  const tabButtons = document.querySelectorAll('.tab-btn');
+  // No tab buttons anymore, but keep function for compatibility
+}
+
+// Programmatic tab switching (used by gear/home/add buttons)
+function switchToTab(tabName) {
   const tabContents = document.querySelectorAll('.tab-content');
 
-  tabButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      const tabName = button.getAttribute('data-tab');
-      
-      // Remove active class from all buttons and contents
-      tabButtons.forEach(btn => btn.classList.remove('active'));
-      tabContents.forEach(content => content.classList.remove('active'));
-      
-      // Add active class to clicked button and corresponding content
-      button.classList.add('active');
-      document.getElementById(`${tabName}-tab`).classList.add('active');
+  // Clear active state from all
+  tabContents.forEach(content => content.classList.remove('active'));
 
-      // Reload data when switching to certain tabs
-      if (tabName === 'gallery') loadGallery();
-      if (tabName === 'tvs') loadTVs();
-      if (tabName === 'tags') loadTags();
-      if (tabName === 'metadata') loadMetadata();
+  // Show target tab content
+  const targetContent = document.getElementById(`${tabName}-tab`);
+  if (targetContent) {
+    targetContent.classList.add('active');
+  }
+
+  // Reload data similar to initTabs click behavior
+  if (tabName === 'gallery') loadGallery();
+  if (tabName === 'advanced') {
+    loadLibraryPath();
+    loadTags();
+    loadTVs(); // Load TVs when opening Advanced
+    loadMetadata();
+  }
+}
+
+function initUploadNavigation() {
+  const openUploadBtn = document.getElementById('open-upload-btn');
+  const goHomeUploadBtn = document.getElementById('go-home-upload-btn');
+
+  if (openUploadBtn) {
+    openUploadBtn.addEventListener('click', () => {
+      switchToTab('upload');
     });
-  });
+  }
+
+  if (goHomeUploadBtn) {
+    goHomeUploadBtn.addEventListener('click', () => {
+      switchToTab('gallery');
+    });
+  }
+}
+
+function initSettingsNavigation() {
+  const openAdvancedBtn = document.getElementById('open-advanced-btn');
+  const goHomeBtn = document.getElementById('go-home-btn');
+
+  if (openAdvancedBtn) {
+    openAdvancedBtn.addEventListener('click', () => {
+      // Close any open dropdowns in the gallery toolbar
+      const tagFilterBtn = document.getElementById('tag-filter-btn');
+      const tagFilterDropdown = document.getElementById('tag-filter-dropdown');
+      tagFilterBtn?.classList.remove('active');
+      tagFilterDropdown?.classList.remove('active');
+      switchToTab('advanced');
+    });
+  }
+
+  if (goHomeBtn) {
+    goHomeBtn.addEventListener('click', () => {
+      switchToTab('gallery');
+    });
+  }
 }
 
 // Gallery Functions
@@ -566,45 +609,123 @@ function openTVModal(tvId) {
   document.getElementById('tv-modal-ip').value = tv.ip;
   document.getElementById('tv-modal-date').textContent = formatDate(tv.added);
   
-  // Populate tag checkboxes
-  const tvTags = tv.tags || [];
-  const optionsContainer = document.getElementById('tv-modal-tags-options');
-  optionsContainer.innerHTML = allTags.map(tag => `
-    <label class="multiselect-option">
-      <input type="checkbox" value="${tag}" ${tvTags.includes(tag) ? 'checked' : ''}>
+  // Populate tag pills
+  renderTVModalTagPills(tv.tags || []);
+  
+  // Show modal with active class for proper centering
+  const modal = document.getElementById('tv-modal');
+  modal.classList.add('active');
+  modal.style.display = 'flex';
+}
+
+function renderTVModalTagPills(tags) {
+  const container = document.getElementById('tv-modal-tag-pills');
+  if (!container) return;
+  
+  if (tags.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  container.innerHTML = tags.map(tag => `
+    <div class="tag-pill">
       <span>${tag}</span>
-    </label>
+      <span class="tag-pill-remove" data-tag="${tag}">&times;</span>
+    </div>
   `).join('');
   
-  // Update button text
-  updateTVModalTagsDisplay();
-  
-  // Add change listeners to checkboxes
-  optionsContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-    cb.addEventListener('change', updateTVModalTagsDisplay);
+  // Add click handlers for remove buttons
+  container.querySelectorAll('.tag-pill-remove').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const tagToRemove = e.target.dataset.tag;
+      const tv = allTVs.find(t => t.id === currentTVId);
+      if (tv && tv.tags) {
+        tv.tags = tv.tags.filter(t => t !== tagToRemove);
+        renderTVModalTagPills(tv.tags);
+      }
+    });
   });
-  
-  // Show modal
-  document.getElementById('tv-modal').style.display = 'block';
 }
 
 function closeTVModal() {
-  document.getElementById('tv-modal').style.display = 'none';
+  const modal = document.getElementById('tv-modal');
+  modal.classList.remove('active');
+  modal.style.display = 'none';
   currentTVId = null;
 }
 
 function updateTVModalTagsDisplay() {
-  const checkboxes = document.querySelectorAll('#tv-modal-tags-options input[type="checkbox"]');
-  const selected = Array.from(checkboxes).filter(cb => cb.checked);
+  // No longer used - tags removed from TV modal
+}
+
+function openTVTagPicker() {
+  if (!currentTVId) return;
   
-  let text = 'All images';
-  if (selected.length === 1) {
-    text = selected[0].value;
-  } else if (selected.length > 1) {
-    text = selected.map(cb => cb.value).join(', ');
-  }
+  const tv = allTVs.find(t => t.id === currentTVId);
+  if (!tv) return;
   
-  document.getElementById('tv-modal-tags-text').textContent = text;
+  const tvTags = tv.tags || [];
+  const listContainer = document.getElementById('tv-tag-picker-list');
+  
+  // Populate tag checkboxes
+  listContainer.innerHTML = allTags.map(tag => {
+    const safeId = `tv-tag-picker-${tag.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+    const checked = tvTags.includes(tag) ? 'checked' : '';
+    return `
+      <div class="tag-picker-item">
+        <input type="checkbox" id="${safeId}" value="${tag}" ${checked} class="tv-tag-picker-checkbox" />
+        <label for="${safeId}">${tag}</label>
+      </div>
+    `;
+  }).join('');
+  
+  // Show modal
+  const modal = document.getElementById('tv-tag-picker-modal');
+  modal.classList.add('active');
+  modal.style.display = 'flex';
+  
+  // Focus search input
+  setTimeout(() => {
+    const searchInput = document.getElementById('tv-tag-picker-search');
+    if (searchInput) searchInput.focus();
+  }, 0);
+}
+
+function closeTVTagPicker() {
+  const modal = document.getElementById('tv-tag-picker-modal');
+  modal.classList.remove('active');
+  modal.style.display = 'none';
+  
+  // Clear search
+  const searchInput = document.getElementById('tv-tag-picker-search');
+  if (searchInput) searchInput.value = '';
+  
+  // Reset visibility of all items
+  document.querySelectorAll('.tag-picker-item').forEach(item => {
+    item.style.display = 'flex';
+  });
+}
+
+function saveTVTagPickerSelection() {
+  if (!currentTVId) return;
+  
+  const tv = allTVs.find(t => t.id === currentTVId);
+  if (!tv) return;
+  
+  // Get selected tags
+  const checkboxes = document.querySelectorAll('.tv-tag-picker-checkbox');
+  const selectedTags = Array.from(checkboxes)
+    .filter(cb => cb.checked)
+    .map(cb => cb.value);
+  
+  // Update local TV object
+  tv.tags = selectedTags;
+  
+  // Update UI
+  renderTVModalTagPills(selectedTags);
+  
+  // Close picker
+  closeTVTagPicker();
 }
 
 async function saveTVModal() {
@@ -612,15 +733,15 @@ async function saveTVModal() {
   
   const name = document.getElementById('tv-modal-name').value.trim();
   const ip = document.getElementById('tv-modal-ip').value.trim();
-  const checkboxes = document.querySelectorAll('#tv-modal-tags-options input[type="checkbox"]');
-  const tags = Array.from(checkboxes)
-    .filter(cb => cb.checked)
-    .map(cb => cb.value);
   
   if (!name || !ip) {
     alert('Please fill in all required fields');
     return;
   }
+  
+  // Get selected tags from local TV object
+  const tv = allTVs.find(t => t.id === currentTVId);
+  const tags = tv ? (tv.tags || []) : [];
   
   try {
     // Update TV basic info
@@ -1158,7 +1279,7 @@ function initTVModal() {
   const deleteBtn = document.getElementById('tv-modal-delete-btn');
   const cancelBtn = document.getElementById('tv-modal-cancel-btn');
   const closeBtn = document.getElementById('tv-modal-close');
-  const tagsBtn = document.getElementById('tv-modal-tags-btn');
+  const addTagBtn = document.getElementById('tv-modal-add-tag-btn');
   
   if (saveBtn) {
     saveBtn.addEventListener('click', saveTVModal);
@@ -1172,14 +1293,8 @@ function initTVModal() {
   if (closeBtn) {
     closeBtn.addEventListener('click', closeTVModal);
   }
-  
-  // Toggle dropdown
-  if (tagsBtn) {
-    tagsBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const dropdown = document.getElementById('tv-modal-tags-dropdown');
-      dropdown.classList.toggle('active');
-    });
+  if (addTagBtn) {
+    addTagBtn.addEventListener('click', openTVTagPicker);
   }
   
   // Close modal on outside click
@@ -1191,12 +1306,45 @@ function initTVModal() {
       }
     });
   }
+}
+
+// TV Tag Picker Modal Functions
+function initTVTagPickerModal() {
+  const doneBtn = document.getElementById('tv-tag-picker-done-btn');
+  const cancelBtn = document.getElementById('tv-tag-picker-cancel-btn');
+  const closeBtn = document.getElementById('tv-tag-picker-close');
+  const searchInput = document.getElementById('tv-tag-picker-search');
   
-  // Close dropdown when clicking outside
-  document.addEventListener('click', (e) => {
-    const dropdown = document.getElementById('tv-modal-tags-dropdown');
-    if (dropdown && !e.target.closest('.custom-multiselect')) {
-      dropdown.classList.remove('active');
-    }
-  });
+  if (doneBtn) {
+    doneBtn.addEventListener('click', saveTVTagPickerSelection);
+  }
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', closeTVTagPicker);
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeTVTagPicker);
+  }
+  
+  // Search/filter functionality
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase();
+      document.querySelectorAll('.tag-picker-item').forEach(item => {
+        const label = item.querySelector('label');
+        if (!label) return;
+        const match = label.textContent.toLowerCase().includes(term);
+        item.style.display = match ? 'flex' : 'none';
+      });
+    });
+  }
+  
+  // Close modal on outside click
+  const modal = document.getElementById('tv-tag-picker-modal');
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeTVTagPicker();
+      }
+    });
+  }
 }

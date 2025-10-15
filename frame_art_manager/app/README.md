@@ -44,16 +44,21 @@ This is the web application component of the Frame Art Manager Home Assistant ad
 
 1. Install dependencies:
 ```bash
-cd /Users/billywaldman/devprojects/ha-frame-art-manager/frame_art_manager/app
+cd frame_art_manager/app
 npm install
 ```
 
-2. Set the frame art path environment variable:
+2. Create a `.env` file from the template:
 ```bash
-export FRAME_ART_PATH="/Users/billywaldman/devprojects/ha-config/www/frame_art"
+cp .env.example .env
 ```
 
-3. Start the development server:
+3. Edit `.env` and set your frame art path:
+```bash
+FRAME_ART_PATH=/path/to/your/ha-config/www/frame_art
+```
+
+4. Start the development server:
 ```bash
 npm start
 ```
@@ -63,11 +68,11 @@ Or for auto-reload during development:
 npm run dev
 ```
 
-4. Open your browser to: `http://localhost:8099`
+5. Open your browser to: `http://localhost:8099`
 
 ### Environment Variables
 
-- `FRAME_ART_PATH` - Path to the frame art library (default: `/config/www/frame_art`)
+- `FRAME_ART_PATH` - Path to the frame art library (required for development)
 - `PORT` - Server port (default: `8099`)
 
 ### Directory Structure

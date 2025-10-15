@@ -8,23 +8,15 @@
 </head>
 <body>
   <div class="container">
-    <nav class="tabs">
-      <button class="tab-btn active" data-tab="gallery">Gallery</button>
-      <button class="tab-btn" data-tab="upload">Upload</button>
-      <button class="tab-btn" data-tab="tvs">TVs</button>
-      <button class="tab-btn" data-tab="tags">Tags</button>
-      <button class="tab-btn" data-tab="sync">Sync</button>
-      <button class="tab-btn" data-tab="advanced">Advanced</button>
-      <span class="nav-title">ANCWBFW Frame Art Manager</span>
-    </nav>
-
     <!-- Gallery Tab -->
     <div id="gallery-tab" class="tab-content active">
-      <div class="controls">
-        <div class="control-item control-search">
-          <span class="control-icon">🔍</span>
-          <input type="text" id="search-input" placeholder="Search images..." />
-        </div>
+      <div class="gallery-toolbar">
+        <button type="button" id="open-upload-btn" class="btn-primary btn-add">Add</button>
+        <div class="controls">
+          <div class="control-item control-search">
+            <span class="control-icon">🔍</span>
+            <input type="text" id="search-input" placeholder="Search images..." />
+          </div>
         <div class="control-item control-filter">
           <button type="button" id="clear-tag-filter-btn" class="clear-filter-btn" style="display: none;" title="Clear filter">✕</button>
           <div class="custom-multiselect">
@@ -52,6 +44,10 @@
             <span id="sort-direction-icon">⬆</span>
           </button>
         </div>
+        <div class="control-item control-settings">
+          <button type="button" id="open-advanced-btn" class="btn-icon btn-settings" title="Advanced settings">⚙</button>
+        </div>
+      </div>
       </div>
 
       <div id="bulk-actions" class="bulk-actions">
@@ -72,7 +68,10 @@
     <!-- Upload Tab -->
     <div id="upload-tab" class="tab-content">
       <div class="upload-section">
-        <h2>Upload New Image</h2>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <h2 style="margin:0;">Upload New Image</h2>
+          <button id="go-home-upload-btn" class="btn-icon close-simple" title="Back to Gallery">✕</button>
+        </div>
         <form id="upload-form" enctype="multipart/form-data">
           <div class="form-group">
             <label for="image-file">Select Image:</label>
@@ -121,62 +120,44 @@
       </div>
     </div>
 
-    <!-- TVs Tab -->
-    <div id="tvs-tab" class="tab-content">
-      <div class="section">
-        <h2>Manage TVs</h2>
-        
-        <form id="tv-form" class="inline-form">
-          <input type="text" id="tv-name" placeholder="TV Name" required />
-          <input type="text" id="tv-ip" placeholder="IP Address (e.g., 192.168.1.100)" required />
-          <button type="submit" class="btn-primary">Add TV</button>
-        </form>
-
-        <div id="tv-list" class="list">
-          <!-- TV list will be loaded here -->
-        </div>
-      </div>
-    </div>
-
-    <!-- Tags Tab -->
-    <div id="tags-tab" class="tab-content">
-      <div class="section">
-        <h2>Manage Tags</h2>
-        
-        <form id="tag-form" class="inline-form">
-          <input type="text" id="tag-name" placeholder="New Tag" required />
-          <button type="submit" class="btn-primary">Add Tag</button>
-        </form>
-
-        <div id="tag-list" class="tag-cloud">
-          <!-- Tag list will be loaded here -->
-        </div>
-      </div>
-    </div>
-
-    <!-- Sync Tab -->
-    <div id="sync-tab" class="tab-content">
-      <div class="section">
-        <h2>Sync Status</h2>
-        <button id="verify-sync-btn" class="btn-primary">Verify Sync</button>
-        
-        <div id="sync-results">
-          <!-- Sync results will be shown here -->
-        </div>
-      </div>
-    </div>
-
-    <!-- Metadata Tab -->
     <!-- Advanced Tab -->
     <div id="advanced-tab" class="tab-content">
       <div class="section">
-        <h2>Advanced Settings</h2>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <h2 style="margin:0;">Advanced Settings</h2>
+          <button id="go-home-btn" class="btn-icon close-simple" title="Back to Gallery">✕</button>
+        </div>
         
         <div class="subsection">
           <h3>Library Path</h3>
           <div class="info-box">
             <span class="path-label">📁 Current Path:</span>
             <code id="advanced-path-value" class="path-code">Loading...</code>
+          </div>
+        </div>
+
+        <div class="subsection">
+          <h3>Manage Tags</h3>
+          <form id="tag-form" class="inline-form">
+            <input type="text" id="tag-name" placeholder="New Tag" required />
+            <button type="submit" class="btn-primary">Add Tag</button>
+          </form>
+
+          <div id="tag-list" class="tag-cloud">
+            <!-- Tag list will be loaded here -->
+          </div>
+        </div>
+
+        <div class="subsection">
+          <h3>Manage TVs</h3>
+          <form id="tv-form" class="inline-form">
+            <input type="text" id="tv-name" placeholder="TV Name" required />
+            <input type="text" id="tv-ip" placeholder="IP Address (e.g., 192.168.1.100)" required />
+            <button type="submit" class="btn-primary">Add TV</button>
+          </form>
+
+          <div id="tv-list" class="list">
+            <!-- TV list will be loaded here -->
           </div>
         </div>
 
@@ -270,7 +251,7 @@
   <!-- TV Detail Modal -->
   <div id="tv-modal" class="modal">
     <div class="modal-content tv-modal">
-      <span class="close" id="tv-modal-close">&times;</span>
+      <button class="close close-simple" id="tv-modal-close">✕</button>
       <div class="modal-details">
         <h3>TV Details</h3>
         <div class="form-group">
@@ -283,18 +264,10 @@
         </div>
         <div class="form-group">
           <label>Display Tags:</label>
-          <div class="custom-multiselect">
-            <button type="button" id="tv-modal-tags-btn" class="multiselect-button">
-              <span id="tv-modal-tags-text">All images</span>
-              <span class="dropdown-arrow">▼</span>
-            </button>
-            <div id="tv-modal-tags-dropdown" class="multiselect-dropdown">
-              <div class="multiselect-options" id="tv-modal-tags-options">
-                <!-- Tag checkboxes will be populated here -->
-              </div>
-            </div>
+          <div id="tv-modal-tag-pills" class="tag-pills-container">
+            <!-- Tag pills will be populated here -->
           </div>
-          <small class="form-hint">Select which tags should be displayed on this TV (leave empty to show all images)</small>
+          <button type="button" id="tv-modal-add-tag-btn" class="btn-secondary btn-sm">+ Add Tag</button>
         </div>
         <div class="modal-info">
           <p><small>Added: <span id="tv-modal-date"></span></small></p>
@@ -308,6 +281,27 @@
     </div>
   </div>
 
+  <!-- TV Tag Picker Modal -->
+  <div id="tv-tag-picker-modal" class="modal">
+    <div class="modal-content tv-tag-picker-modal">
+      <span class="close" id="tv-tag-picker-close">&times;</span>
+      <div class="modal-details">
+        <h3>Select Tags for TV</h3>
+        <div class="tag-picker-search">
+          <input type="text" id="tv-tag-picker-search" placeholder="Search tags..." />
+        </div>
+        <div id="tv-tag-picker-list" class="tag-picker-list">
+          <!-- Tag checkboxes will be populated here -->
+        </div>
+        <div class="modal-actions">
+          <button id="tv-tag-picker-done-btn" class="btn-primary">Done</button>
+          <button id="tv-tag-picker-cancel-btn" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="/js/app.js"></script>
 </body>
 </html>
+

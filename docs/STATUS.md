@@ -241,19 +241,17 @@ None currently - core features complete!
 
 ### Development Setup
 ```bash
-cd /Users/billywaldman/devprojects/ha-frame-art-manager/frame_art_manager/app
-export FRAME_ART_PATH="/Users/billywaldman/devprojects/ha-config/www/frame_art"
+cd frame_art_manager/app
+cp .env.example .env
+# Edit .env to set your FRAME_ART_PATH
 npm install
-npx nodemon server.js
+npm run dev
 ```
 
 Access: http://localhost:8099
 
 ### Production Setup
-```bash
-export FRAME_ART_PATH="/config/www/frame_art"
-npm start
-```
+The add-on automatically uses `/config/www/frame_art` when deployed in Home Assistant.
 
 ---
 

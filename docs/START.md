@@ -5,28 +5,23 @@
 From the `app/` directory:
 
 ```bash
-cd /Users/billywaldman/devprojects/ha-frame-art-manager/frame_art_manager/app
+cd frame_art_manager/app
+cp .env.example .env
+# Edit .env to set FRAME_ART_PATH to your local path
 npm run dev
 ```
 
 **What happens:**
 - Auto-restarts on file changes (nodemon)
-- Uses local path: `/Users/billywaldman/devprojects/ha-config/www/frame_art`
+- Uses path from `.env` file
 - Runs on: `http://localhost:8099`
 
 ---
 
 ## Production Mode 🚀
 
-From the `app/` directory:
+In Home Assistant, the add-on runs automatically with:
 
-```bash
-cd /Users/billywaldman/devprojects/ha-frame-art-manager/frame_art_manager/app
-npm start
-```
-
-**What happens:**
-- No auto-restart
 - Uses Home Assistant path: `/config/www/frame_art`
 - Runs on: `http://localhost:8099`
 
@@ -34,7 +29,7 @@ npm start
 
 ## Override Path 🛠️
 
-If you need a custom path, set the environment variable:
+If you need a custom path without using `.env`, set the environment variable:
 
 ```bash
 FRAME_ART_PATH="/custom/path" npm run dev
@@ -44,13 +39,11 @@ FRAME_ART_PATH="/custom/path" npm start
 
 ---
 
-## Path Priority
+## Environment Priority
 
-The app determines the path in this order:
-
-1. **`FRAME_ART_PATH` environment variable** (highest priority)
-2. **Production default** (`/config/www/frame_art`) if NODE_ENV=production
-3. **Development default** (`/Users/billywaldman/devprojects/ha-config/www/frame_art`)
+1. **Environment variable** (`.env` file or shell export)
+2. **Production default** (`/config/www/frame_art` in Home Assistant)
+3. **Error if not set** (development mode)
 
 ---
 

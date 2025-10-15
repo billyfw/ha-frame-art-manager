@@ -42,7 +42,7 @@ ha-frame-art-manager/
 
 #### Step 2: Initialize new repo ✅
 - [x] Created GitHub repository: `ha-frame-art-manager`
-- [x] Cloned to `/Users/billywaldman/devprojects/ha-frame-art-manager`
+- [x] Cloned to local development environment
 
 #### Step 3: Build web interface features ✅
 - [x] Image upload with drag & drop
@@ -105,11 +105,14 @@ ha-frame-art-manager/
 - **Container**: Alpine Linux base image
 
 ### Local Development
+### Local Testing
+
 ```bash
-cd /Users/billywaldman/devprojects/ha-frame-art-manager/frame_art_manager/app
-export FRAME_ART_PATH="/Users/billywaldman/devprojects/ha-config/www/frame_art"
+cd frame_art_manager/app
+cp .env.example .env
+# Edit .env and set FRAME_ART_PATH to your local path
 npm install
-npm start
+npm run dev
 ```
 
 ### Metadata Helper Functions Needed
@@ -178,11 +181,12 @@ npm start
 
 ### 🔧 Development Environment
 ```bash
-cd /Users/billywaldman/devprojects/ha-frame-art-manager/frame_art_manager/app
-export FRAME_ART_PATH="/Users/billywaldman/devprojects/ha-config/www/frame_art"
+cd frame_art_manager/app
+cp .env.example .env
+# Edit .env to set your FRAME_ART_PATH
 npm install
 # Development with auto-reload:
-npx nodemon server.js
+npm run dev
 # Or production:
 npm start
 ```
