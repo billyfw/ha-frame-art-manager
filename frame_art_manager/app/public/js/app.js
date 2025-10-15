@@ -84,6 +84,7 @@ function openTagDropdownPortal() {
   dropdown.classList.add('active');
   dropdown.classList.remove('debug-visible');
   dropdown.style.display = 'block';
+  dropdown.style.pointerEvents = 'auto'; // Re-enable clicks when open
   dropdown.style.zIndex = '9999';
   dropdown.style.right = 'auto';
   positionTagDropdownToButton();
@@ -113,6 +114,7 @@ function closeTagDropdownPortal() {
     if (dropdown) {
       dropdown.classList.remove('active');
       dropdown.style.display = 'none';
+      dropdown.style.pointerEvents = 'none'; // Ensure it can't intercept clicks
     }
     if (btn) btn.classList.remove('active');
     return;
@@ -121,11 +123,13 @@ function closeTagDropdownPortal() {
   // Hide and restore to original parent
   dropdown.classList.remove('active');
   dropdown.style.display = 'none';
+  dropdown.style.pointerEvents = 'none'; // Ensure it can't intercept clicks when closed
   dropdown.style.position = '';
   dropdown.style.left = '';
   dropdown.style.top = '';
   dropdown.style.minWidth = '';
   dropdown.style.right = '';
+  dropdown.style.zIndex = ''; // Reset z-index
 
   if (tagDropdownState.originalParent) {
     if (tagDropdownState.originalNextSibling && tagDropdownState.originalNextSibling.parentNode === tagDropdownState.originalParent) {
@@ -308,6 +312,30 @@ function initSettingsNavigation() {
       switchToTab('gallery');
     });
   }
+
+  // Initialize advanced sub-tabs
+  initAdvancedSubTabs();
+}
+
+function initAdvancedSubTabs() {
+  const tabButtons = document.querySelectorAll('.advanced-tab-btn');
+  
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const tabName = button.dataset.tab;
+      
+      // Remove active class from all buttons and contents
+      document.querySelectorAll('.advanced-tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.advanced-tab-content').forEach(content => content.classList.remove('active'));
+      
+      // Add active class to clicked button and corresponding content
+      button.classList.add('active');
+      const targetContent = document.getElementById(`advanced-${tabName}-content`);
+      if (targetContent) {
+        targetContent.classList.add('active');
+      }
+    });
+  });
 }
 
 // Gallery Functions
@@ -623,7 +651,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!dropdown || !btn) return;
     const clickInsideDropdown = dropdown.contains(e.target);
     const clickOnButton = btn.contains(e.target);
-    if (!clickInsideDropdown && !clickOnButton) {
+    // IMPORTANT: Don't intercept clicks on the gear button
+    const clickOnGear = e.target.closest('#open-advanced-btn');
+    if (!clickInsideDropdown && !clickOnButton && !clickOnGear) {
       console.log('[TagDropdown] outside click - closing');
       closeTagDropdownPortal();
     }
@@ -642,6 +672,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+// Fallback: ensure gear button opens Advanced even if initSettingsNavigation didn't bind
+// (No fallback gear handler needed now that UI binds first.)
 
 function updateSortDirectionIcon() {
   const icon = document.getElementById('sort-direction-icon');
@@ -722,6 +755,7 @@ function renderTVList() {
         <div class="list-item-name">${tv.name}</div>
         <div class="list-item-detail">${tv.ip}</div>
         <div class="list-item-detail">${tagText}</div>
+        <div class="list-item-detail"><strong>Home:</strong> ${tv.home || 'Madrone'}</div>
       </div>
     </div>
   `;
@@ -733,20 +767,23 @@ function initTVForm() {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const name = document.getElementById('tv-name').value;
-    const ip = document.getElementById('tv-ip').value;
+  const name = document.getElementById('tv-name').value;
+  const ip = document.getElementById('tv-ip').value;
+  const homeSelect = document.getElementById('tv-home');
+  const home = homeSelect ? homeSelect.value : 'Madrone';
 
     try {
       const response = await fetch(`${API_BASE}/tvs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, ip })
+        body: JSON.stringify({ name, ip, home })
       });
 
       const result = await response.json();
 
       if (result.success) {
         form.reset();
+        if (homeSelect) homeSelect.value = 'Madrone';
         loadTVs();
       }
     } catch (error) {
@@ -778,6 +815,14 @@ function openTVModal(tvId) {
   document.getElementById('tv-modal-name').value = tv.name;
   document.getElementById('tv-modal-ip').value = tv.ip;
   document.getElementById('tv-modal-date').textContent = formatDate(tv.added);
+  // Set home toggle
+  const homeValue = tv.home || 'Madrone';
+  const madroneBtn = document.getElementById('tv-home-madrone');
+  const mauiBtn = document.getElementById('tv-home-maui');
+  if (madroneBtn && mauiBtn) {
+    madroneBtn.classList.toggle('active', homeValue === 'Madrone');
+    mauiBtn.classList.toggle('active', homeValue === 'Maui');
+  }
   
   // Populate tag pills
   renderTVModalTagPills(tv.tags || []);
@@ -909,16 +954,17 @@ async function saveTVModal() {
     return;
   }
   
-  // Get selected tags from local TV object
+  // Get selected tags and home from local TV object
   const tv = allTVs.find(t => t.id === currentTVId);
   const tags = tv ? (tv.tags || []) : [];
+  const home = tv ? (tv.home || 'Madrone') : 'Madrone';
   
   try {
-    // Update TV basic info
+    // Update TV basic info (including home)
     const response = await fetch(`${API_BASE}/tvs/${currentTVId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, ip })
+      body: JSON.stringify({ name, ip, home })
     });
     
     const result = await response.json();
@@ -1450,6 +1496,8 @@ function initTVModal() {
   const cancelBtn = document.getElementById('tv-modal-cancel-btn');
   const closeBtn = document.getElementById('tv-modal-close');
   const addTagBtn = document.getElementById('tv-modal-add-tag-btn');
+  const madroneBtn = document.getElementById('tv-home-madrone');
+  const mauiBtn = document.getElementById('tv-home-maui');
   
   if (saveBtn) {
     saveBtn.addEventListener('click', saveTVModal);
@@ -1466,6 +1514,17 @@ function initTVModal() {
   if (addTagBtn) {
     addTagBtn.addEventListener('click', openTVTagPicker);
   }
+  // Home toggle handlers
+  function setHome(value) {
+    if (madroneBtn && mauiBtn) {
+      madroneBtn.classList.toggle('active', value === 'Madrone');
+      mauiBtn.classList.toggle('active', value === 'Maui');
+    }
+    const tv = allTVs.find(t => t.id === currentTVId);
+    if (tv) tv.home = value;
+  }
+  if (madroneBtn) madroneBtn.addEventListener('click', () => setHome('Madrone'));
+  if (mauiBtn) mauiBtn.addEventListener('click', () => setHome('Maui'));
   
   // Close modal on outside click
   const modal = document.getElementById('tv-modal');

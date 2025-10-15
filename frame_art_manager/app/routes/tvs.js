@@ -17,14 +17,14 @@ router.get('/', async (req, res) => {
 // POST add new TV
 router.post('/', async (req, res) => {
   try {
-    const { name, ip } = req.body;
+    const { name, ip, home } = req.body;
 
     if (!name || !ip) {
       return res.status(400).json({ error: 'Name and IP are required' });
     }
 
     const helper = new MetadataHelper(req.frameArtPath);
-    const tv = await helper.addTV(name, ip);
+    const tv = await helper.addTV(name, ip, home);
     res.json({ success: true, tv });
   } catch (error) {
     console.error('Error adding TV:', error);
@@ -89,14 +89,14 @@ router.put('/:tvId/tags', async (req, res) => {
 // PUT update TV details
 router.put('/:tvId', async (req, res) => {
   try {
-    const { name, ip } = req.body;
+    const { name, ip, home } = req.body;
 
     if (!name || !ip) {
       return res.status(400).json({ error: 'Name and IP are required' });
     }
 
     const helper = new MetadataHelper(req.frameArtPath);
-    const tv = await helper.updateTV(req.params.tvId, name, ip);
+    const tv = await helper.updateTV(req.params.tvId, name, ip, home);
     res.json({ success: true, tv });
   } catch (error) {
     console.error('Error updating TV:', error);

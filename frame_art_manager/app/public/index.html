@@ -128,46 +128,62 @@
           <button id="go-home-btn" class="btn-icon close-simple" title="Back to Gallery">✕</button>
         </div>
         
-        <div class="subsection">
-          <h3>Library Path</h3>
-          <div class="info-box">
-            <span class="path-label">📁 Current Path:</span>
-            <code id="advanced-path-value" class="path-code">Loading...</code>
+        <!-- Sub-tabs for Advanced section -->
+        <div class="advanced-tabs">
+          <button class="advanced-tab-btn active" data-tab="settings">Settings</button>
+          <button class="advanced-tab-btn" data-tab="metadata">Metadata</button>
+        </div>
+
+        <!-- Settings Sub-tab -->
+        <div id="advanced-settings-content" class="advanced-tab-content active">
+          <div class="subsection">
+            <h3>Library Path</h3>
+            <div class="info-box">
+              <span class="path-label">📁 Current Path:</span>
+              <code id="advanced-path-value" class="path-code">Loading...</code>
+            </div>
+          </div>
+
+          <div class="subsection">
+            <h3>Manage Tags</h3>
+            <form id="tag-form" class="inline-form">
+              <input type="text" id="tag-name" placeholder="New Tag" required />
+              <button type="submit" class="btn-primary">Add Tag</button>
+            </form>
+
+            <div id="tag-list" class="tag-cloud">
+              <!-- Tag list will be loaded here -->
+            </div>
+          </div>
+
+          <div class="subsection">
+            <h3>Manage TVs</h3>
+            <form id="tv-form" class="inline-form">
+              <input type="text" id="tv-name" placeholder="TV Name" required />
+              <input type="text" id="tv-ip" placeholder="IP Address (e.g., 192.168.1.100)" required />
+              <select id="tv-home" title="Home">
+                <option value="Madrone">Madrone</option>
+                <option value="Maui">Maui</option>
+              </select>
+              <button type="submit" class="btn-primary">Add TV</button>
+            </form>
+
+            <div id="tv-list" class="list">
+              <!-- TV list will be loaded here -->
+            </div>
           </div>
         </div>
 
-        <div class="subsection">
-          <h3>Manage Tags</h3>
-          <form id="tag-form" class="inline-form">
-            <input type="text" id="tag-name" placeholder="New Tag" required />
-            <button type="submit" class="btn-primary">Add Tag</button>
-          </form>
-
-          <div id="tag-list" class="tag-cloud">
-            <!-- Tag list will be loaded here -->
-          </div>
-        </div>
-
-        <div class="subsection">
-          <h3>Manage TVs</h3>
-          <form id="tv-form" class="inline-form">
-            <input type="text" id="tv-name" placeholder="TV Name" required />
-            <input type="text" id="tv-ip" placeholder="IP Address (e.g., 192.168.1.100)" required />
-            <button type="submit" class="btn-primary">Add TV</button>
-          </form>
-
-          <div id="tv-list" class="list">
-            <!-- TV list will be loaded here -->
-          </div>
-        </div>
-
-        <div class="subsection">
-          <h3>Metadata Backend</h3>
-          <p>View the raw metadata.json file for debugging</p>
-          <button id="refresh-metadata-btn" class="btn-primary">Refresh Metadata</button>
-          
-          <div class="metadata-viewer">
-            <pre id="metadata-content" class="code-block">Loading metadata...</pre>
+        <!-- Metadata Sub-tab -->
+        <div id="advanced-metadata-content" class="advanced-tab-content">
+          <div class="subsection">
+            <h3>Metadata Backend</h3>
+            <p>View the raw metadata.json file for debugging</p>
+            <button id="refresh-metadata-btn" class="btn-primary">Refresh Metadata</button>
+            
+            <div class="metadata-viewer">
+              <pre id="metadata-content" class="code-block">Loading metadata...</pre>
+            </div>
           </div>
         </div>
       </div>
@@ -263,6 +279,13 @@
           <input type="text" id="tv-modal-ip" placeholder="192.168.1.100" />
         </div>
         <div class="form-group">
+          <label>Home:</label>
+          <div class="toggle-group" role="group" aria-label="Home">
+            <button type="button" id="tv-home-madrone" class="toggle-btn" data-value="Madrone">Madrone</button>
+            <button type="button" id="tv-home-maui" class="toggle-btn" data-value="Maui">Maui</button>
+          </div>
+        </div>
+        <div class="form-group">
           <label>Display Tags:</label>
           <div id="tv-modal-tag-pills" class="tag-pills-container">
             <!-- Tag pills will be populated here -->
@@ -273,9 +296,11 @@
           <p><small>Added: <span id="tv-modal-date"></span></small></p>
         </div>
         <div class="tv-modal-actions">
-          <button id="tv-modal-save-btn" class="btn-primary">Save Changes</button>
           <button id="tv-modal-delete-btn" class="btn-danger">Delete TV</button>
-          <button id="tv-modal-cancel-btn" class="btn-secondary">Cancel</button>
+          <div class="tv-modal-actions-right">
+            <button id="tv-modal-cancel-btn" class="btn-secondary">Cancel</button>
+            <button id="tv-modal-save-btn" class="btn-primary">Save Changes</button>
+          </div>
         </div>
       </div>
     </div>

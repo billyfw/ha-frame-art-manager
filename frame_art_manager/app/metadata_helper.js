@@ -247,13 +247,15 @@ class MetadataHelper {
   /**
    * Add a TV to the list
    */
-  async addTV(name, ip) {
+  async addTV(name, ip, home = 'Madrone') {
     const metadata = await this.readMetadata();
     
     const tv = {
       id: Date.now().toString(),
       name,
       ip,
+      // Default or provided home
+      home: (home === 'Madrone' || home === 'Maui') ? home : 'Madrone',
       added: new Date().toISOString()
     };
 
@@ -299,7 +301,7 @@ class MetadataHelper {
   /**
    * Update TV name and IP
    */
-  async updateTV(tvId, name, ip) {
+  async updateTV(tvId, name, ip, home) {
     const metadata = await this.readMetadata();
     const tv = metadata.tvs.find(t => t.id === tvId);
     
@@ -309,6 +311,9 @@ class MetadataHelper {
 
     tv.name = name;
     tv.ip = ip;
+    if (home === 'Madrone' || home === 'Maui') {
+      tv.home = home;
+    }
     await this.writeMetadata(metadata);
     return tv;
   }
