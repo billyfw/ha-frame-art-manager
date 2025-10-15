@@ -10,6 +10,7 @@ const fs = require('fs').promises;
 const imagesRouter = require('./routes/images');
 const tvsRouter = require('./routes/tvs');
 const tagsRouter = require('./routes/tags');
+const syncRouter = require('./routes/sync');
 
 const app = express();
 const PORT = process.env.PORT || 8099;
@@ -51,6 +52,7 @@ app.use((req, res, next) => {
 app.use('/api/images', imagesRouter);
 app.use('/api/tvs', tvsRouter);
 app.use('/api/tags', tagsRouter);
+app.use('/api/sync', syncRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -109,9 +111,87 @@ async function initializeDirectories() {
   }
 }
 
+// Verify Git repository configuration on startup
+async function verifyGitConfiguration() {
+  const GitHelper = require('./git_helper');
+  
+  try {
+    console.log('\n🔍 Verifying Git configuration...');
+    const git = new GitHelper(FRAME_ART_PATH);
+    const verification = await git.verifyConfiguration();
+    
+    if (verification.isValid) {
+      console.log('✅ Git configuration valid');
+      console.log(`   - Repository: ${verification.checks.remoteUrl}`);
+      console.log(`   - Branch: ${verification.checks.currentBranch}`);
+      console.log(`   - Git LFS: Configured`);
+      
+      // Auto-pull on startup if enabled
+      if (process.env.GIT_AUTO_PULL_ON_STARTUP !== 'false') {
+        console.log('\n🔄 Syncing with remote...');
+        
+        // First, check if we have uncommitted local changes
+        const status = await git.getStatus();
+        
+        if (status.files.length > 0) {
+          console.log('📝 Found uncommitted local changes, committing first...');
+          const commitResult = await git.commitChanges(
+            'Auto-commit from ha-frame-art-manager: sync uncommitted changes on startup',
+            null
+          );
+          
+          if (commitResult.success) {
+            console.log('✅ Committed local changes');
+          } else {
+            console.warn('⚠️  Failed to commit local changes:', commitResult.error);
+          }
+        }
+        
+        // Now try to pull
+        const pullResult = await git.pullLatest();
+        
+        if (pullResult.success) {
+          console.log('✅ Successfully pulled latest changes');
+        } else if (pullResult.hasConflicts) {
+          console.warn('⚠️  WARNING: Merge conflicts detected!');
+          console.warn('   Manual resolution required before sync operations');
+        } else {
+          console.warn('⚠️  Pull failed:', pullResult.error);
+        }
+        
+        // If we had local changes or unpushed commits, push them
+        const finalStatus = await git.getStatus();
+        if (finalStatus.ahead > 0) {
+          console.log('📤 Pushing local changes to remote...');
+          const pushResult = await git.pushChanges();
+          
+          if (pushResult.success) {
+            console.log('✅ Successfully pushed to remote');
+          } else {
+            console.warn('⚠️  Push failed:', pushResult.error);
+            console.warn('   Will retry on next operation');
+          }
+        }
+      }
+    } else {
+      console.warn('⚠️  WARNING: Git configuration issues detected:');
+      verification.errors.forEach(error => {
+        console.warn(`   - ${error}`);
+      });
+      console.warn('\n   Sync operations may not work correctly.');
+      console.warn('   Please ensure FRAME_ART_PATH points to the billyfw/frame_art repository.');
+    }
+  } catch (error) {
+    console.error('❌ Error verifying Git configuration:', error.message);
+    console.error('   Sync features will be unavailable.');
+  }
+}
+
 // Start server
 app.listen(PORT, async () => {
   console.log(`Frame Art Manager running on port ${PORT}`);
   console.log(`Frame art path: ${FRAME_ART_PATH}`);
   await initializeDirectories();
+  await verifyGitConfiguration();
+  console.log('\n✨ Server ready!\n');
 });
