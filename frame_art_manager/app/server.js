@@ -5,6 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs').promises;
+const os = require('os');
 
 // Import route handlers
 const imagesRouter = require('./routes/images');
@@ -18,10 +19,15 @@ const PORT = process.env.PORT || 8099;
 // Get the frame art path from environment variable or use defaults
 // Production (Home Assistant add-on): /config/www/frame_art
 // Development: Set FRAME_ART_PATH in .env file
-const FRAME_ART_PATH = process.env.FRAME_ART_PATH || 
+let FRAME_ART_PATH = process.env.FRAME_ART_PATH || 
   (process.env.NODE_ENV === 'production' 
     ? '/config/www/frame_art' 
     : null);
+
+// Expand tilde (~) to home directory if present
+if (FRAME_ART_PATH && FRAME_ART_PATH.startsWith('~/')) {
+  FRAME_ART_PATH = path.join(os.homedir(), FRAME_ART_PATH.slice(2));
+}
 
 // Validate that FRAME_ART_PATH is set
 if (!FRAME_ART_PATH) {
@@ -126,51 +132,27 @@ async function verifyGitConfiguration() {
       console.log(`   - Branch: ${verification.checks.currentBranch}`);
       console.log(`   - Git LFS: Configured`);
       
-      // Auto-pull on startup if enabled
+      // Auto-sync on startup if enabled
       if (process.env.GIT_AUTO_PULL_ON_STARTUP !== 'false') {
         console.log('\n🔄 Syncing with remote...');
+        const syncResult = await git.checkAndPullIfBehind();
         
-        // First, check if we have uncommitted local changes
-        const status = await git.getStatus();
-        
-        if (status.files.length > 0) {
-          console.log('📝 Found uncommitted local changes, committing first...');
-          const commitResult = await git.commitChanges(
-            'Auto-commit from ha-frame-art-manager: sync uncommitted changes on startup',
-            null
-          );
-          
-          if (commitResult.success) {
-            console.log('✅ Committed local changes');
-          } else {
-            console.warn('⚠️  Failed to commit local changes:', commitResult.error);
+        if (syncResult.success && syncResult.pulledChanges) {
+          console.log(`✅ ${syncResult.message}`);
+        } else if (syncResult.skipped) {
+          console.warn(`⚠️  WARNING: ${syncResult.reason}`);
+          if (syncResult.uncommittedFiles && syncResult.uncommittedFiles.length > 0) {
+            console.warn('   Files:', syncResult.uncommittedFiles.join(', '));
           }
-        }
-        
-        // Now try to pull
-        const pullResult = await git.pullLatest();
-        
-        if (pullResult.success) {
-          console.log('✅ Successfully pulled latest changes');
-        } else if (pullResult.hasConflicts) {
-          console.warn('⚠️  WARNING: Merge conflicts detected!');
-          console.warn('   Manual resolution required before sync operations');
+          console.warn('   Skipping auto-pull to avoid conflicts.');
+          console.warn('   Please commit or stash changes manually, then restart or use manual sync.');
+        } else if (!syncResult.success) {
+          console.warn(`⚠️  Sync failed: ${syncResult.error}`);
+          if (syncResult.hasConflicts) {
+            console.warn('   Merge conflicts detected - manual resolution required.');
+          }
         } else {
-          console.warn('⚠️  Pull failed:', pullResult.error);
-        }
-        
-        // If we had local changes or unpushed commits, push them
-        const finalStatus = await git.getStatus();
-        if (finalStatus.ahead > 0) {
-          console.log('📤 Pushing local changes to remote...');
-          const pushResult = await git.pushChanges();
-          
-          if (pushResult.success) {
-            console.log('✅ Successfully pushed to remote');
-          } else {
-            console.warn('⚠️  Push failed:', pushResult.error);
-            console.warn('   Will retry on next operation');
-          }
+          console.log('✅ Already up to date');
         }
       }
     } else {
@@ -191,7 +173,7 @@ async function verifyGitConfiguration() {
 app.listen(PORT, async () => {
   console.log(`Frame Art Manager running on port ${PORT}`);
   console.log(`Frame art path: ${FRAME_ART_PATH}`);
-  await initializeDirectories();
   await verifyGitConfiguration();
+  await initializeDirectories();
   console.log('\n✨ Server ready!\n');
 });

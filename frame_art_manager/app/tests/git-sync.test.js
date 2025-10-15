@@ -1,0 +1,376 @@
+/**
+ * Git Sync Tests
+ * Tests for the Git LFS sync functionality
+ */
+
+const assert = require('assert');
+const path = require('path');
+const fs = require('fs').promises;
+const os = require('os');
+const simpleGit = require('simple-git');
+const GitHelper = require('../git_helper');
+
+// Test configuration
+const FRAME_ART_PATH = process.env.FRAME_ART_PATH || 
+  path.join(os.homedir(), 'devprojects/ha-config/www/frame_art');
+
+// Test repo for integration tests
+let testRepoPath = null;
+const TEST_REPO_URL = 'git@github.com:billyfw/frame_art.git';
+
+// Color output helpers
+const colors = {
+  green: '\x1b[32m',
+  red: '\x1b[31m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  reset: '\x1b[0m'
+};
+
+function logSuccess(msg) {
+  console.log(`${colors.green}✓${colors.reset} ${msg}`);
+}
+
+function logError(msg) {
+  console.log(`${colors.red}✗${colors.reset} ${msg}`);
+}
+
+function logInfo(msg) {
+  console.log(`${colors.yellow}ℹ${colors.reset} ${msg}`);
+}
+
+function logSection(msg) {
+  console.log(`\n${colors.blue}${msg}${colors.reset}`);
+}
+
+// Test suite
+const tests = [];
+function test(name, fn) {
+  tests.push({ name, fn });
+}
+
+// Setup test repo before all tests
+async function setupTestRepo() {
+  try {
+    testRepoPath = path.join(os.tmpdir(), 'frame-art-test-' + Date.now());
+    
+    logInfo(`Setting up test repo at ${testRepoPath}...`);
+    
+    // Shallow clone for speed
+    await simpleGit().clone(TEST_REPO_URL, testRepoPath, ['--depth', '5']);
+    
+    logInfo('Test repo setup complete');
+    return true;
+  } catch (error) {
+    logInfo(`Could not setup test repo: ${error.message}`);
+    logInfo('Integration tests will be skipped');
+    return false;
+  }
+}
+
+// Cleanup test repo after all tests
+async function cleanupTestRepo() {
+  if (testRepoPath) {
+    try {
+      await fs.rm(testRepoPath, { recursive: true, force: true });
+      logInfo('Test repo cleaned up');
+    } catch (error) {
+      logInfo(`Warning: Could not cleanup test repo: ${error.message}`);
+    }
+  }
+}
+
+// Run all tests
+async function runTests() {
+  console.log('\n🧪 Running Git Sync Tests...\n');
+  
+  // Setup test repo for integration tests
+  const hasTestRepo = await setupTestRepo();
+  
+  let passed = 0;
+  let failed = 0;
+  let skipped = 0;
+  
+  for (const t of tests) {
+    // Skip integration tests if test repo not available
+    if (t.name.startsWith('INTEGRATION:') && !hasTestRepo) {
+      logInfo(`${t.name} (skipped - no test repo)`);
+      skipped++;
+      continue;
+    }
+    
+    try {
+      await t.fn();
+      logSuccess(t.name);
+      passed++;
+    } catch (error) {
+      logError(`${t.name}\n   ${error.message}`);
+      failed++;
+    }
+  }
+  
+  // Cleanup
+  await cleanupTestRepo();
+  
+  console.log(`\n${passed} passed, ${failed} failed${skipped > 0 ? `, ${skipped} skipped` : ''}\n`);
+  
+  if (failed > 0) {
+    process.exit(1);
+  }
+}
+
+// ============================================================================
+// TESTS
+// ============================================================================
+
+test('GitHelper can be instantiated', () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  assert.ok(git, 'GitHelper should be instantiated');
+  assert.strictEqual(git.frameArtPath, FRAME_ART_PATH, 'Path should be set correctly');
+});
+
+test('verifyConfiguration returns valid structure', async () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  const result = await git.verifyConfiguration();
+  
+  assert.ok(result, 'Should return a result');
+  assert.ok(typeof result.isValid === 'boolean', 'Should have isValid boolean');
+  
+  if (result.isValid) {
+    assert.ok(result.checks, 'Should have checks object');
+    assert.ok(result.checks.remoteUrl, 'Should have remote URL');
+    assert.ok(result.checks.currentBranch, 'Should have current branch');
+  } else {
+    assert.ok(Array.isArray(result.errors), 'Should have errors array');
+  }
+});
+
+test('getStatus returns status structure', async () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  const status = await git.getStatus();
+  
+  assert.ok(status, 'Should return a status');
+  assert.ok(typeof status.ahead === 'number', 'Should have ahead count');
+  assert.ok(typeof status.behind === 'number', 'Should have behind count');
+  assert.ok(Array.isArray(status.files), 'Should have files array');
+  assert.ok(Array.isArray(status.modified), 'Should have modified array');
+  assert.ok(Array.isArray(status.created), 'Should have created array');
+  assert.ok(Array.isArray(status.deleted), 'Should have deleted array');
+});
+
+test('checkAndPullIfBehind returns proper structure', async () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  const result = await git.checkAndPullIfBehind();
+  
+  assert.ok(result, 'Should return a result');
+  assert.ok(typeof result.success === 'boolean', 'Should have success boolean');
+  assert.ok(typeof result.synced === 'boolean', 'Should have synced boolean');
+  
+  if (result.skipped) {
+    assert.ok(result.reason, 'Should have reason if skipped');
+  }
+  
+  if (result.pulledChanges) {
+    assert.ok(result.message, 'Should have message if pulled changes');
+  }
+  
+  if (!result.success) {
+    assert.ok(result.error, 'Should have error message if failed');
+  }
+});
+
+test('checkAndPullIfBehind handles clean working tree', async () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  const status = await git.getStatus();
+  
+  if (status.files.length === 0) {
+    // Working tree is clean, should attempt sync
+    const result = await git.checkAndPullIfBehind();
+    assert.ok(result.success, 'Should succeed with clean working tree');
+    assert.ok(!result.skipped, 'Should not skip with clean working tree');
+  } else {
+    logInfo('Skipping clean working tree test - uncommitted changes present');
+  }
+});
+
+test('checkAndPullIfBehind is idempotent', async () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  
+  // Run twice
+  const result1 = await git.checkAndPullIfBehind();
+  const result2 = await git.checkAndPullIfBehind();
+  
+  // Both should succeed
+  assert.ok(result1.success, 'First call should succeed');
+  assert.ok(result2.success, 'Second call should succeed');
+  
+  // If first didn't skip, second should show "already up to date"
+  if (!result1.skipped && result1.success) {
+    assert.ok(result2.synced, 'Second call should be synced');
+    assert.ok(!result2.pulledChanges, 'Second call should not pull changes');
+  }
+});
+
+test('verifyConfiguration checks for billyfw/frame_art repo', async () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  const result = await git.verifyConfiguration();
+  
+  if (result.isValid) {
+    const remoteUrl = result.checks.remoteUrl || '';
+    assert.ok(
+      remoteUrl.includes('billyfw/frame_art') || remoteUrl.includes('billyfw:frame_art'),
+      `Remote URL should contain billyfw/frame_art, got: ${remoteUrl}`
+    );
+  } else {
+    logInfo('Skipping remote check - configuration invalid');
+  }
+});
+
+test('getBranchInfo returns branch information', async () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  const branchInfo = await git.getBranchInfo();
+  
+  assert.ok(branchInfo, 'Should return branch info');
+  assert.ok(branchInfo.branch, 'Should have branch name');
+  assert.ok(typeof branchInfo.branch === 'string', 'Branch should be a string');
+});
+
+test('pullLatest returns proper result structure', async () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  const status = await git.getStatus();
+  
+  // Only test pull if working tree is clean
+  if (status.files.length === 0) {
+    const result = await git.pullLatest();
+    
+    assert.ok(result, 'Should return a result');
+    assert.ok(typeof result.success === 'boolean', 'Should have success boolean');
+    
+    if (!result.success) {
+      assert.ok(result.error, 'Should have error message if failed');
+      assert.ok(typeof result.hasConflicts === 'boolean', 'Should have hasConflicts boolean');
+    }
+  } else {
+    logInfo('Skipping pullLatest test - uncommitted changes present');
+  }
+});
+
+// ============================================================================
+// INTEGRATION TESTS (with isolated test repo)
+// ============================================================================
+
+test('INTEGRATION: pull when 1 commit behind', async () => {
+  const git = new GitHelper(testRepoPath);
+  
+  // Reset 1 commit behind
+  await git.git.reset(['--hard', 'HEAD~1']);
+  
+  const result = await git.checkAndPullIfBehind();
+  
+  assert.ok(result.success, 'Should succeed');
+  assert.ok(result.pulledChanges, 'Should have pulled changes');
+  assert.strictEqual(result.commitsReceived, 1, 'Should have pulled 1 commit');
+});
+
+test('INTEGRATION: pull when 2 commits behind', async () => {
+  const git = new GitHelper(testRepoPath);
+  
+  // Reset 2 commits behind
+  await git.git.reset(['--hard', 'HEAD~2']);
+  
+  const result = await git.checkAndPullIfBehind();
+  
+  assert.ok(result.success, 'Should succeed');
+  assert.ok(result.pulledChanges, 'Should have pulled changes');
+  assert.strictEqual(result.commitsReceived, 2, 'Should have pulled 2 commits');
+});
+
+test('INTEGRATION: skip pull when uncommitted changes exist', async () => {
+  const git = new GitHelper(testRepoPath);
+  
+  // Reset 1 commit behind
+  await git.git.reset(['--hard', 'HEAD~1']);
+  
+  // Create uncommitted change
+  const testFile = path.join(testRepoPath, 'test-uncommitted.txt');
+  await fs.writeFile(testFile, 'test content');
+  
+  try {
+    const result = await git.checkAndPullIfBehind();
+    
+    assert.ok(result.success, 'Should succeed (but skip)');
+    assert.ok(result.skipped, 'Should be skipped');
+    assert.strictEqual(result.reason, 'Uncommitted local changes detected', 'Should have correct reason message');
+    assert.ok(Array.isArray(result.uncommittedFiles), 'Should list uncommitted files');
+    assert.ok(result.uncommittedFiles.length > 0, 'Should have at least one uncommitted file');
+  } finally {
+    // Cleanup
+    await fs.unlink(testFile).catch(() => {});
+  }
+});
+
+test('INTEGRATION: already up to date returns correct status', async () => {
+  const git = new GitHelper(testRepoPath);
+  
+  // Ensure we're at HEAD (up to date)
+  await git.git.reset(['--hard', 'origin/main']);
+  
+  const result = await git.checkAndPullIfBehind();
+  
+  assert.ok(result.success, 'Should succeed');
+  assert.ok(result.synced, 'Should be synced');
+  assert.strictEqual(result.pulledChanges, false, 'Should not have pulled changes');
+  assert.ok(result.message, 'Should have message');
+});
+
+test('INTEGRATION: pull actually updates working tree', async () => {
+  const git = new GitHelper(testRepoPath);
+  
+  // Get current HEAD
+  const originalHead = await git.git.revparse(['HEAD']);
+  
+  // Reset 1 commit behind
+  await git.git.reset(['--hard', 'HEAD~1']);
+  
+  // Verify we're behind
+  const beforeHead = await git.git.revparse(['HEAD']);
+  assert.notStrictEqual(beforeHead, originalHead, 'Should be at different commit');
+  
+  // Pull
+  const result = await git.checkAndPullIfBehind();
+  assert.ok(result.success && result.pulledChanges, 'Pull should succeed');
+  
+  // Verify we're back at original HEAD
+  const afterHead = await git.git.revparse(['HEAD']);
+  assert.strictEqual(afterHead, originalHead, 'Should be back at original HEAD');
+});
+
+test('INTEGRATION: multiple consecutive pulls are idempotent', async () => {
+  const git = new GitHelper(testRepoPath);
+  
+  // Ensure we're up to date
+  await git.git.reset(['--hard', 'origin/main']);
+  
+  // First call
+  const result1 = await git.checkAndPullIfBehind();
+  assert.ok(result1.success, 'First call should succeed');
+  
+  // Second call
+  const result2 = await git.checkAndPullIfBehind();
+  assert.ok(result2.success, 'Second call should succeed');
+  assert.strictEqual(result2.pulledChanges, false, 'Second call should not pull');
+  
+  // Third call
+  const result3 = await git.checkAndPullIfBehind();
+  assert.ok(result3.success, 'Third call should succeed');
+  assert.strictEqual(result3.pulledChanges, false, 'Third call should not pull');
+});
+
+// ============================================================================
+// RUN TESTS
+// ============================================================================
+
+runTests().catch(error => {
+  console.error('Test runner error:', error);
+  process.exit(1);
+});

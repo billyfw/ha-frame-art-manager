@@ -1,135 +1,268 @@
-# Documentation Index
+# Frame Art Manager# Documentation Index
 
-This folder contains comprehensive documentation for the Frame Art Manager project. Everything you need to understand what's built and continue development is documented here.
 
-## 🎯 Quick Start Guide
 
-### New to the Project?
-```
-1. Read STATUS.md → Understand what's built and what's left
-2. Read QUICK_REFERENCE.md → Get set up and start coding  
-3. Reference API.md → Look up endpoints while working
+> Web interface for managing Samsung Frame TV artwork in Home AssistantThis folder contains comprehensive documentation for the Frame Art Manager project. Everything you need to understand what's built and continue development is documented here.
+
+
+
+## Quick Start## 🎯 Quick Start Guide
+
+
+
+```bash### New to the Project?
+
+# 1. Clone and setup```
+
+cd frame_art_manager/app1. Read STATUS.md → Understand what's built and what's left
+
+export FRAME_ART_PATH="~/devprojects/ha-config/www/frame_art"2. Read QUICK_REFERENCE.md → Get set up and start coding  
+
+npm install3. Reference API.md → Look up endpoints while working
+
 4. Reference ARCHITECTURE.md → Understand how things fit together
-```
+
+# 2. Run tests```
+
+npm test              # 40 tests, ~15 seconds
 
 ### Continuing Development?
-```
-1. Check STATUS.md → See pending features
-2. Read relevant feature docs → Understand existing implementations
-3. Use QUICK_REFERENCE.md → Find common patterns to follow
+
+# 3. Start server```
+
+npm start            # Runs tests first, then starts server1. Check STATUS.md → See pending features
+
+npm run dev          # Skip tests for faster iteration2. Read relevant feature docs → Understand existing implementations
+
+```3. Use QUICK_REFERENCE.md → Find common patterns to follow
+
 4. Update docs as you go → Keep STATUS.md current
+
+Visit: http://localhost:8099```
+
+
+
+---### Understanding a Specific Feature?
+
 ```
 
-### Understanding a Specific Feature?
-```
-1. Check this README → Find the right document
+## What's This?1. Check this README → Find the right document
+
 2. Read the feature doc → Understand implementation
-3. Look at code examples → See how it's done
+
+Frame Art Manager helps you organize artwork for Samsung Frame TVs integrated with Home Assistant.3. Look at code examples → See how it's done
+
 ```
+
+**Core Features:**
+
+- Upload & organize images with tags---
+
+- Configure TVs with tag-based filtering  
+
+- Bulk operations (tag multiple images)## 📋 Core Documentation
+
+- Search, filter, and sort
+
+- Rename images (preserves UUID)### ⭐ Start Here
+
+- Auto thumbnail generation
+
+- Git LFS sync (auto-pull)**[STATUS.md](STATUS.md)** - Current implementation status
+
+- ✅ Completed features (all core functionality)
+
+---- 📋 Pending work (Git LFS, AppDaemon, containerization)
+
+- 📊 Project statistics and metrics
+
+## Project Status- 🎯 Next milestones and roadmap
+
+
+
+✅ **Phase 2 Complete** - Web interface fully functional with automated testing**[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Developer quick reference
+
+- Setup instructions (export FRAME_ART_PATH, npm install)
+
+### Completed- Project structure overview
+
+- Image management (upload, tag, rename, delete)- Common tasks and patterns
+
+- TV configuration with tag filtering- API endpoint cheatsheet
+
+- Bulk operations and multi-select- CSS classes reference
+
+- Search, filter, sort functionality- Debugging tips and workflows
+
+- Git LFS auto-pull (startup + page load)
+
+- 40 automated tests (100% passing)### 📚 Technical Documentation
+
+- Professional UI with modals
+
+**[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture
+
+### In Progress  - Technology stack (Node.js, Express, sharp, vanilla JS)
+
+- Manual Git sync UI (pull/push buttons)- MVC-like pattern (server, routes, helpers, views)
+
+- Sync status indicators- Component descriptions and responsibilities
+
+- Data flow diagrams
+
+### Pending- File system structure
+
+- AppDaemon integration (display images on TVs)- Security and performance considerations
+
+- Docker containerization
+
+- Home Assistant add-on packaging**[API.md](API.md)** - Complete REST API reference
+
+- HACS distribution- All 18 endpoints with examples
+
+- Request/response formats
+
+---- Data models (Image, TV, Tag)
+
+- Error responses (400, 404, 409, 500)
+
+## Documentation- UUID system explanation
+
+- Static file serving
+
+- **README.md** (this file) - Overview and quick start
+
+- **[STATUS.md](STATUS.md)** - Detailed progress checklist and roadmap### 🎨 Feature Documentation
+
+- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Setup, API, architecture, testing
+
+- **[FEATURES.md](FEATURES.md)** - UI guide and user workflows**[UI_FEATURES.md](UI_FEATURES.md)** - User interface guide
+
+- Tab-by-tab feature descriptions (Gallery, Upload, TVs, Tags, Sync, Advanced)
+
+---- Toolbar and controls (search, filter, sort)
+
+- Modal systems (image detail, TV detail, bulk tag)
+
+## Key Concepts- Interaction patterns (click-outside, hover effects)
+
+- Design principles (clean, compact, responsive)
+
+### UUID System- State management (allImages, allTags, allTVs, selectedImages)
+
+Images get unique 8-char suffixes to prevent conflicts:
+
+```**[RENAME_FEATURE.md](RENAME_FEATURE.md)** - Image rename functionality
+
+photo.jpg → photo-a1b2c3d4.jpg- UI flow (pencil icon → inline form)
+
+```- Backend implementation (UUID preservation)
+
+- Sanitization rules (lowercase, alphanumeric + hyphens)
+
+### Tag Filtering- File operations (library + thumbnails + metadata)
+
+TVs can be assigned tags to control what displays:- Error handling and validation
+
+```javascript
+
+{**[TV_TAG_FILTERING.md](TV_TAG_FILTERING.md)** - TV tag assignment
+
+  "name": "Living Room TV",- Tag selection per TV (multi-select dropdown)
+
+  "tags": ["landscape", "nature"]  // Only shows tagged images- Display logic (empty = all images, tags = filter)
+
+}- Backend data structure
+
+```- AppDaemon integration notes
+
+- Future enhancements (AND logic, exclude tags)
+
+### Git LFS Integration
+
+- Auto-pulls on server startup (if enabled)**[TV_DETAIL_MODAL.md](TV_DETAIL_MODAL.md)** - TV modal implementation
+
+- Auto-pulls on page load (if behind)- Modal pattern (click row → detail view)
+
+- Skips pull if uncommitted changes exist- Editable fields (name, IP, tags)
+
+- Action buttons (Save, Delete, Cancel)
+
+---- Benefits (cleaner UI, better UX)
+
+
+
+## Testing### 📖 Legacy Documentation
+
+
+
+```bash**[START.md](START.md)** - Original getting started guide
+
+npm test                # All 40 tests (~15 seconds)- Basic setup instructions
+
+npm run test:git        # Git sync (15 tests)- Environment variables
+
+npm run test:metadata   # Metadata CRUD (16 tests)  - Development vs production
+
+npm run test:coordination # File operations (9 tests)
+
+```**[THUMBNAILS.md](THUMBNAILS.md)** - Thumbnail system
+
+- Auto-generation on upload (400x300px)
+
+All tests run in isolated `/tmp` directories - never touches production data.- sharp library usage
+
+- Naming convention (matches original)
 
 ---
 
-## 📋 Core Documentation
-
-### ⭐ Start Here
-
-**[STATUS.md](STATUS.md)** - Current implementation status
-- ✅ Completed features (all core functionality)
-- 📋 Pending work (Git LFS, AppDaemon, containerization)
-- 📊 Project statistics and metrics
-- 🎯 Next milestones and roadmap
-
-**[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Developer quick reference
-- Setup instructions (export FRAME_ART_PATH, npm install)
-- Project structure overview
-- Common tasks and patterns
-- API endpoint cheatsheet
-- CSS classes reference
-- Debugging tips and workflows
-
-### 📚 Technical Documentation
-
-**[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture
-- Technology stack (Node.js, Express, sharp, vanilla JS)
-- MVC-like pattern (server, routes, helpers, views)
-- Component descriptions and responsibilities
-- Data flow diagrams
-- File system structure
-- Security and performance considerations
-
-**[API.md](API.md)** - Complete REST API reference
-- All 18 endpoints with examples
-- Request/response formats
-- Data models (Image, TV, Tag)
-- Error responses (400, 404, 409, 500)
-- UUID system explanation
-- Static file serving
-
-### 🎨 Feature Documentation
-
-**[UI_FEATURES.md](UI_FEATURES.md)** - User interface guide
-- Tab-by-tab feature descriptions (Gallery, Upload, TVs, Tags, Sync, Advanced)
-- Toolbar and controls (search, filter, sort)
-- Modal systems (image detail, TV detail, bulk tag)
-- Interaction patterns (click-outside, hover effects)
-- Design principles (clean, compact, responsive)
-- State management (allImages, allTags, allTVs, selectedImages)
-
-**[RENAME_FEATURE.md](RENAME_FEATURE.md)** - Image rename functionality
-- UI flow (pencil icon → inline form)
-- Backend implementation (UUID preservation)
-- Sanitization rules (lowercase, alphanumeric + hyphens)
-- File operations (library + thumbnails + metadata)
-- Error handling and validation
-
-**[TV_TAG_FILTERING.md](TV_TAG_FILTERING.md)** - TV tag assignment
-- Tag selection per TV (multi-select dropdown)
-- Display logic (empty = all images, tags = filter)
-- Backend data structure
-- AppDaemon integration notes
-- Future enhancements (AND logic, exclude tags)
-
-**[TV_DETAIL_MODAL.md](TV_DETAIL_MODAL.md)** - TV modal implementation
-- Modal pattern (click row → detail view)
-- Editable fields (name, IP, tags)
-- Action buttons (Save, Delete, Cancel)
-- Benefits (cleaner UI, better UX)
-
-### 📖 Legacy Documentation
-
-**[START.md](START.md)** - Original getting started guide
-- Basic setup instructions
-- Environment variables
-- Development vs production
-
-**[THUMBNAILS.md](THUMBNAILS.md)** - Thumbnail system
-- Auto-generation on upload (400x300px)
-- sharp library usage
-- Naming convention (matches original)
-
 **[UPLOAD_NAMING.md](UPLOAD_NAMING.md)** - UUID naming system
-- Filename format (basename-uuid.ext)
-- 8-character hex UUID
-- Sanitization process
 
-**[MULTI_SELECT.md](MULTI_SELECT.md)** - Bulk selection
-- Selection methods (click checkbox)
-- Visual feedback (selected state)
+## Technology- Filename format (basename-uuid.ext)
+
+- 8-character hex UUID
+
+- **Backend**: Node.js + Express- Sanitization process
+
+- **Frontend**: Vanilla HTML/CSS/JS
+
+- **Storage**: JSON file + filesystem**[MULTI_SELECT.md](MULTI_SELECT.md)** - Bulk selection
+
+- **Image Processing**: Sharp- Selection methods (click checkbox)
+
+- **Git**: simple-git for LFS- Visual feedback (selected state)
+
 - Bulk operations interface
+
+---
 
 ### 🔧 Project Management
 
+## Stats
+
 **[../DEVELOPMENT.md](../DEVELOPMENT.md)** - Overall development plan
-- Phase 2 implementation (current)
-- Repository structure
-- Implementation steps (Step 3: ✅ Complete)
-- Next steps (containerization, HACS)
 
----
+- **Code**: ~4,000 lines (backend + frontend + tests)- Phase 2 implementation (current)
 
-## 📊 What's Documented
+- **Tests**: 40 tests, 100% passing- Repository structure
 
-### ✅ Complete Feature Coverage
+- **API**: 20 REST endpoints- Implementation steps (Step 3: ✅ Complete)
+
+- **Docs**: 4 files, comprehensive coverage- Next steps (containerization, HACS)
+
+
+
+------
+
+
+
+**For detailed information, see:**## 📊 What's Documented
+
+- Setup & API → [DEVELOPMENT.md](DEVELOPMENT.md)
+
+- Features & UI → [FEATURES.md](FEATURES.md)  ### ✅ Complete Feature Coverage
+
+- Progress & roadmap → [STATUS.md](STATUS.md)
 
 **Image Management**
 - Upload with drag & drop → API.md, UI_FEATURES.md

@@ -40,6 +40,29 @@ router.get('/status', async (req, res) => {
 });
 
 /**
+ * GET /api/sync/check
+ * Check if we're behind remote and auto-pull if needed (for page load)
+ * This is a lightweight endpoint designed to be called on every page load
+ */
+router.get('/check', async (req, res) => {
+  try {
+    const git = new GitHelper(req.frameArtPath);
+    const result = await git.checkAndPullIfBehind();
+    
+    // Return the result directly - it has all the info we need
+    res.json(result);
+    
+  } catch (error) {
+    console.error('Sync check error:', error);
+    res.status(500).json({ 
+      success: false, 
+      synced: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
  * POST /api/sync/verify
  * Verify repo configuration (Git, LFS, remote, branch)
  */

@@ -209,6 +209,10 @@ function formatDate(dateString) {
 document.addEventListener('DOMContentLoaded', async () => {
   initTabs();
   loadLibraryPath();
+  
+  // Check for sync updates on page load (auto-pull if behind)
+  await checkSyncOnLoad();
+  
   await loadTVs(); // Load TVs first so they're available for the filter dropdown
   loadGallery();
   loadTags();
@@ -223,6 +227,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   initSettingsNavigation();
   initUploadNavigation();
 });
+
+// Check for sync updates on page load
+async function checkSyncOnLoad() {
+  try {
+    console.log('Checking for cloud updates...');
+    const response = await fetch(`${API_BASE}/sync/check`);
+    const data = await response.json();
+    
+    if (data.success && data.pulledChanges) {
+      console.log(`✅ ${data.message}`);
+      // Optionally show a subtle notification to user
+      // showNotification(`Synced: ${data.message}`, 'success');
+    } else if (data.skipped) {
+      console.log(`⚠️ Sync skipped: ${data.reason}`);
+    } else if (!data.success && data.error) {
+      console.warn(`⚠️ Sync check failed: ${data.error}`);
+    } else {
+      console.log('✅ Already up to date');
+    }
+  } catch (error) {
+    console.error('Error checking sync on load:', error);
+    // Fail silently - don't block page load if sync check fails
+  }
+}
 
 // Load and display library path
 async function loadLibraryPath() {
