@@ -135,7 +135,8 @@ header h1 {
   padding: 6px;
   align-items: stretch;
   flex-wrap: nowrap !important;
-  overflow: hidden;
+  /* Important: allow dropdowns to overflow outside the toolbar */
+  overflow: visible;
   height: 42px;
 }
 
@@ -145,11 +146,13 @@ header h1 {
   gap: 6px;
   padding: 0 8px;
   border-right: 1px solid #e1e4e8;
-  overflow: hidden;
+  /* Allow absolutely-positioned dropdowns to be visible */
+  overflow: visible;
   flex-shrink: 1;
   min-width: 0;
   white-space: nowrap;
   flex-basis: auto;
+  position: relative;
 }
 
 .control-item:last-child {
@@ -173,7 +176,8 @@ header h1 {
   flex: 0 1 auto;
   min-width: 50px;
   max-width: 300px;
-  overflow: hidden;
+  /* Allow dropdowns to overflow this container */
+  overflow: visible;
   white-space: nowrap;
 }
 
@@ -294,6 +298,8 @@ header h1 {
   min-width: 0;
   display: flex;
   align-items: center;
+  /* Create a new stacking context for the dropdown */
+  z-index: 1;
 }
 
 .multiselect-button {
@@ -309,7 +315,8 @@ header h1 {
   gap: 8px;
   outline: none;
   white-space: nowrap;
-  overflow: hidden;
+  /* Do not clip children; inner spans handle truncation */
+  overflow: visible;
   width: 100%;
   min-width: 0;
 }
@@ -350,7 +357,7 @@ header h1 {
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   margin-top: 4px;
-  z-index: 1000;
+  z-index: 9999;
   display: none;
   max-height: 300px;
   overflow-y: auto;
@@ -358,6 +365,12 @@ header h1 {
 
 .multiselect-dropdown.active {
   display: block;
+}
+
+/* Debug style: force dropdown visibility when JS adds .debug-visible */
+.multiselect-dropdown.debug-visible {
+  display: block !important;
+  outline: 2px dashed #d35400;
 }
 
 .tv-shortcuts {
@@ -852,6 +865,21 @@ header h1 {
   background: rgba(0,0,0,0.8);
 }
 
+/* Image modal close button tweaks: white X on light gray, further from right edge */
+#image-modal-close {
+  color: #222222; /* very dark gray */
+  background: #e0e0e0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  right: 28px; /* Further in from the right edge */
+  top: 18px;
+}
+
+#image-modal-close:hover {
+  background: #d5d5d5;
+  color: #222222; /* keep icon dark on hover */
+}
+
 #modal-image {
   width: 100%;
   max-height: 500px;
@@ -1203,8 +1231,8 @@ header h1 {
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     align-items: center !important;
-    overflow-x: hidden;
-    overflow-y: hidden;
+    /* Ensure dropdowns are not clipped on smaller screens */
+    overflow: visible !important;
   }
 
   .control-item {

@@ -10,6 +10,147 @@ let selectedImages = new Set();
 let lastClickedIndex = null;
 let sortAscending = true; // true = ascending (A-Z, oldest first), false = descending
 
+// Debug flag: force the tag filter dropdown to always be visible
+let DEBUG_ALWAYS_SHOW_TAG_DROPDOWN = false;
+
+// Dropdown portal state for reliable visibility/positioning
+const tagDropdownState = {
+  isOpen: false,
+  originalParent: null,
+  originalNextSibling: null,
+  resizeHandler: null,
+  scrollHandler: null,
+};
+
+function getTagFilterElements() {
+  return {
+    btn: document.getElementById('tag-filter-btn'),
+    dropdown: document.getElementById('tag-filter-dropdown'),
+    text: document.getElementById('tag-filter-text')
+  };
+}
+
+function positionTagDropdownToButton() {
+  const { btn, dropdown } = getTagFilterElements();
+  if (!btn || !dropdown) return;
+  // Ensure it's visible to measure size
+  dropdown.style.visibility = 'hidden';
+  dropdown.style.display = 'block';
+  // Use fixed positioning relative to viewport
+  dropdown.style.position = 'fixed';
+  const rect = btn.getBoundingClientRect();
+  // Minimum width matches the button
+  dropdown.style.minWidth = `${Math.max(rect.width, 150)}px`;
+  const dropdownWidth = dropdown.offsetWidth;
+  const margin = 6; // small gap below the button
+  // Align the dropdown's right edge with the button's right edge
+  let left = rect.right - dropdownWidth;
+  let top = rect.bottom + margin;
+  // Prevent overflow to the right
+  if (left + dropdownWidth > window.innerWidth - 8) {
+    const targetRight = Math.min(rect.right, window.innerWidth - 8);
+    left = targetRight - dropdownWidth;
+  }
+  // Prevent overflow to the left
+  if (left < 8) left = 8;
+  // Prevent overflow to the bottom
+  const dropdownHeight = dropdown.offsetHeight;
+  if (top + dropdownHeight > window.innerHeight - 8) {
+    // Try placing above the button
+    const aboveTop = rect.top - dropdownHeight - margin;
+    if (aboveTop >= 8) {
+      top = aboveTop;
+    } else {
+      // Clamp to viewport and let it scroll internally
+      top = Math.max(8, window.innerHeight - dropdownHeight - 8);
+    }
+  }
+  dropdown.style.left = `${left}px`;
+  dropdown.style.top = `${top}px`;
+  dropdown.style.visibility = 'visible';
+}
+
+function openTagDropdownPortal() {
+  const { btn, dropdown } = getTagFilterElements();
+  if (!btn || !dropdown) return;
+  if (tagDropdownState.isOpen) return;
+
+  // Save original placement
+  tagDropdownState.originalParent = dropdown.parentNode;
+  tagDropdownState.originalNextSibling = dropdown.nextSibling;
+
+  // Move to body and show
+  document.body.appendChild(dropdown);
+  dropdown.classList.add('active');
+  dropdown.classList.remove('debug-visible');
+  dropdown.style.display = 'block';
+  dropdown.style.zIndex = '9999';
+  dropdown.style.right = 'auto';
+  positionTagDropdownToButton();
+
+  // Mark button active
+  btn.classList.add('active');
+
+  // Ensure options exist on first open
+  const optionsContainer = dropdown.querySelector('.multiselect-options');
+  if (optionsContainer && optionsContainer.children.length === 0) {
+    try { void loadTagsForFilter(); } catch {}
+  }
+
+  // Reposition on resize/scroll while open
+  tagDropdownState.resizeHandler = () => positionTagDropdownToButton();
+  tagDropdownState.scrollHandler = () => positionTagDropdownToButton();
+  window.addEventListener('resize', tagDropdownState.resizeHandler);
+  window.addEventListener('scroll', tagDropdownState.scrollHandler, true);
+
+  tagDropdownState.isOpen = true;
+}
+
+function closeTagDropdownPortal() {
+  const { btn, dropdown } = getTagFilterElements();
+  if (!dropdown || !tagDropdownState.isOpen) {
+    // Also ensure inline display is off even if we think it's closed
+    if (dropdown) {
+      dropdown.classList.remove('active');
+      dropdown.style.display = 'none';
+    }
+    if (btn) btn.classList.remove('active');
+    return;
+  }
+
+  // Hide and restore to original parent
+  dropdown.classList.remove('active');
+  dropdown.style.display = 'none';
+  dropdown.style.position = '';
+  dropdown.style.left = '';
+  dropdown.style.top = '';
+  dropdown.style.minWidth = '';
+  dropdown.style.right = '';
+
+  if (tagDropdownState.originalParent) {
+    if (tagDropdownState.originalNextSibling && tagDropdownState.originalNextSibling.parentNode === tagDropdownState.originalParent) {
+      tagDropdownState.originalParent.insertBefore(dropdown, tagDropdownState.originalNextSibling);
+    } else {
+      tagDropdownState.originalParent.appendChild(dropdown);
+    }
+  }
+
+  // Button state
+  if (btn) btn.classList.remove('active');
+
+  // Remove handlers
+  if (tagDropdownState.resizeHandler) {
+    window.removeEventListener('resize', tagDropdownState.resizeHandler);
+    tagDropdownState.resizeHandler = null;
+  }
+  if (tagDropdownState.scrollHandler) {
+    window.removeEventListener('scroll', tagDropdownState.scrollHandler, true);
+    tagDropdownState.scrollHandler = null;
+  }
+
+  tagDropdownState.isOpen = false;
+}
+
 // Helper function to get display name without UUID
 function getDisplayName(filename) {
   // Remove UUID pattern (8 hex chars before extension): name-a1b2c3d4.jpg -> name
@@ -61,12 +202,12 @@ function formatDate(dateString) {
 }
 
 // Initialize app
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   initTabs();
   loadLibraryPath();
+  await loadTVs(); // Load TVs first so they're available for the filter dropdown
   loadGallery();
   loadTags();
-  loadTVs();
   initUploadForm();
   initTVForm();
   initTagForm();
@@ -156,6 +297,8 @@ function initSettingsNavigation() {
       const tagFilterDropdown = document.getElementById('tag-filter-dropdown');
       tagFilterBtn?.classList.remove('active');
       tagFilterDropdown?.classList.remove('active');
+      // Also ensure hidden and portal closed
+      closeTagDropdownPortal();
       switchToTab('advanced');
     });
   }
@@ -437,8 +580,9 @@ document.addEventListener('DOMContentLoaded', () => {
       checkboxes.forEach(cb => cb.checked = false);
       updateTagFilterDisplay();
       // Close the dropdown if it's open
-      tagFilterBtn?.classList.remove('active');
-      tagFilterDropdown?.classList.remove('active');
+      if (!DEBUG_ALWAYS_SHOW_TAG_DROPDOWN) {
+        closeTagDropdownPortal();
+      }
     });
   }
 
@@ -446,16 +590,42 @@ document.addEventListener('DOMContentLoaded', () => {
   if (tagFilterBtn) {
     tagFilterBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      tagFilterBtn.classList.toggle('active');
-      tagFilterDropdown.classList.toggle('active');
+      // Debug log
+      console.log('[TagDropdown] button click');
+      const dbg = document.getElementById('tag-dropdown-debug');
+      if (dbg) dbg.textContent = 'Debug: click received at ' + new Date().toLocaleTimeString();
+      if (DEBUG_ALWAYS_SHOW_TAG_DROPDOWN) {
+        // Keep it visible; just ensure populated
+        if (tagFilterDropdown) {
+          tagFilterDropdown.classList.add('active');
+          tagFilterDropdown.style.display = 'block';
+          const optionsContainer = tagFilterDropdown.querySelector('.multiselect-options');
+          if (optionsContainer && optionsContainer.children.length === 0) {
+            loadTagsForFilter();
+          }
+        }
+        tagFilterBtn.classList.add('active');
+        return;
+      }
+      // Normal toggle behavior when debug is off (use portal)
+      if (tagDropdownState.isOpen) {
+        closeTagDropdownPortal();
+      } else {
+        openTagDropdownPortal();
+      }
     });
   }
 
   // Close dropdown when clicking outside
   document.addEventListener('click', (e) => {
-    if (tagFilterDropdown && !e.target.closest('.custom-multiselect')) {
-      tagFilterBtn?.classList.remove('active');
-      tagFilterDropdown.classList.remove('active');
+    if (DEBUG_ALWAYS_SHOW_TAG_DROPDOWN) return;
+    const { btn, dropdown } = getTagFilterElements();
+    if (!dropdown || !btn) return;
+    const clickInsideDropdown = dropdown.contains(e.target);
+    const clickOnButton = btn.contains(e.target);
+    if (!clickInsideDropdown && !clickOnButton) {
+      console.log('[TagDropdown] outside click - closing');
+      closeTagDropdownPortal();
     }
   });
 
@@ -991,14 +1161,14 @@ async function removeTag(tagName) {
 // Modal Functions
 function initModal() {
   const modal = document.getElementById('image-modal');
-  const closeBtn = modal.querySelector('.close');
+  const closeBtn = document.getElementById('image-modal-close');
   const saveBtn = document.getElementById('modal-save-btn');
   const deleteBtn = document.getElementById('modal-delete-btn');
   const editFilenameBtn = document.getElementById('edit-filename-btn');
   const saveFilenameBtn = document.getElementById('save-filename-btn');
   const cancelFilenameBtn = document.getElementById('cancel-filename-btn');
 
-  closeBtn.onclick = () => modal.classList.remove('active');
+  if (closeBtn) closeBtn.onclick = () => modal.classList.remove('active');
   
   window.onclick = (event) => {
     if (event.target === modal) {
