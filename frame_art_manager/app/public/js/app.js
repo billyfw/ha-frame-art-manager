@@ -1680,6 +1680,7 @@ async function loadMetadata() {
 // Bulk Actions Functions
 function initBulkActions() {
   const bulkTagBtn = document.getElementById('bulk-tag-btn');
+  const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
   const clearBtn = document.getElementById('clear-selection-btn');
   const addTagsBtn = document.getElementById('add-bulk-tags-btn');
   const cancelBtn = document.getElementById('cancel-bulk-tags-btn');
@@ -1689,6 +1690,9 @@ function initBulkActions() {
   
   if (bulkTagBtn) {
     bulkTagBtn.addEventListener('click', openBulkTagModal);
+  }
+  if (bulkDeleteBtn) {
+    bulkDeleteBtn.addEventListener('click', deleteBulkImages);
   }
   if (clearBtn) {
     clearBtn.addEventListener('click', clearSelection);
@@ -1712,6 +1716,47 @@ function initBulkActions() {
       }
     });
   }
+}
+
+async function deleteBulkImages() {
+  const count = selectedImages.size;
+  const plural = count !== 1 ? 's' : '';
+  
+  if (!confirm(`Are you sure you want to delete ${count} image${plural}? This cannot be undone.`)) {
+    return;
+  }
+  
+  const selectedArray = Array.from(selectedImages);
+  let successCount = 0;
+  let errorCount = 0;
+  
+  // Delete each selected image
+  for (const filename of selectedArray) {
+    try {
+      const response = await fetch(`${API_BASE}/images/${encodeURIComponent(filename)}`, {
+        method: 'DELETE'
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        successCount++;
+      } else {
+        errorCount++;
+      }
+    } catch (error) {
+      console.error(`Error deleting ${filename}:`, error);
+      errorCount++;
+    }
+  }
+  
+  // Show result
+  if (errorCount > 0) {
+    alert(`Deleted ${successCount} image${successCount !== 1 ? 's' : ''}. ${errorCount} failed.`);
+  }
+  
+  // Clear selection and refresh gallery
+  clearSelection();
+  await loadGallery();
 }
 
 // TV Modal Functions
