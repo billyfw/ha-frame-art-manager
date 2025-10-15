@@ -641,7 +641,7 @@ header h1 {
   top: 10px;
   right: 10px;
   background: transparent;
-  border: 2px dotted rgba(149, 165, 166, 0.4);
+  border: 2px dotted rgba(255, 255, 255, 0.9);
   border-radius: 50%;
   width: 28px;
   height: 28px;
@@ -655,9 +655,9 @@ header h1 {
 }
 
 .select-badge:hover {
-  border-color: rgba(52, 152, 219, 0.6);
+  border-color: rgba(255, 255, 255, 1);
   border-style: solid;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .select-icon {
@@ -1395,6 +1395,35 @@ header h1 {
 .bulk-actions-buttons {
   display: flex;
   gap: 10px;
+}
+
+.bulk-actions-buttons .btn-primary {
+  background: white;
+  color: #3498db;
+  font-weight: 600;
+}
+
+.bulk-actions-buttons .btn-primary:hover {
+  background: #f0f0f0;
+  color: #2980b9;
+}
+
+.bulk-actions-buttons .btn-danger {
+  background: #e74c3c;
+  color: white;
+}
+
+.bulk-actions-buttons .btn-danger:hover {
+  background: #c0392b;
+}
+
+.bulk-actions-buttons .btn-secondary {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.bulk-actions-buttons .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Bulk Tag Modal */
