@@ -268,7 +268,8 @@ class GitHelper {
    */
   parseImageChanges(files, newImageFiles = []) {
     let newImages = 0;
-    let updatedImages = 0;
+    let modifiedImages = 0;
+    let deletedImages = 0;
     
     // Filter to only library files (ignore thumbs and metadata.json)
     const imageFiles = files.filter(file => {
@@ -281,17 +282,20 @@ class GitHelper {
     // Categorize each image file
     imageFiles.forEach(file => {
       const filePath = file.path || file;
-      const status = file.working_dir || file.index || 'M'; // M = modified, A = added, etc
+      const status = file.working_dir || file.index || 'M'; // M = modified, A = added, D = deleted, etc
       
       // Check if this is a new file (added) or if it's in the newImageFiles list
       if (status === 'A' || status === '?' || newImageFiles.includes(filePath)) {
         newImages++;
+      } else if (status === 'D') {
+        deletedImages++;
       } else {
-        updatedImages++;
+        // Modified or renamed
+        modifiedImages++;
       }
     });
     
-    return { newImages, updatedImages };
+    return { newImages, modifiedImages, deletedImages };
   }
 
   /**
@@ -317,7 +321,7 @@ class GitHelper {
         .map(file => file.path || file);
       
       // Parse unpushed commits (ahead)
-      let unpushedChanges = { newImages: 0, updatedImages: 0 };
+      let unpushedChanges = { newImages: 0, modifiedImages: 0, deletedImages: 0 };
       if (status.ahead > 0) {
         try {
           // Get diff of commits ahead
@@ -347,7 +351,7 @@ class GitHelper {
       }
       
       // Parse unpulled commits (behind)
-      let unpulledChanges = { newImages: 0, updatedImages: 0 };
+      let unpulledChanges = { newImages: 0, modifiedImages: 0, deletedImages: 0 };
       if (status.behind > 0) {
         try {
           // Get diff of commits behind
@@ -377,21 +381,23 @@ class GitHelper {
       }
       
       // Combine upload counts (local + unpushed)
-      const uploadCount = localChanges.newImages + localChanges.updatedImages + 
-                         unpushedChanges.newImages + unpushedChanges.updatedImages;
+      const uploadCount = localChanges.newImages + localChanges.modifiedImages + localChanges.deletedImages +
+                         unpushedChanges.newImages + unpushedChanges.modifiedImages + unpushedChanges.deletedImages;
       
-      const downloadCount = unpulledChanges.newImages + unpulledChanges.updatedImages;
+      const downloadCount = unpulledChanges.newImages + unpulledChanges.modifiedImages + unpulledChanges.deletedImages;
       
       return {
         upload: {
           count: uploadCount,
           newImages: localChanges.newImages + unpushedChanges.newImages,
-          updatedImages: localChanges.updatedImages + unpushedChanges.updatedImages
+          modifiedImages: localChanges.modifiedImages + unpushedChanges.modifiedImages,
+          deletedImages: localChanges.deletedImages + unpushedChanges.deletedImages
         },
         download: {
           count: downloadCount,
           newImages: unpulledChanges.newImages,
-          updatedImages: unpulledChanges.updatedImages
+          modifiedImages: unpulledChanges.modifiedImages,
+          deletedImages: unpulledChanges.deletedImages
         },
         hasChanges: uploadCount > 0 || downloadCount > 0
       };

@@ -135,7 +135,8 @@ test('parseImageChanges - filters out thumbnails', () => {
   const result = git.parseImageChanges(files);
   
   assert.strictEqual(result.newImages, 1, 'Should count 1 new image (not thumbnail)');
-  assert.strictEqual(result.updatedImages, 1, 'Should count 1 updated image');
+  assert.strictEqual(result.modifiedImages, 1, 'Should count 1 modified image');
+  assert.strictEqual(result.deletedImages, 0, 'Should count 0 deleted images');
   
   logSuccess('Thumbnails are filtered out correctly');
 });
@@ -151,12 +152,13 @@ test('parseImageChanges - filters out metadata.json', () => {
   const result = git.parseImageChanges(files);
   
   assert.strictEqual(result.newImages, 1, 'Should count 1 new image');
-  assert.strictEqual(result.updatedImages, 0, 'Should not count metadata.json');
+  assert.strictEqual(result.modifiedImages, 0, 'Should not count metadata.json');
+  assert.strictEqual(result.deletedImages, 0, 'Should count 0 deleted images');
   
   logSuccess('metadata.json is filtered out correctly');
 });
 
-test('parseImageChanges - distinguishes new vs updated images', () => {
+test('parseImageChanges - distinguishes new vs modified images', () => {
   const git = new GitHelper(FRAME_ART_PATH);
   
   const files = [
@@ -167,9 +169,10 @@ test('parseImageChanges - distinguishes new vs updated images', () => {
   const result = git.parseImageChanges(files);
   
   assert.strictEqual(result.newImages, 1, 'Should count 1 new image (status A)');
-  assert.strictEqual(result.updatedImages, 1, 'Should count 1 updated image (status M)');
+  assert.strictEqual(result.modifiedImages, 1, 'Should count 1 modified image (status M)');
+  assert.strictEqual(result.deletedImages, 0, 'Should count 0 deleted images');
   
-  logSuccess('New vs updated images distinguished correctly');
+  logSuccess('New vs modified images distinguished correctly');
 });
 
 test('parseImageChanges - handles untracked files', () => {
@@ -182,7 +185,8 @@ test('parseImageChanges - handles untracked files', () => {
   const result = git.parseImageChanges(files);
   
   assert.strictEqual(result.newImages, 1, 'Should count untracked (?) as new image');
-  assert.strictEqual(result.updatedImages, 0, 'Should not count as updated');
+  assert.strictEqual(result.modifiedImages, 0, 'Should not count as modified');
+  assert.strictEqual(result.deletedImages, 0, 'Should count 0 deleted images');
   
   logSuccess('Untracked files handled as new images');
 });
@@ -205,6 +209,22 @@ test('parseImageChanges - respects newImageFiles parameter', () => {
   logSuccess('newImageFiles parameter works correctly');
 });
 
+test('parseImageChanges - handles deleted images', () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  
+  const files = [
+    { path: 'library/deleted-image.jpg', working_dir: 'D' }
+  ];
+  
+  const result = git.parseImageChanges(files);
+  
+  assert.strictEqual(result.newImages, 0, 'Should not count as new');
+  assert.strictEqual(result.modifiedImages, 0, 'Should not count as modified');
+  assert.strictEqual(result.deletedImages, 1, 'Should count 1 deleted image (status D)');
+  
+  logSuccess('Deleted images handled correctly');
+});
+
 // ============================================================================
 // Integration Tests - getSemanticSyncStatus()
 // ============================================================================
@@ -221,14 +241,16 @@ test('getSemanticSyncStatus - returns correct structure', async () => {
     
     assert.ok(typeof status.upload.count === 'number', 'upload.count should be a number');
     assert.ok(typeof status.upload.newImages === 'number', 'upload.newImages should be a number');
-    assert.ok(typeof status.upload.updatedImages === 'number', 'upload.updatedImages should be a number');
+    assert.ok(typeof status.upload.modifiedImages === 'number', 'upload.modifiedImages should be a number');
+    assert.ok(typeof status.upload.deletedImages === 'number', 'upload.deletedImages should be a number');
     
     assert.ok(typeof status.download.count === 'number', 'download.count should be a number');
     assert.ok(typeof status.download.newImages === 'number', 'download.newImages should be a number');
-    assert.ok(typeof status.download.updatedImages === 'number', 'download.updatedImages should be a number');
+    assert.ok(typeof status.download.modifiedImages === 'number', 'download.modifiedImages should be a number');
+    assert.ok(typeof status.download.deletedImages === 'number', 'download.deletedImages should be a number');
     
     logSuccess('getSemanticSyncStatus returns correct structure');
-    logInfo(`Current status: ${status.upload.count}u/${status.download.count}d`);
+    logInfo(`Current status: ${status.upload.count}▲/${status.download.count}▼`);
   } catch (error) {
     throw new Error(`getSemanticSyncStatus failed: ${error.message}`);
   }
@@ -240,9 +262,9 @@ test('getSemanticSyncStatus - upload count matches sum', async () => {
   try {
     const status = await git.getSemanticSyncStatus();
     
-    const expectedCount = status.upload.newImages + status.upload.updatedImages;
+    const expectedCount = status.upload.newImages + status.upload.modifiedImages + status.upload.deletedImages;
     assert.strictEqual(status.upload.count, expectedCount, 
-      'upload.count should equal newImages + updatedImages');
+      'upload.count should equal newImages + modifiedImages + deletedImages');
     
     logSuccess('Upload count calculation is correct');
   } catch (error) {
@@ -256,9 +278,9 @@ test('getSemanticSyncStatus - download count matches sum', async () => {
   try {
     const status = await git.getSemanticSyncStatus();
     
-    const expectedCount = status.download.newImages + status.download.updatedImages;
+    const expectedCount = status.download.newImages + status.download.modifiedImages + status.download.deletedImages;
     assert.strictEqual(status.download.count, expectedCount, 
-      'download.count should equal newImages + updatedImages');
+      'download.count should equal newImages + modifiedImages + deletedImages');
     
     logSuccess('Download count calculation is correct');
   } catch (error) {
@@ -298,7 +320,8 @@ test('parseImageChanges - remote new image is counted', () => {
   const result = git.parseImageChanges(files, newImageFiles);
   
   assert.strictEqual(result.newImages, 1, 'Should count remote new image');
-  assert.strictEqual(result.updatedImages, 0, 'Should not count as updated');
+  assert.strictEqual(result.modifiedImages, 0, 'Should not count as modified');
+  assert.strictEqual(result.deletedImages, 0, 'Should not count as deleted');
   
   logSuccess('Remote new image counted correctly');
 });
@@ -314,7 +337,8 @@ test('parseImageChanges - remote image modification is counted', () => {
   const result = git.parseImageChanges(files, []);
   
   assert.strictEqual(result.newImages, 0, 'Should not count as new');
-  assert.strictEqual(result.updatedImages, 1, 'Should count remote modification');
+  assert.strictEqual(result.modifiedImages, 1, 'Should count remote modification');
+  assert.strictEqual(result.deletedImages, 0, 'Should not count as deleted');
   
   logSuccess('Remote image modification counted correctly');
 });
@@ -333,7 +357,8 @@ test('parseImageChanges - remote changes filter thumbnails and metadata', () => 
   const result = git.parseImageChanges(files, newImageFiles);
   
   assert.strictEqual(result.newImages, 1, 'Should count only the image, not thumbnail or metadata');
-  assert.strictEqual(result.updatedImages, 0, 'Should not count metadata as image update');
+  assert.strictEqual(result.modifiedImages, 0, 'Should not count metadata as image update');
+  assert.strictEqual(result.deletedImages, 0, 'Should not count any deletions');
   
   logSuccess('Remote changes correctly filter thumbnails and metadata');
 });
@@ -354,7 +379,8 @@ test('parseImageChanges - mixed remote changes (new + modified)', () => {
   const result = git.parseImageChanges(files, newImageFiles);
   
   assert.strictEqual(result.newImages, 2, 'Should count 2 new images');
-  assert.strictEqual(result.updatedImages, 1, 'Should count 1 modified image');
+  assert.strictEqual(result.modifiedImages, 1, 'Should count 1 modified image');
+  assert.strictEqual(result.deletedImages, 0, 'Should count 0 deleted images');
   
   logSuccess('Mixed remote changes counted correctly');
 });
@@ -370,7 +396,8 @@ test('parseImageChanges - remote metadata-only change ignored', () => {
   const result = git.parseImageChanges(files, []);
   
   assert.strictEqual(result.newImages, 0, 'Should not count metadata as new image');
-  assert.strictEqual(result.updatedImages, 0, 'Should not count metadata as image update');
+  assert.strictEqual(result.modifiedImages, 0, 'Should not count metadata as image update');
+  assert.strictEqual(result.deletedImages, 0, 'Should not count metadata as deletion');
   
   logSuccess('Remote metadata-only change correctly ignored');
 });
@@ -419,7 +446,7 @@ test('INTEGRATION: local uncommitted new image counted correctly', async () => {
     assert.ok(status.upload.newImages >= 1, 'Should count new image');
     
     logSuccess('Local uncommitted new image detected');
-    logInfo(`Upload: ${status.upload.newImages} new, ${status.upload.updatedImages} updated`);
+    logInfo(`Upload: ${status.upload.newImages} new, ${status.upload.modifiedImages} modified, ${status.upload.deletedImages} deleted`);
   } finally {
     // Cleanup - remove test files
     await fs.unlink(path.join(testRepoPath, 'library', testFilename)).catch(() => {});
@@ -451,10 +478,10 @@ test('INTEGRATION: local uncommitted image modification counted correctly', asyn
     const status = await git.getSemanticSyncStatus();
     
     assert.ok(status.upload.count >= 1, 'Should detect at least 1 image to upload');
-    assert.ok(status.upload.updatedImages >= 1, 'Should count updated image');
+    assert.ok(status.upload.modifiedImages >= 1, 'Should count modified image');
     
     logSuccess('Local uncommitted image modification detected');
-    logInfo(`Upload: ${status.upload.newImages} new, ${status.upload.updatedImages} updated`);
+    logInfo(`Upload: ${status.upload.newImages} new, ${status.upload.modifiedImages} modified, ${status.upload.deletedImages} deleted`);
   } finally {
     // Restore original file
     await fs.writeFile(imagePath, originalContent);
@@ -532,7 +559,8 @@ test('INTEGRATION: full upload flow - new image with thumbnail and metadata', as
     // Semantic should show 1 new image
     assert.strictEqual(semanticStatus.upload.count, 1, 'Should count 1 image');
     assert.strictEqual(semanticStatus.upload.newImages, 1, 'Should be categorized as new');
-    assert.strictEqual(semanticStatus.upload.updatedImages, 0, 'Should not be categorized as updated');
+    assert.strictEqual(semanticStatus.upload.modifiedImages, 0, 'Should not be categorized as modified');
+    assert.strictEqual(semanticStatus.upload.deletedImages, 0, 'Should not be categorized as deleted');
     
     logSuccess('Full upload flow correctly parsed: 3 raw files → 1 semantic image');
   } finally {
@@ -597,8 +625,8 @@ test('Real-world: Current repo status matches expectations', async () => {
     logInfo(`Commits behind: ${gitStatus.behind}`);
     logInfo('');
     logInfo('=== Semantic Counts ===');
-    logInfo(`Upload: ${semanticStatus.upload.count} (${semanticStatus.upload.newImages} new, ${semanticStatus.upload.updatedImages} updated)`);
-    logInfo(`Download: ${semanticStatus.download.count} (${semanticStatus.download.newImages} new, ${semanticStatus.download.updatedImages} updated)`);
+    logInfo(`Upload: ${semanticStatus.upload.count} (${semanticStatus.upload.newImages} new, ${semanticStatus.upload.modifiedImages} modified, ${semanticStatus.upload.deletedImages} deleted)`);
+    logInfo(`Download: ${semanticStatus.download.count} (${semanticStatus.download.newImages} new, ${semanticStatus.download.modifiedImages} modified, ${semanticStatus.download.deletedImages} deleted)`);
     
     // Validate that semantic counts are never greater than raw counts
     const maxPossibleUpload = gitStatus.files.length + gitStatus.ahead;
