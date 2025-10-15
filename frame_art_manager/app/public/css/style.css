@@ -1524,7 +1524,14 @@ header h1 {
 .modal-actions {
   display: flex;
   gap: 10px;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.modal-actions-right {
+  display: flex;
+  gap: 10px;
 }
 
 .modal-info {

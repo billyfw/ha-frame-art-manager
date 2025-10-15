@@ -1209,12 +1209,14 @@ function initModal() {
   const modal = document.getElementById('image-modal');
   const closeBtn = document.getElementById('image-modal-close');
   const saveBtn = document.getElementById('modal-save-btn');
+  const cancelBtn = document.getElementById('modal-cancel-btn');
   const deleteBtn = document.getElementById('modal-delete-btn');
   const editFilenameBtn = document.getElementById('edit-filename-btn');
   const saveFilenameBtn = document.getElementById('save-filename-btn');
   const cancelFilenameBtn = document.getElementById('cancel-filename-btn');
 
   if (closeBtn) closeBtn.onclick = () => modal.classList.remove('active');
+  if (cancelBtn) cancelBtn.onclick = () => modal.classList.remove('active');
   
   window.onclick = (event) => {
     if (event.target === modal) {
