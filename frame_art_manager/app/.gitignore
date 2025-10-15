@@ -1,0 +1,12 @@
+# Logs
+sync_logs.json
+
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# OS files
+.DS_Store
+Thumbs.db

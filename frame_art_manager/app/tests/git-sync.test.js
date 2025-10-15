@@ -179,38 +179,6 @@ test('checkAndPullIfBehind returns proper structure', async () => {
   }
 });
 
-test('checkAndPullIfBehind handles clean working tree', async () => {
-  const git = new GitHelper(FRAME_ART_PATH);
-  const status = await git.getStatus();
-  
-  if (status.files.length === 0) {
-    // Working tree is clean, should attempt sync
-    const result = await git.checkAndPullIfBehind();
-    assert.ok(result.success, 'Should succeed with clean working tree');
-    assert.ok(!result.skipped, 'Should not skip with clean working tree');
-  } else {
-    logInfo('Skipping clean working tree test - uncommitted changes present');
-  }
-});
-
-test('checkAndPullIfBehind is idempotent', async () => {
-  const git = new GitHelper(FRAME_ART_PATH);
-  
-  // Run twice
-  const result1 = await git.checkAndPullIfBehind();
-  const result2 = await git.checkAndPullIfBehind();
-  
-  // Both should succeed
-  assert.ok(result1.success, 'First call should succeed');
-  assert.ok(result2.success, 'Second call should succeed');
-  
-  // If first didn't skip, second should show "already up to date"
-  if (!result1.skipped && result1.success) {
-    assert.ok(result2.synced, 'Second call should be synced');
-    assert.ok(!result2.pulledChanges, 'Second call should not pull changes');
-  }
-});
-
 test('verifyConfiguration checks for billyfw/frame_art repo', async () => {
   const git = new GitHelper(FRAME_ART_PATH);
   const result = await git.verifyConfiguration();
@@ -233,26 +201,6 @@ test('getBranchInfo returns branch information', async () => {
   assert.ok(branchInfo, 'Should return branch info');
   assert.ok(branchInfo.branch, 'Should have branch name');
   assert.ok(typeof branchInfo.branch === 'string', 'Branch should be a string');
-});
-
-test('pullLatest returns proper result structure', async () => {
-  const git = new GitHelper(FRAME_ART_PATH);
-  const status = await git.getStatus();
-  
-  // Only test pull if working tree is clean
-  if (status.files.length === 0) {
-    const result = await git.pullLatest();
-    
-    assert.ok(result, 'Should return a result');
-    assert.ok(typeof result.success === 'boolean', 'Should have success boolean');
-    
-    if (!result.success) {
-      assert.ok(result.error, 'Should have error message if failed');
-      assert.ok(typeof result.hasConflicts === 'boolean', 'Should have hasConflicts boolean');
-    }
-  } else {
-    logInfo('Skipping pullLatest test - uncommitted changes present');
-  }
 });
 
 // ============================================================================

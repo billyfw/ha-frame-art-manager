@@ -1,6 +1,9 @@
 // API Base URL
 const API_BASE = '/api';
 
+// Global state
+let libraryPath = null; // Store library path for tooltips
+
 // State
 let allImages = {};
 let allTags = [];
@@ -226,6 +229,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTVTagPickerModal();
   initSettingsNavigation();
   initUploadNavigation();
+  initCloudSyncButton(); // Initialize cloud sync button in toolbar
 });
 
 // Check for sync updates on page load
@@ -246,9 +250,219 @@ async function checkSyncOnLoad() {
     } else {
       console.log('✅ Already up to date');
     }
+    
+    // Update sync button state after initial check
+    await updateSyncStatus();
   } catch (error) {
     console.error('Error checking sync on load:', error);
     // Fail silently - don't block page load if sync check fails
+    updateSyncButtonState('error', 'Error', null, null, error.message);
+  }
+}
+
+// Update sync button status
+async function updateSyncStatus() {
+  try {
+    const response = await fetch(`${API_BASE}/sync/status`);
+    const data = await response.json();
+    
+    if (!data.success) {
+      updateSyncButtonState('error', 'Error', null, null, null);
+      return;
+    }
+    
+    const status = data.status;
+    
+    // Determine state based on status
+    if (status.hasChanges) {
+      updateSyncButtonState('unsynced', 'Unsynced', status, null, null);
+    } else {
+      updateSyncButtonState('synced', 'Synced', null, null, null);
+    }
+    
+  } catch (error) {
+    console.error('Error updating sync status:', error);
+    updateSyncButtonState('error', 'Error', null, null, error.message);
+  }
+}
+
+// Update sync button visual state
+function updateSyncButtonState(state, text, syncStatus, _unused, errorMessage) {
+  const syncBtn = document.getElementById('sync-btn');
+  const syncIcon = document.getElementById('sync-icon');
+  const syncText = document.getElementById('sync-text');
+  const syncBadge = document.getElementById('sync-badge');
+  
+  if (!syncBtn) return;
+  
+  // Remove all state classes
+  syncBtn.classList.remove('synced', 'syncing', 'unsynced', 'error');
+  
+  // Add current state class
+  syncBtn.classList.add(state);
+  
+  // Set icon based on state
+  const icons = {
+    synced: '✅',
+    syncing: '🔄',
+    unsynced: '⚠️',
+    error: '❌'
+  };
+  syncIcon.textContent = icons[state] || '☁️';
+  
+  // Set text label
+  if (syncText) {
+    syncText.textContent = text;
+  }
+  
+  // Update badge with Xu/Yd format
+  if (state === 'unsynced' && syncStatus) {
+    const uploadCount = syncStatus.upload.count;
+    const downloadCount = syncStatus.download.count;
+    
+    let badgeText = '';
+    if (uploadCount > 0 && downloadCount > 0) {
+      badgeText = `${uploadCount}u/${downloadCount}d`;
+    } else if (uploadCount > 0) {
+      badgeText = `${uploadCount}u`;
+    } else if (downloadCount > 0) {
+      badgeText = `${downloadCount}d`;
+    }
+    
+    if (badgeText) {
+      syncBadge.textContent = badgeText;
+      syncBadge.style.display = 'block';
+    } else {
+      syncBadge.style.display = 'none';
+    }
+  } else {
+    syncBadge.style.display = 'none';
+  }
+  
+  // Update tooltip
+  let tooltip;
+  
+  if (state === 'synced') {
+    tooltip = libraryPath 
+      ? `Frame Art Gallery is synced to cloud Git LFS repo at ${libraryPath}`
+      : 'All changes synced to cloud';
+  } else if (state === 'unsynced' && syncStatus) {
+    // Build multi-line tooltip
+    const lines = [];
+    
+    // Upload changes
+    if (syncStatus.upload.newImages > 0) {
+      const plural = syncStatus.upload.newImages !== 1 ? 's' : '';
+      lines.push(`${syncStatus.upload.newImages} new image${plural} to upload`);
+    }
+    if (syncStatus.upload.updatedImages > 0) {
+      const plural = syncStatus.upload.updatedImages !== 1 ? 's' : '';
+      lines.push(`${syncStatus.upload.updatedImages} image update${plural} to upload`);
+    }
+    
+    // Download changes
+    if (syncStatus.download.newImages > 0) {
+      const plural = syncStatus.download.newImages !== 1 ? 's' : '';
+      lines.push(`${syncStatus.download.newImages} new image${plural} to download`);
+    }
+    if (syncStatus.download.updatedImages > 0) {
+      const plural = syncStatus.download.updatedImages !== 1 ? 's' : '';
+      lines.push(`${syncStatus.download.updatedImages} image update${plural} to download`);
+    }
+    
+    lines.push('Click to sync');
+    tooltip = lines.join('\n');
+  } else if (state === 'error' && errorMessage) {
+    // Show the actual error in the tooltip
+    tooltip = `Sync error: ${errorMessage}. Click to retry.`;
+  } else {
+    const tooltips = {
+      syncing: 'Syncing with cloud...',
+      unsynced: 'Changes not synced - click to sync',
+      error: 'Sync error - click to retry'
+    };
+    tooltip = tooltips[state] || 'Sync with cloud';
+  }
+  
+  syncBtn.title = tooltip;
+  
+  // Disable button when syncing
+  syncBtn.disabled = (state === 'syncing');
+}
+
+// Initialize cloud sync button (toolbar)
+function initCloudSyncButton() {
+  const syncBtn = document.getElementById('sync-btn');
+  if (!syncBtn) {
+    console.warn('Cloud sync button not found - skipping initialization');
+    return;
+  }
+  
+  syncBtn.addEventListener('click', async () => {
+    await manualSync();
+  });
+}
+
+// Manual sync (pull from remote and push local changes)
+async function manualSync() {
+  try {
+    // Set syncing state
+    updateSyncButtonState('syncing', 'Syncing...', null, null, null);
+    
+    console.log('Starting manual sync...');
+    
+    // First, pull from remote
+    console.log('Pulling from remote...');
+    const pullResponse = await fetch(`${API_BASE}/sync/pull`, {
+      method: 'POST'
+    });
+    
+    const pullData = await pullResponse.json();
+    
+    if (!pullData.success) {
+      // Check for conflicts
+      if (pullData.hasConflicts) {
+        console.error('Sync conflict detected:', pullData.error);
+        alert('Git sync conflict detected!\n\nThis requires manual resolution. Please check the sync logs in Advanced settings.');
+        updateSyncButtonState('error', 'Conflict', null, null, pullData.error);
+      } else {
+        console.error('Pull failed:', pullData.error);
+        alert(`Pull failed: ${pullData.error}`);
+        updateSyncButtonState('error', 'Error', null, null, pullData.error);
+      }
+      return;
+    }
+    
+    console.log('✅ Pull successful:', pullData.message);
+    
+    // Then, push local changes if any
+    console.log('Pushing local changes...');
+    const pushResponse = await fetch(`${API_BASE}/sync/push`, {
+      method: 'POST'
+    });
+    
+    const pushData = await pushResponse.json();
+    
+    if (!pushData.success) {
+      console.error('Push failed:', pushData.error);
+      alert(`Push failed: ${pushData.error}`);
+      updateSyncButtonState('error', 'Error', null, null, pushData.error);
+      return;
+    }
+    
+    console.log('✅ Push successful:', pushData.message);
+    console.log('✅ Full sync complete');
+    
+    // Reload gallery to show any new images from pull
+    await loadGallery();
+    
+    // Update sync status
+    await updateSyncStatus();
+    
+  } catch (error) {
+    console.error('Error during manual sync:', error);
+    alert(`Sync error: ${error.message}`);
+    updateSyncButtonState('error', 'Error', null, null, error.message);
   }
 }
 
@@ -258,6 +472,9 @@ async function loadLibraryPath() {
     const response = await fetch(`${API_BASE}/health`);
     const data = await response.json();
     const pathValue = data.frameArtPath || 'Unknown';
+    
+    // Store globally for use in tooltips
+    libraryPath = pathValue;
     
     // Update advanced tab path display
     const advancedPathElement = document.getElementById('advanced-path-value');
@@ -724,8 +941,10 @@ function initUploadForm() {
 
     const formData = new FormData(form);
     const statusDiv = document.getElementById('upload-status');
+    const submitButton = form.querySelector('button[type="submit"]');
     
     statusDiv.innerHTML = '<div class="info">Uploading...</div>';
+    submitButton.disabled = true;
 
     try {
       const response = await fetch(`${API_BASE}/images/upload`, {
@@ -737,15 +956,29 @@ function initUploadForm() {
 
       if (result.success) {
         statusDiv.innerHTML = '<div class="success">Image uploaded successfully!</div>';
-        form.reset();
+        // Disable all form inputs to prevent further interaction
+        const inputs = form.querySelectorAll('input, select, button');
+        inputs.forEach(input => input.disabled = true);
+        
         loadGallery();
         loadTags(); // Reload tags in case new ones were added
+        
+        // Switch back to gallery view after showing success message
+        setTimeout(() => {
+          switchToTab('gallery');
+          // Re-enable form and reset for next use
+          inputs.forEach(input => input.disabled = false);
+          form.reset();
+          statusDiv.innerHTML = '';
+        }, 500); // Brief delay to show success message
       } else {
         statusDiv.innerHTML = `<div class="error">Upload failed: ${result.error}</div>`;
+        submitButton.disabled = false;
       }
     } catch (error) {
       console.error('Error uploading image:', error);
       statusDiv.innerHTML = '<div class="error">Upload failed</div>';
+      submitButton.disabled = false;
     }
   });
 }
@@ -1416,44 +1649,6 @@ async function deleteImage() {
   } catch (error) {
     console.error('Error deleting image:', error);
     alert('Failed to delete image');
-  }
-}
-
-// Sync Functions
-function initSyncButton() {
-  const btn = document.getElementById('verify-sync-btn');
-  btn.addEventListener('click', verifySync);
-}
-
-async function verifySync() {
-  const resultsDiv = document.getElementById('sync-results');
-  resultsDiv.innerHTML = '<div class="info">Checking sync status...</div>';
-
-  try {
-    const response = await fetch(`${API_BASE}/images/verify`);
-    const results = await response.json();
-
-    let html = '<div class="info">';
-    html += `<h3>Sync Results</h3>`;
-    html += `<p><strong>Synced:</strong> ${results.synced.length} files</p>`;
-    
-    if (results.onDiskNotInMetadata.length > 0) {
-      html += `<p><strong>On disk but not in metadata:</strong></p><ul>`;
-      results.onDiskNotInMetadata.forEach(f => html += `<li>${getDisplayName(f)}</li>`);
-      html += `</ul>`;
-    }
-    
-    if (results.inMetadataNotOnDisk.length > 0) {
-      html += `<p><strong>In metadata but not on disk:</strong></p><ul>`;
-      results.inMetadataNotOnDisk.forEach(f => html += `<li>${getDisplayName(f)}</li>`);
-      html += `</ul>`;
-    }
-    
-    html += '</div>';
-    resultsDiv.innerHTML = html;
-  } catch (error) {
-    console.error('Error verifying sync:', error);
-    resultsDiv.innerHTML = '<div class="error">Failed to verify sync</div>';
   }
 }
 

@@ -10,21 +10,17 @@ router.get('/status', async (req, res) => {
   try {
     const git = new GitHelper(req.frameArtPath);
     
-    // Get comprehensive status
-    const status = await git.getStatus();
+    // Get semantic sync status
+    const semanticStatus = await git.getSemanticSyncStatus();
     const lastSync = await git.getLastSyncTime();
     const branchInfo = await git.getBranchInfo();
     
     res.json({
       success: true,
       status: {
-        unsynced: status.unsynced,
-        unsyncedCount: status.files.length + status.ahead,
-        ahead: status.ahead,
-        behind: status.behind,
-        modifiedFiles: status.modified,
-        createdFiles: status.created,
-        deletedFiles: status.deleted,
+        upload: semanticStatus.upload,
+        download: semanticStatus.download,
+        hasChanges: semanticStatus.hasChanges,
         branch: branchInfo.branch,
         isMainBranch: branchInfo.branch === 'main',
         lastSync: lastSync
@@ -139,48 +135,91 @@ router.post('/pull', async (req, res) => {
 
 /**
  * POST /api/sync/push
- * Manual push to remote (if needed)
+ * Manual push to remote (commits uncommitted changes first, then pushes)
  */
 router.post('/push', async (req, res) => {
   try {
     const git = new GitHelper(req.frameArtPath);
     
-    // Check if there's anything to push
+    // Check if there's anything to sync
     const status = await git.getStatus();
-    if (!status.unsynced && status.ahead === 0) {
+    const hasUncommittedChanges = status.files.length > 0;
+    const hasUnpushedCommits = status.ahead > 0;
+    
+    if (!hasUncommittedChanges && !hasUnpushedCommits) {
       return res.json({
         success: true,
         message: 'Nothing to push - already in sync'
       });
     }
     
-    // Push changes
-    const pushResult = await git.pushChanges();
-    
-    if (!pushResult.success) {
+    // If there are uncommitted changes, commit them first
+    if (hasUncommittedChanges) {
+      console.log(`Committing ${status.files.length} uncommitted file(s)...`);
+      console.log('Files to commit:', status.files);
+      const commitResult = await git.autoCommitAndPush(
+        `Sync: Auto-commit ${status.files.length} file(s) from manual sync`
+      );
+      
+      console.log('autoCommitAndPush result:', JSON.stringify(commitResult, null, 2));
+      
+      if (!commitResult.success) {
+        await logSyncOperation(req.frameArtPath, {
+          operation: 'push',
+          status: 'failure',
+          message: `Commit failed: ${commitResult.error}`
+        });
+        
+        return res.status(500).json({
+          success: false,
+          error: `Commit failed: ${commitResult.error}`
+        });
+      }
+      
+      console.log('✅ Auto-commit successful - committed:', commitResult.committed, 'pushed:', commitResult.pushed);
+      
+      // autoCommitAndPush already pushed, so we're done
       await logSyncOperation(req.frameArtPath, {
         operation: 'push',
-        status: 'failure',
-        message: pushResult.error
+        status: 'success',
+        message: 'Successfully committed and pushed changes'
       });
       
-      return res.status(500).json({
-        success: false,
-        error: pushResult.error
+      return res.json({
+        success: true,
+        message: 'Successfully committed and pushed changes'
       });
     }
     
-    // Log successful push
-    await logSyncOperation(req.frameArtPath, {
-      operation: 'push',
-      status: 'success',
-      message: pushResult.message
-    });
+    // Only push if there are unpushed commits (but no uncommitted files)
+    if (hasUnpushedCommits) {
+      const pushResult = await git.pushChanges();
     
-    res.json({
-      success: true,
-      message: pushResult.message
-    });
+      if (!pushResult.success) {
+        await logSyncOperation(req.frameArtPath, {
+          operation: 'push',
+          status: 'failure',
+          message: pushResult.error
+        });
+        
+        return res.status(500).json({
+          success: false,
+          error: pushResult.error
+        });
+      }
+      
+      // Log successful push
+      await logSyncOperation(req.frameArtPath, {
+        operation: 'push',
+        status: 'success',
+        message: pushResult.message
+      });
+      
+      return res.json({
+        success: true,
+        message: pushResult.message
+      });
+    }
   } catch (error) {
     console.error('Push error:', error);
     await logSyncOperation(req.frameArtPath, {
@@ -237,11 +276,13 @@ router.delete('/logs', async (req, res) => {
 
 /**
  * Helper: Log sync operation to sync_logs.json
+ * Stores logs in the app directory, not the art library
  */
 async function logSyncOperation(frameArtPath, logEntry) {
   const fs = require('fs').promises;
   const path = require('path');
-  const logsPath = path.join(frameArtPath, 'sync_logs.json');
+  // Store logs in app directory, not in the art library
+  const logsPath = path.join(__dirname, '..', 'sync_logs.json');
   
   try {
     // Read existing logs
@@ -280,7 +321,8 @@ async function logSyncOperation(frameArtPath, logEntry) {
 async function getSyncLogs(frameArtPath) {
   const fs = require('fs').promises;
   const path = require('path');
-  const logsPath = path.join(frameArtPath, 'sync_logs.json');
+  // Read logs from app directory
+  const logsPath = path.join(__dirname, '..', 'sync_logs.json');
   
   try {
     const data = await fs.readFile(logsPath, 'utf8');
@@ -296,7 +338,8 @@ async function getSyncLogs(frameArtPath) {
 async function clearSyncLogs(frameArtPath) {
   const fs = require('fs').promises;
   const path = require('path');
-  const logsPath = path.join(frameArtPath, 'sync_logs.json');
+  // Clear logs in app directory
+  const logsPath = path.join(__dirname, '..', 'sync_logs.json');
   
   try {
     await fs.writeFile(logsPath, JSON.stringify([], null, 2));
