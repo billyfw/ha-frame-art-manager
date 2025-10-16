@@ -236,7 +236,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function checkSyncOnLoad() {
   try {
     // Show checking state
-    updateSyncButtonState('syncing', 'Checking...', null, null, null);
+    updateSyncButtonState('syncing', 'Syncing...', null, null, null);
     
     console.log('Checking for cloud updates...');
     const response = await fetch(`${API_BASE}/sync/check`);
