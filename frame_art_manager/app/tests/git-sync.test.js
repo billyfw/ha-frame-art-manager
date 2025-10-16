@@ -468,7 +468,7 @@ test('parseImageChanges combines metadata.json and library changes', () => {
   const result = git.parseImageChanges(files);
   
   assert.strictEqual(result.newImages, 0, 'Should have 0 new images');
-  assert.strictEqual(result.modifiedImages, 2, 'Should count both library file and metadata.json');
+  assert.strictEqual(result.modifiedImages, 1, 'Should count only library file, not metadata.json (part of same operation)');
   assert.strictEqual(result.deletedImages, 0, 'Should have 0 deleted images');
   assert.strictEqual(result.renamedImages, 0, 'Should have 0 renamed images');
 });
@@ -488,7 +488,7 @@ test('parseImageChanges handles mixed operations', () => {
   const result = git.parseImageChanges(files);
   
   assert.strictEqual(result.newImages, 1, 'Should detect 1 new image');
-  assert.strictEqual(result.modifiedImages, 2, 'Should detect 1 modified library file + 1 metadata.json');
+  assert.strictEqual(result.modifiedImages, 1, 'Should detect 1 modified library file (metadata.json ignored when other files present)');
   assert.strictEqual(result.deletedImages, 1, 'Should detect 1 deleted image');
   assert.strictEqual(result.renamedImages, 1, 'Should detect 1 renamed image');
 });
@@ -516,6 +516,22 @@ test('parseImageChanges only counts metadata.json when status is M (modified)', 
   ];
   const resultModified = git.parseImageChanges(filesModified);
   assert.strictEqual(resultModified.modifiedImages, 1, 'Should count modified metadata.json');
+});
+
+test('parseImageChanges does not double-count rename with metadata.json change', () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  
+  const files = [
+    { path: 'library/newname.jpg', index: 'R', working_dir: ' ', from: 'library/oldname.jpg' },
+    { path: 'metadata.json', index: 'M', working_dir: ' ' }
+  ];
+  
+  const result = git.parseImageChanges(files);
+  
+  assert.strictEqual(result.newImages, 0, 'Should have 0 new images');
+  assert.strictEqual(result.modifiedImages, 0, 'Should not count metadata.json when rename present');
+  assert.strictEqual(result.deletedImages, 0, 'Should have 0 deleted images');
+  assert.strictEqual(result.renamedImages, 1, 'Should count 1 rename (metadata.json is part of rename operation)');
 });
 
 // ============================================================================
