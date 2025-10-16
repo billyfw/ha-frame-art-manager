@@ -362,6 +362,163 @@ test('INTEGRATION: checkAndPullIfBehind fetches before checking (real-world scen
 });
 
 // ============================================================================
+// PARSE IMAGE CHANGES TESTS
+// ============================================================================
+
+test('parseImageChanges detects new images', () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  
+  const files = [
+    { path: 'library/image1.jpg', index: 'A', working_dir: ' ' },
+    { path: 'library/image2.jpg', index: 'A', working_dir: ' ' }
+  ];
+  
+  const result = git.parseImageChanges(files);
+  
+  assert.strictEqual(result.newImages, 2, 'Should detect 2 new images');
+  assert.strictEqual(result.modifiedImages, 0, 'Should have 0 modified images');
+  assert.strictEqual(result.deletedImages, 0, 'Should have 0 deleted images');
+  assert.strictEqual(result.renamedImages, 0, 'Should have 0 renamed images');
+});
+
+test('parseImageChanges detects modified images', () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  
+  const files = [
+    { path: 'library/image1.jpg', index: 'M', working_dir: ' ' },
+    { path: 'library/image2.jpg', index: 'M', working_dir: ' ' }
+  ];
+  
+  const result = git.parseImageChanges(files);
+  
+  assert.strictEqual(result.newImages, 0, 'Should have 0 new images');
+  assert.strictEqual(result.modifiedImages, 2, 'Should detect 2 modified images');
+  assert.strictEqual(result.deletedImages, 0, 'Should have 0 deleted images');
+  assert.strictEqual(result.renamedImages, 0, 'Should have 0 renamed images');
+});
+
+test('parseImageChanges detects deleted images', () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  
+  const files = [
+    { path: 'library/image1.jpg', index: 'D', working_dir: ' ' },
+    { path: 'library/image2.jpg', index: 'D', working_dir: ' ' }
+  ];
+  
+  const result = git.parseImageChanges(files);
+  
+  assert.strictEqual(result.newImages, 0, 'Should have 0 new images');
+  assert.strictEqual(result.modifiedImages, 0, 'Should have 0 modified images');
+  assert.strictEqual(result.deletedImages, 2, 'Should detect 2 deleted images');
+  assert.strictEqual(result.renamedImages, 0, 'Should have 0 renamed images');
+});
+
+test('parseImageChanges detects renamed images', () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  
+  const files = [
+    { path: 'library/newname.jpg', index: 'R', working_dir: ' ', from: 'library/oldname.jpg' },
+    { path: 'library/another.jpg', index: 'R100', working_dir: ' ', from: 'library/previous.jpg' }
+  ];
+  
+  const result = git.parseImageChanges(files);
+  
+  assert.strictEqual(result.newImages, 0, 'Should have 0 new images');
+  assert.strictEqual(result.modifiedImages, 0, 'Should have 0 modified images');
+  assert.strictEqual(result.deletedImages, 0, 'Should have 0 deleted images');
+  assert.strictEqual(result.renamedImages, 2, 'Should detect 2 renamed images');
+});
+
+test('parseImageChanges ignores thumbnails', () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  
+  const files = [
+    { path: 'library/image1.jpg', index: 'M', working_dir: ' ' },
+    { path: 'thumbs/thumb_image1.jpg', index: 'M', working_dir: ' ' }
+  ];
+  
+  const result = git.parseImageChanges(files);
+  
+  assert.strictEqual(result.modifiedImages, 1, 'Should only count library file, not thumbnail');
+});
+
+test('parseImageChanges detects metadata.json changes as modified images', () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  
+  const files = [
+    { path: 'metadata.json', index: 'M', working_dir: ' ' }
+  ];
+  
+  const result = git.parseImageChanges(files);
+  
+  assert.strictEqual(result.newImages, 0, 'Should have 0 new images');
+  assert.strictEqual(result.modifiedImages, 1, 'Should count metadata.json as 1 modified image');
+  assert.strictEqual(result.deletedImages, 0, 'Should have 0 deleted images');
+  assert.strictEqual(result.renamedImages, 0, 'Should have 0 renamed images');
+});
+
+test('parseImageChanges combines metadata.json and library changes', () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  
+  const files = [
+    { path: 'library/image1.jpg', index: 'M', working_dir: ' ' },
+    { path: 'metadata.json', index: 'M', working_dir: ' ' }
+  ];
+  
+  const result = git.parseImageChanges(files);
+  
+  assert.strictEqual(result.newImages, 0, 'Should have 0 new images');
+  assert.strictEqual(result.modifiedImages, 2, 'Should count both library file and metadata.json');
+  assert.strictEqual(result.deletedImages, 0, 'Should have 0 deleted images');
+  assert.strictEqual(result.renamedImages, 0, 'Should have 0 renamed images');
+});
+
+test('parseImageChanges handles mixed operations', () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  
+  const files = [
+    { path: 'library/new.jpg', index: 'A', working_dir: ' ' },
+    { path: 'library/modified.jpg', index: 'M', working_dir: ' ' },
+    { path: 'library/deleted.jpg', index: 'D', working_dir: ' ' },
+    { path: 'library/renamed.jpg', index: 'R', working_dir: ' ', from: 'library/old.jpg' },
+    { path: 'metadata.json', index: 'M', working_dir: ' ' },
+    { path: 'thumbs/thumb_new.jpg', index: 'A', working_dir: ' ' }
+  ];
+  
+  const result = git.parseImageChanges(files);
+  
+  assert.strictEqual(result.newImages, 1, 'Should detect 1 new image');
+  assert.strictEqual(result.modifiedImages, 2, 'Should detect 1 modified library file + 1 metadata.json');
+  assert.strictEqual(result.deletedImages, 1, 'Should detect 1 deleted image');
+  assert.strictEqual(result.renamedImages, 1, 'Should detect 1 renamed image');
+});
+
+test('parseImageChanges only counts metadata.json when status is M (modified)', () => {
+  const git = new GitHelper(FRAME_ART_PATH);
+  
+  // Test added metadata.json (shouldn't count)
+  const filesAdded = [
+    { path: 'metadata.json', index: 'A', working_dir: ' ' }
+  ];
+  const resultAdded = git.parseImageChanges(filesAdded);
+  assert.strictEqual(resultAdded.modifiedImages, 0, 'Should not count added metadata.json');
+  
+  // Test deleted metadata.json (shouldn't count)
+  const filesDeleted = [
+    { path: 'metadata.json', index: 'D', working_dir: ' ' }
+  ];
+  const resultDeleted = git.parseImageChanges(filesDeleted);
+  assert.strictEqual(resultDeleted.modifiedImages, 0, 'Should not count deleted metadata.json');
+  
+  // Test modified metadata.json (should count)
+  const filesModified = [
+    { path: 'metadata.json', index: 'M', working_dir: ' ' }
+  ];
+  const resultModified = git.parseImageChanges(filesModified);
+  assert.strictEqual(resultModified.modifiedImages, 1, 'Should count modified metadata.json');
+});
+
+// ============================================================================
 // RUN TESTS
 // ============================================================================
 

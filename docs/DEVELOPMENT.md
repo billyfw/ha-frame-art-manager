@@ -121,16 +121,23 @@ Extract UUID from old filename
   ↓
 Sanitize new base name
   ↓
-fs.rename (library file)
+git mv (library file)
   ↓
-fs.rename (thumbnail)
+git mv (thumbnail)
   ↓
 MetadataHelper.renameImage()
   ↓
-Update metadata.json
+git add (metadata.json)
   ↓
 Return new filename
 ```
+
+**Why `git mv` instead of `fs.rename()`:**
+- Git recognizes rename as single operation (shows as "R" status)
+- Sync badge correctly shows 1 change instead of 2
+- Atomic from Git's perspective (no race conditions)
+- More reliable with Git LFS
+- Prevents orphaned files
 
 ### File System Structure
 
@@ -252,6 +259,12 @@ Content-Type: application/json
 }
 ```
 
+**Implementation:** Uses `git mv` to rename both the image and thumbnail atomically. This ensures Git recognizes the operation as a rename (shows as "R" status) rather than a delete + add, which means:
+- Sync badge shows 1 change instead of 2
+- No risk of orphaned files
+- Better Git LFS handling
+- Cleaner git history
+
 #### Delete Image
 ```http
 DELETE /api/images/:filename
@@ -370,6 +383,35 @@ Checks if behind remote, pulls if clean working tree.
 }
 ```
 
+#### Get Sync Status
+```http
+GET /api/sync/status
+```
+
+Returns semantic breakdown of changes to upload/download.
+
+**Response:**
+```json
+{
+  "upload": {
+    "count": 3,
+    "newImages": 1,
+    "modifiedImages": 1,
+    "deletedImages": 0,
+    "renamedImages": 1
+  },
+  "download": {
+    "count": 0,
+    "newImages": 0,
+    "modifiedImages": 0,
+    "deletedImages": 0,
+    "renamedImages": 0
+  }
+}
+```
+
+**Note:** Renames are detected by Git's "R" status code and counted as 1 change (not 2).
+
 ### Static Files
 
 ```http
@@ -404,11 +446,13 @@ We use a **minimal test framework** built on Node.js `assert` module:
 - Uses `/tmp/frame-art-metadata-test-{timestamp}`
 - Creates dummy 1x1 PNG images
 
-**3. File Coordination (9 tests)**
+**3. File Coordination (12 tests)**
 - Location: `tests/file-coordination.test.js`
 - Tests rename/delete coordination
 - Verifies file + thumbnail + metadata sync
+- Uses `git mv` for rename operations
 - Uses `/tmp/frame-art-coord-test-{timestamp}`
+- Initializes git repo in test environment
 
 ### Running Tests
 
@@ -552,7 +596,42 @@ const status = await git.getStatus();
 // Pull if behind
 const result = await git.checkAndPullIfBehind();
 // Returns: { success, synced, pulledChanges, commitsReceived, skipped, reason }
+
+// Rename files (for image rename operations)
+await git.git.mv('library/old.jpg', 'library/new.jpg');
+await git.git.mv('thumbs/thumb_old.jpg', 'thumbs/thumb_new.jpg');
+await git.git.add('metadata.json');
+// Git recognizes this as a rename, shows as "R" status, counts as 1 change
 ```
+
+### Rename Implementation Pattern
+
+When renaming images, use `git mv` instead of `fs.rename()`:
+
+```javascript
+// Get GitHelper instance
+const git = new GitHelper(frameArtPath);
+
+// 1. Move the image file
+await git.git.mv('library/oldname.jpg', 'library/newname.jpg');
+
+// 2. Move the thumbnail
+await git.git.mv('thumbs/thumb_oldname.jpg', 'thumbs/thumb_newname.jpg');
+
+// 3. Update metadata
+await helper.renameImage('oldname.jpg', 'newname.jpg');
+
+// 4. Stage the metadata change
+await git.git.add('metadata.json');
+```
+
+**Why `git mv`?**
+- Git recognizes as single rename operation (shows as "R" status)
+- Sync status correctly shows 1 change instead of 2 (delete + add)
+- Atomic from Git's perspective (no race conditions)
+- More reliable with Git LFS
+- Prevents orphaned files from incomplete operations
+- Cleaner git history
 
 ### Modal Pattern
 

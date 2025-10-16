@@ -48,12 +48,21 @@ function test(name, fn) {
   tests.push({ name, fn });
 }
 
-// Setup: Create isolated test directory
+// Setup: Create isolated test directory with git repo
 async function setupTestEnv() {
   testPath = path.join(os.tmpdir(), 'frame-art-coord-test-' + Date.now());
   await fs.mkdir(testPath, { recursive: true });
   await fs.mkdir(path.join(testPath, 'library'), { recursive: true });
   await fs.mkdir(path.join(testPath, 'thumbs'), { recursive: true });
+  
+  // Initialize git repository (required for git mv operations)
+  const GitHelper = require('../git_helper');
+  const git = new GitHelper(testPath);
+  await git.git.init();
+  
+  // Configure git user for commits (required for git operations)
+  await git.git.addConfig('user.name', 'Test User');
+  await git.git.addConfig('user.email', 'test@example.com');
   
   // Create initial metadata.json
   const initialMetadata = {
@@ -105,6 +114,33 @@ async function fileExists(filePath) {
   }
 }
 
+// Helper: Perform rename using git mv (simulating what routes/images.js does)
+async function renameWithGit(oldFilename, newFilename) {
+  const GitHelper = require('../git_helper');
+  const git = new GitHelper(testPath);
+  
+  // 1. Use git mv to rename the image file
+  await git.git.mv(
+    path.join('library', oldFilename),
+    path.join('library', newFilename)
+  );
+  
+  // 2. Rename the thumbnail if it exists
+  const oldThumbPath = path.join(testPath, 'thumbs', `thumb_${oldFilename}`);
+  if (await fileExists(oldThumbPath)) {
+    await git.git.mv(
+      path.join('thumbs', `thumb_${oldFilename}`),
+      path.join('thumbs', `thumb_${newFilename}`)
+    );
+  }
+  
+  // 3. Update metadata
+  await helper.renameImage(oldFilename, newFilename);
+  
+  // 4. Stage the metadata change
+  await git.git.add('metadata.json');
+}
+
 // INTEGRATION TESTS: Rename coordination
 
 test('INTEGRATION: rename updates all three resources (file, thumb, metadata)', async () => {
@@ -117,6 +153,12 @@ test('INTEGRATION: rename updates all three resources (file, thumb, metadata)', 
   await createTestThumbnail(oldFilename);
   await helper.addImage(oldFilename, 'none', 'none', ['test']);
   
+  // Initialize git and commit the initial state
+  const GitHelper = require('../git_helper');
+  const git = new GitHelper(testPath);
+  await git.git.add('.');
+  await git.git.commit('Initial test file');
+  
   // Verify all exist before rename
   const oldImagePath = path.join(testPath, 'library', oldFilename);
   const oldThumbPath = path.join(testPath, 'thumbs', `thumb_${oldFilename}`);
@@ -126,15 +168,12 @@ test('INTEGRATION: rename updates all three resources (file, thumb, metadata)', 
   const metadataBefore = await helper.getAllImages();
   assert.ok(metadataBefore[oldFilename], 'Old metadata should exist');
   
-  // Perform rename operations (simulating what routes/images.js does)
-  const newImagePath = path.join(testPath, 'library', newFilename);
-  const newThumbPath = path.join(testPath, 'thumbs', `thumb_${newFilename}`);
-  
-  await fs.rename(oldImagePath, newImagePath);
-  await fs.rename(oldThumbPath, newThumbPath);
-  await helper.renameImage(oldFilename, newFilename);
+  // Perform rename using git mv (simulating what routes/images.js does)
+  await renameWithGit(oldFilename, newFilename);
   
   // Verify all renamed correctly
+  const newImagePath = path.join(testPath, 'library', newFilename);
+  const newThumbPath = path.join(testPath, 'thumbs', `thumb_${newFilename}`);
   assert.ok(await fileExists(newImagePath), 'New image should exist');
   assert.ok(await fileExists(newThumbPath), 'New thumbnail should exist');
   assert.ok(!(await fileExists(oldImagePath)), 'Old image should not exist');
@@ -147,6 +186,111 @@ test('INTEGRATION: rename updates all three resources (file, thumb, metadata)', 
   assert.deepStrictEqual(metadataAfter[newFilename].tags, ['test']);
 });
 
+test('INTEGRATION: rename back and forth does not create orphaned files', async () => {
+  const uuid = 'deadbeef';
+  const filename1 = `original-${uuid}.jpg`;
+  const filename2 = `renamed-${uuid}.jpg`;
+  const filename3 = `original-${uuid}.jpg`;
+  
+  // Create initial file and commit it
+  await createTestImage(filename1);
+  await createTestThumbnail(filename1);
+  await helper.addImage(filename1, 'none', 'none', []);
+  
+  const GitHelper = require('../git_helper');
+  const git = new GitHelper(testPath);
+  await git.git.add('.');
+  await git.git.commit('Initial test file');
+  
+  // Rename to "renamed" using git mv
+  await renameWithGit(filename1, filename2);
+  
+  // Rename back to "original" using git mv
+  await renameWithGit(filename2, filename3);
+  
+  // Verify only ONE file exists
+  const libraryFiles = await fs.readdir(path.join(testPath, 'library'));
+  const imageFiles = libraryFiles.filter(f => f.endsWith('.jpg'));
+  assert.strictEqual(imageFiles.length, 1, 'Should only have one file');
+  assert.strictEqual(imageFiles[0], filename3, 'Should be the final renamed file');
+  
+  // Verify only ONE entry in metadata
+  const metadata = await helper.getAllImages();
+  assert.strictEqual(Object.keys(metadata).length, 1, 'Should only have one metadata entry');
+  assert.ok(metadata[filename3], 'Final filename should be in metadata');
+});
+
+test('INTEGRATION: multiple renames without intermediate cleanup work correctly', async () => {
+  const uuid1 = 'aaaaaaaa';
+  const uuid2 = 'bbbbbbbb';
+  const file1a = `image1-${uuid1}.jpg`;
+  const file1b = `renamed1-${uuid1}.jpg`;
+  const file2a = `image2-${uuid2}.jpg`;
+  const file2b = `renamed2-${uuid2}.jpg`;
+  
+  // Create two files and commit them
+  await createTestImage(file1a);
+  await createTestImage(file2a);
+  await helper.addImage(file1a, 'none', 'none', []);
+  await helper.addImage(file2a, 'none', 'none', []);
+  
+  const GitHelper = require('../git_helper');
+  const git = new GitHelper(testPath);
+  await git.git.add('.');
+  await git.git.commit('Initial two files');
+  
+  // Rename both using git mv
+  await renameWithGit(file1a, file1b);
+  await renameWithGit(file2a, file2b);
+  
+  // Verify old files are gone
+  assert.ok(!(await fileExists(path.join(testPath, 'library', file1a))), 'Old file1 should be gone');
+  assert.ok(!(await fileExists(path.join(testPath, 'library', file2a))), 'Old file2 should be gone');
+  
+  // Verify new files exist
+  assert.ok(await fileExists(path.join(testPath, 'library', file1b)), 'New file1 should exist');
+  assert.ok(await fileExists(path.join(testPath, 'library', file2b)), 'New file2 should exist');
+  
+  // Verify metadata is correct
+  const metadata = await helper.getAllImages();
+  assert.strictEqual(Object.keys(metadata).length, 2, 'Should have two metadata entries');
+  assert.ok(metadata[file1b], 'Renamed file1 should be in metadata');
+  assert.ok(metadata[file2b], 'Renamed file2 should be in metadata');
+  assert.ok(!metadata[file1a], 'Old file1 should not be in metadata');
+  assert.ok(!metadata[file2a], 'Old file2 should not be in metadata');
+});
+
+test('INTEGRATION: git mv rename pattern works with git tracking', async () => {
+  // This test verifies that rename works WITH git operations
+  const oldFilename = 'git-test-cccccccc.jpg';
+  const newFilename = 'git-renamed-cccccccc.jpg';
+  
+  await createTestImage(oldFilename);
+  await helper.addImage(oldFilename, 'none', 'none', []);
+  
+  const GitHelper = require('../git_helper');
+  const git = new GitHelper(testPath);
+  await git.git.add('.');
+  await git.git.commit('Initial file for git test');
+  
+  // Perform rename using git mv
+  await renameWithGit(oldFilename, newFilename);
+  
+  // Verify filesystem
+  assert.ok(!(await fileExists(path.join(testPath, 'library', oldFilename))), 'Old file should be gone');
+  assert.ok(await fileExists(path.join(testPath, 'library', newFilename)), 'New file should exist');
+  
+  // Verify metadata
+  const metadata = await helper.getAllImages();
+  assert.ok(metadata[newFilename], 'New filename should be in metadata');
+  assert.ok(!metadata[oldFilename], 'Old filename should not be in metadata');
+  
+  // Verify git sees it as a rename, not delete + add
+  const status = await git.git.status();
+  const renamedFiles = status.files.filter(f => (f.index || '').startsWith('R'));
+  assert.ok(renamedFiles.length > 0, 'Git should show renamed files');
+});
+
 test('INTEGRATION: rename handles missing thumbnail gracefully', async () => {
   const oldFilename = 'nothumb-xyz98765.jpg';
   const newFilename = 'renamed-xyz98765.jpg';
@@ -155,22 +299,23 @@ test('INTEGRATION: rename handles missing thumbnail gracefully', async () => {
   await createTestImage(oldFilename);
   await helper.addImage(oldFilename, 'none', 'none', []);
   
-  // Perform rename
+  // Perform rename using copy-delete
   const oldImagePath = path.join(testPath, 'library', oldFilename);
   const newImagePath = path.join(testPath, 'library', newFilename);
   
-  await fs.rename(oldImagePath, newImagePath);
+  await fs.copyFile(oldImagePath, newImagePath);
   
-  // Try to rename thumbnail (should not throw even if missing)
+  // Try to copy thumbnail (should not throw even if missing)
   const oldThumbPath = path.join(testPath, 'thumbs', `thumb_${oldFilename}`);
   const newThumbPath = path.join(testPath, 'thumbs', `thumb_${newFilename}`);
   try {
-    await fs.rename(oldThumbPath, newThumbPath);
+    await fs.copyFile(oldThumbPath, newThumbPath);
   } catch {
     // Expected to fail, that's ok
   }
   
   await helper.renameImage(oldFilename, newFilename);
+  await fs.unlink(oldImagePath);
   
   // Verify file and metadata renamed correctly
   assert.ok(await fileExists(newImagePath), 'New image should exist');
@@ -193,9 +338,9 @@ test('INTEGRATION: rename rollback if metadata update fails', async () => {
   const oldThumbPath = path.join(testPath, 'thumbs', `thumb_${oldFilename}`);
   const newThumbPath = path.join(testPath, 'thumbs', `thumb_${newFilename}`);
   
-  // Rename files
-  await fs.rename(oldImagePath, newImagePath);
-  await fs.rename(oldThumbPath, newThumbPath);
+  // Copy files
+  await fs.copyFile(oldImagePath, newImagePath);
+  await fs.copyFile(oldThumbPath, newThumbPath);
   
   // Try to update metadata (should fail)
   try {
@@ -204,17 +349,14 @@ test('INTEGRATION: rename rollback if metadata update fails', async () => {
   } catch (error) {
     assert.ok(error.message.includes('not found'));
     
-    // In a real app, we'd rollback the file renames here
-    // For this test, we just verify the error was caught
-    assert.ok(await fileExists(newImagePath), 'File was renamed');
-    assert.ok(!(await fileExists(oldImagePath)), 'Old file is gone');
+    // Rollback: delete the new files
+    await fs.unlink(newImagePath);
+    await fs.unlink(newThumbPath);
     
-    // Rollback would be:
-    await fs.rename(newImagePath, oldImagePath);
-    await fs.rename(newThumbPath, oldThumbPath);
-    
-    assert.ok(await fileExists(oldImagePath), 'Rollback restored file');
-    assert.ok(await fileExists(oldThumbPath), 'Rollback restored thumbnail');
+    assert.ok(await fileExists(oldImagePath), 'Original file should still exist');
+    assert.ok(await fileExists(oldThumbPath), 'Original thumbnail should still exist');
+    assert.ok(!(await fileExists(newImagePath)), 'New file should be rolled back');
+    assert.ok(!(await fileExists(newThumbPath)), 'New thumbnail should be rolled back');
   }
 });
 
@@ -392,6 +534,26 @@ async function runTests() {
     
     for (const test of tests) {
       try {
+        // Clean library and thumbs before each test to avoid file accumulation
+        const libraryPath = path.join(testPath, 'library');
+        const thumbsPath = path.join(testPath, 'thumbs');
+        const libraryFiles = await fs.readdir(libraryPath);
+        const thumbFiles = await fs.readdir(thumbsPath);
+        
+        for (const file of libraryFiles) {
+          await fs.unlink(path.join(libraryPath, file));
+        }
+        for (const file of thumbFiles) {
+          await fs.unlink(path.join(thumbsPath, file));
+        }
+        
+        // Reset metadata
+        await helper.writeMetadata({
+          images: {},
+          tvs: [],
+          tags: []
+        });
+        
         await test.fn();
         logSuccess(test.name);
         passed++;
