@@ -214,9 +214,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadLibraryPath();
   initCloudSyncButton(); // Initialize cloud sync button in toolbar - BEFORE checking sync
   
-  // Check for sync updates on page load (auto-pull if behind)
-  await checkSyncOnLoad();
-  
+  // Load UI first so user can start working immediately
   await loadTVs(); // Load TVs first so they're available for the filter dropdown
   loadGallery();
   loadTags();
@@ -230,6 +228,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTVTagPickerModal();
   initSettingsNavigation();
   initUploadNavigation();
+  
+  // Check for sync updates in the background (after UI is loaded)
+  checkSyncOnLoad();
 });
 
 // Check for sync updates on page load
