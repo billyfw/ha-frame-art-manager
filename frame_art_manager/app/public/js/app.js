@@ -956,6 +956,101 @@ async function saveBulkTags() {
   await loadTags();
 }
 
+// Image modal tag management functions
+function renderImageTagBadges(tags) {
+  const container = document.getElementById('modal-tags-badges');
+  
+  if (tags.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  container.innerHTML = tags.sort().map(tag => `
+    <div class="tag-item">
+      <div class="tag-content">
+        <span class="tag-name">${tag}</span>
+      </div>
+      <button class="tag-remove" onclick="removeImageTag('${tag}')" title="Remove tag">×</button>
+    </div>
+  `).join('');
+}
+
+async function removeImageTag(tagName) {
+  if (!currentImage) return;
+  
+  try {
+    const imageData = allImages[currentImage];
+    const existingTags = imageData.tags || [];
+    const newTags = existingTags.filter(t => t !== tagName);
+    
+    const response = await fetch(`${API_BASE}/images/${currentImage}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: newTags })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      // Update local cache
+      allImages[currentImage].tags = newTags;
+      
+      // Re-render badges
+      renderImageTagBadges(newTags);
+      
+      // Reload gallery in background
+      loadGallery();
+    } else {
+      alert('Failed to remove tag');
+    }
+  } catch (error) {
+    console.error('Error removing tag:', error);
+    alert('Error removing tag');
+  }
+}
+
+async function addImageTags() {
+  if (!currentImage) return;
+  
+  const tagsInput = document.getElementById('modal-tags-input').value;
+  const tags = tagsInput.split(',').map(t => t.trim()).filter(t => t);
+  
+  if (tags.length === 0) {
+    alert('Please enter at least one tag');
+    return;
+  }
+  
+  try {
+    const imageData = allImages[currentImage];
+    const existingTags = imageData.tags || [];
+    const newTags = [...new Set([...existingTags, ...tags])]; // Merge and dedupe
+    
+    const response = await fetch(`${API_BASE}/images/${currentImage}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: newTags })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      // Update local cache
+      allImages[currentImage].tags = newTags;
+      
+      // Clear input and re-render badges
+      document.getElementById('modal-tags-input').value = '';
+      renderImageTagBadges(newTags);
+      
+      // Reload gallery and tags in background
+      loadGallery();
+      loadTags();
+    } else {
+      alert('Failed to add tags');
+    }
+  } catch (error) {
+    console.error('Error adding tags:', error);
+    alert('Error adding tags');
+  }
+}
+
 function renderGallery(filter = '') {
   const grid = document.getElementById('image-grid');
   const searchTerm = document.getElementById('search-input').value.toLowerCase();
@@ -1705,12 +1800,16 @@ async function removeTag(tagName) {
 function initModal() {
   const modal = document.getElementById('image-modal');
   const closeBtn = document.getElementById('image-modal-close');
-  const saveBtn = document.getElementById('modal-save-btn');
   const cancelBtn = document.getElementById('modal-cancel-btn');
   const deleteBtn = document.getElementById('modal-delete-btn');
   const editFilenameBtn = document.getElementById('edit-filename-btn');
   const saveFilenameBtn = document.getElementById('save-filename-btn');
   const cancelFilenameBtn = document.getElementById('cancel-filename-btn');
+  const addTagsBtn = document.getElementById('modal-add-tags-btn');
+  const tagsInput = document.getElementById('modal-tags-input');
+  const matteSelect = document.getElementById('modal-matte');
+  const filterSelect = document.getElementById('modal-filter');
+  const expandBtn = document.getElementById('expand-image-btn');
 
   if (closeBtn) closeBtn.onclick = () => modal.classList.remove('active');
   if (cancelBtn) cancelBtn.onclick = () => modal.classList.remove('active');
@@ -1721,11 +1820,81 @@ function initModal() {
     }
   };
 
-  saveBtn.onclick = saveImageChanges;
   deleteBtn.onclick = deleteImage;
   editFilenameBtn.onclick = showEditFilenameForm;
   saveFilenameBtn.onclick = saveFilenameChange;
   cancelFilenameBtn.onclick = hideEditFilenameForm;
+  addTagsBtn.onclick = addImageTags;
+  
+  // Expand image to full screen
+  if (expandBtn) {
+    expandBtn.onclick = () => {
+      if (currentImage) {
+        showFullScreenImage(currentImage);
+      }
+    };
+  }
+  
+  // Auto-save matte and filter on change
+  matteSelect.onchange = saveImageChanges;
+  filterSelect.onchange = saveImageChanges;
+  
+  // Add Enter key support for tags input
+  if (tagsInput) {
+    tagsInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addImageTags();
+      }
+    });
+  }
+}
+
+function showFullScreenImage(filename) {
+  // Create full-screen overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'fullscreen-image-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    cursor: pointer;
+  `;
+  
+  // Create image element
+  const img = document.createElement('img');
+  img.src = `/library/${filename}`;
+  img.style.cssText = `
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  `;
+  
+  overlay.appendChild(img);
+  document.body.appendChild(overlay);
+  
+  // Click anywhere to close
+  overlay.onclick = () => {
+    document.body.removeChild(overlay);
+  };
+  
+  // ESC key to close
+  const handleEsc = (e) => {
+    if (e.key === 'Escape') {
+      if (document.getElementById('fullscreen-image-overlay')) {
+        document.body.removeChild(overlay);
+        document.removeEventListener('keydown', handleEsc);
+      }
+    }
+  };
+  document.addEventListener('keydown', handleEsc);
 }
 
 function openImageModal(filename) {
@@ -1747,19 +1916,30 @@ function openImageModal(filename) {
   
   // Set resolution
   const resolutionEl = document.getElementById('modal-resolution');
+  const aspectBadgeEl = document.getElementById('modal-aspect-badge');
   if (imageData.dimensions) {
     const { width, height } = imageData.dimensions;
     const aspectRatio = imageData.aspectRatio || (width / height).toFixed(2);
     const is16x9 = Math.abs(aspectRatio - 1.78) < 0.05;
-    resolutionEl.textContent = `${width} × ${height}${is16x9 ? ' (16:9)' : ''}`;
+    resolutionEl.textContent = `${width} × ${height}`;
+    
+    // Add 16:9 badge if applicable
+    if (is16x9) {
+      aspectBadgeEl.innerHTML = '<span class="aspect-badge-inline">16:9</span>';
+    } else {
+      aspectBadgeEl.innerHTML = '';
+    }
   } else {
     resolutionEl.textContent = 'Unknown';
+    aspectBadgeEl.innerHTML = '';
   }
 
   // Set form values
   document.getElementById('modal-matte').value = imageData.matte || 'none';
   document.getElementById('modal-filter').value = imageData.filter || 'none';
-  document.getElementById('modal-tags').value = (imageData.tags || []).join(', ');
+  
+  // Render tag badges
+  renderImageTagBadges(imageData.tags || []);
 
   modal.classList.add('active');
 }
@@ -1849,23 +2029,23 @@ async function saveImageChanges() {
 
   const matte = document.getElementById('modal-matte').value;
   const filter = document.getElementById('modal-filter').value;
-  const tagsInput = document.getElementById('modal-tags').value;
-  const tags = tagsInput.split(',').map(t => t.trim()).filter(t => t);
 
   try {
     const response = await fetch(`${API_BASE}/images/${encodeURIComponent(currentImage)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ matte, filter, tags })
+      body: JSON.stringify({ matte, filter })
     });
 
     const result = await response.json();
 
     if (result.success) {
-      document.getElementById('image-modal').classList.remove('active');
+      // Update local cache
+      allImages[currentImage].matte = matte;
+      allImages[currentImage].filter = filter;
+      
+      // Reload gallery in background
       loadGallery();
-      loadTags(); // Reload in case new tags were added
-      loadTagsForFilter(); // Update the filter dropdown too
     }
   } catch (error) {
     console.error('Error saving changes:', error);

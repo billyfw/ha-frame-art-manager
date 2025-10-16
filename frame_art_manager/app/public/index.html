@@ -199,56 +199,75 @@
   <div id="image-modal" class="modal">
     <div class="modal-content">
       <button class="close close-simple" id="image-modal-close">✕</button>
-      <img id="modal-image" src="" alt="" />
+      <div class="modal-image-container">
+        <button class="expand-image-btn" id="expand-image-btn" title="View full size">⤢</button>
+        <img id="modal-image" src="" alt="" />
+      </div>
       <div class="modal-details">
-        <div class="modal-filename-container">
-          <h3 id="modal-filename"></h3>
-          <button id="edit-filename-btn" class="btn-icon" title="Edit name">✏️</button>
-        </div>
-        <div id="edit-filename-form" class="edit-filename-form" style="display: none;">
-          <input type="text" id="edit-filename-input" placeholder="Enter new name" />
-          <button id="save-filename-btn" class="btn-primary btn-small">Save</button>
-          <button id="cancel-filename-btn" class="btn-secondary btn-small">Cancel</button>
-        </div>
-        <p class="modal-actual-filename">
-          <small>File: <code id="modal-actual-filename"></code></small>
-        </p>
-        <p class="modal-dimensions">
-          <small>Resolution: <strong id="modal-resolution"></strong></small>
-        </p>
-        <div class="modal-controls">
-          <div class="form-group">
-            <label>Matte:</label>
-            <select id="modal-matte">
-              <option value="none">None</option>
-              <option value="square_white">Square White</option>
-              <option value="square_black">Square Black</option>
-              <option value="square_beige">Square Beige</option>
-              <option value="modern_white">Modern White</option>
-              <option value="modern_black">Modern Black</option>
-              <option value="modern_beige">Modern Beige</option>
-            </select>
+        <div class="modal-header-section">
+          <div class="modal-info-left">
+            <div class="modal-filename-container">
+              <h3 id="modal-filename"></h3>
+              <button id="edit-filename-btn" class="btn-icon" title="Edit name">✏️</button>
+            </div>
+            <div id="edit-filename-form" class="edit-filename-form" style="display: none;">
+              <input type="text" id="edit-filename-input" placeholder="Enter new name" />
+              <button id="save-filename-btn" class="btn-primary btn-small">Save</button>
+              <button id="cancel-filename-btn" class="btn-secondary btn-small">Cancel</button>
+            </div>
+            <p class="modal-actual-filename">
+              <small>File: <code id="modal-actual-filename"></code></small>
+            </p>
+            <p class="modal-dimensions">
+              <small>Resolution: <strong id="modal-resolution"></strong> <span id="modal-aspect-badge"></span></small>
+            </p>
+            <div class="form-group form-group-compact">
+              <label>Matte:</label>
+              <select id="modal-matte">
+                <option value="none">None</option>
+                <option value="square_white">Square White</option>
+                <option value="square_black">Square Black</option>
+                <option value="square_beige">Square Beige</option>
+                <option value="modern_white">Modern White</option>
+                <option value="modern_black">Modern Black</option>
+                <option value="modern_beige">Modern Beige</option>
+              </select>
+            </div>
+            <div class="form-group form-group-compact">
+              <label>Filter:</label>
+              <select id="modal-filter">
+                <option value="none">None</option>
+                <option value="sepia">Sepia</option>
+                <option value="grayscale">Grayscale</option>
+                <option value="warm">Warm</option>
+                <option value="cool">Cool</option>
+              </select>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Filter:</label>
-            <select id="modal-filter">
-              <option value="none">None</option>
-              <option value="sepia">Sepia</option>
-              <option value="grayscale">Grayscale</option>
-              <option value="warm">Warm</option>
-              <option value="cool">Cool</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Tags:</label>
-            <input type="text" id="modal-tags" placeholder="tag1, tag2, tag3" />
+          <div class="modal-info-center">
+            <div class="image-tag-section">
+              <div class="form-group form-group-compact">
+                <label>Add tags:</label>
+                <div class="inline-input-group">
+                  <input type="text" id="modal-tags-input" placeholder="tag1, tag2, tag3" />
+                  <button id="modal-add-tags-btn" class="btn-primary">Add Tags</button>
+                </div>
+              </div>
+            </div>
+            <div class="image-tag-section image-tag-section-fill">
+              <div class="image-tag-section-header">
+                <strong>Tags</strong>
+              </div>
+              <div id="modal-tags-badges" class="tag-cloud">
+                <!-- Populated by JavaScript -->
+              </div>
+            </div>
           </div>
         </div>
         <div class="modal-actions">
           <button id="modal-delete-btn" class="btn-danger">Delete Image</button>
           <div class="modal-actions-right">
-            <button id="modal-cancel-btn" class="btn-secondary">Cancel</button>
-            <button id="modal-save-btn" class="btn-primary">Save Changes</button>
+            <button id="modal-cancel-btn" class="btn-done">Done</button>
           </div>
         </div>
       </div>
