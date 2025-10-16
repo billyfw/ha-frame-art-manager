@@ -260,15 +260,40 @@
     <div class="modal-content bulk-modal">
       <button class="close close-simple" id="bulk-modal-close">✕</button>
       <div class="modal-details">
-        <h3>Add Tags to <span id="bulk-count">0</span> Images</h3>
-        <div class="form-group">
-          <label>Tags to Add (comma-separated):</label>
-          <input type="text" id="bulk-tags-input" placeholder="tag1, tag2, tag3" />
-          <small class="form-hint">These tags will be added to all selected images (existing tags will be kept)</small>
+        <h3>Manage Tags for <span id="bulk-count">0</span> Images</h3>
+        
+        <!-- Tags on ALL selected images -->
+        <div class="bulk-tag-section">
+          <div class="bulk-tag-section-header">
+            <strong>On all images</strong>
+          </div>
+          <div id="bulk-all-tags" class="tag-cloud">
+            <!-- Populated by JavaScript -->
+          </div>
         </div>
-        <div class="bulk-modal-actions">
-          <button id="add-bulk-tags-btn" class="btn-primary">Add Tags</button>
-          <button id="cancel-bulk-tags-btn" class="btn-secondary">Cancel</button>
+        
+        <!-- Tags on SOME selected images -->
+        <div class="bulk-tag-section">
+          <div class="bulk-tag-section-header">
+            <strong>On some images</strong>
+          </div>
+          <div id="bulk-some-tags" class="tag-cloud">
+            <!-- Populated by JavaScript -->
+          </div>
+        </div>
+        
+        <!-- Add new tags -->
+        <div class="bulk-tag-section">
+          <div class="form-group">
+            <label>Add tags:</label>
+            <div class="inline-input-group">
+              <input type="text" id="bulk-tags-input" placeholder="tag1, tag2, tag3" />
+              <button id="add-bulk-tags-btn" class="btn-primary">Add Tags</button>
+            </div>
+          </div>
+          <div class="bulk-modal-actions">
+            <button id="cancel-bulk-tags-btn" class="btn-done">Done</button>
+          </div>
         </div>
       </div>
     </div>
