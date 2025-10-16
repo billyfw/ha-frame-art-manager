@@ -771,6 +771,21 @@ header h1 {
   background: #7f8c8d;
 }
 
+.btn-done {
+  background: #27ae60;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.btn-done:hover {
+  background: #229954;
+}
+
 .btn-danger {
   background: #e74c3c;
   color: white;
@@ -874,6 +889,37 @@ header h1 {
   font-size: 1rem;
 }
 
+.tag-item.partial {
+  background: transparent;
+  border: 2px dashed #3498db;
+  color: #3498db;
+  padding: 4px 8px 4px 15px;
+}
+
+.tag-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  line-height: 1.2;
+}
+
+.tag-name {
+  font-size: 1rem;
+}
+
+.tag-make-all {
+  font-size: 0.65rem;
+  color: #3498db;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.tag-make-all:hover {
+  text-decoration: underline;
+}
+
 .tag-remove {
   background: none;
   border: none;
@@ -885,6 +931,77 @@ header h1 {
 
 .tag-remove:hover {
   color: #c0392b;
+}
+
+.bulk-tag-section {
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.bulk-tag-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.bulk-tag-section-header {
+  margin-bottom: 8px;
+}
+
+.bulk-tag-section-header strong {
+  display: block;
+  color: #2c3e50;
+  font-size: 0.9rem;
+}
+
+.bulk-tag-section .tag-cloud {
+  min-height: 36px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  gap: 8px;
+  margin-top: 0;
+}
+
+.bulk-tag-section .tag-cloud:empty::before {
+  content: 'None';
+  color: #95a5a6;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.bulk-tag-section .form-group {
+  margin-bottom: 12px;
+}
+
+.bulk-tag-section .form-group label {
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+}
+
+.inline-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.inline-input-group input {
+  flex: 1;
+  min-width: 0;
+  max-width: 300px;
+}
+
+.inline-input-group button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.bulk-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 
 /* Modal */
@@ -915,6 +1032,10 @@ header h1 {
   max-height: 90vh;
   overflow-y: auto;
   position: relative;
+}
+
+.bulk-modal {
+  max-width: 450px;
 }
 
 .close {

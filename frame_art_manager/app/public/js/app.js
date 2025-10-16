@@ -677,8 +677,192 @@ function openBulkTagModal() {
   const countSpan = document.getElementById('bulk-count');
   console.log('modal:', modal, 'countSpan:', countSpan);
   countSpan.textContent = selectedImages.size;
+  
+  // Calculate tag frequencies across selected images
+  const tagCounts = {};
+  const selectedArray = Array.from(selectedImages);
+  
+  selectedArray.forEach(filename => {
+    const imageData = allImages[filename];
+    const tags = imageData.tags || [];
+    tags.forEach(tag => {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+  });
+  
+  // Separate tags into "all" and "some"
+  const allTags = [];
+  const someTags = [];
+  
+  Object.entries(tagCounts).forEach(([tag, count]) => {
+    if (count === selectedArray.length) {
+      allTags.push(tag);
+    } else {
+      someTags.push(tag);
+    }
+  });
+  
+  // Render the tag badges
+  renderBulkTagBadges('bulk-all-tags', allTags, false);
+  renderBulkTagBadges('bulk-some-tags', someTags, true);
+  
   modal.classList.add('visible');
   console.log('modal classes after add:', modal.className);
+}
+
+function renderBulkTagBadges(containerId, tags, isPartial) {
+  const container = document.getElementById(containerId);
+  
+  if (tags.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  container.innerHTML = tags.sort().map(tag => `
+    <div class="tag-item${isPartial ? ' partial' : ''}">
+      <div class="tag-content">
+        <span class="tag-name">${tag}</span>
+        ${isPartial ? `<a href="#" class="tag-make-all" onclick="makeTagAll('${tag}'); return false;">make all</a>` : ''}
+      </div>
+      <button class="tag-remove" onclick="removeBulkTag('${tag}', ${isPartial})" title="Remove tag">×</button>
+    </div>
+  `).join('');
+}
+
+async function removeBulkTag(tagName, isPartial) {
+  const selectedArray = Array.from(selectedImages);
+  let successCount = 0;
+  let errorCount = 0;
+  
+  // Remove tag from all selected images that have it
+  for (const filename of selectedArray) {
+    try {
+      const imageData = allImages[filename];
+      const existingTags = imageData.tags || [];
+      
+      // Only update if this image has the tag
+      if (existingTags.includes(tagName)) {
+        const newTags = existingTags.filter(t => t !== tagName);
+        
+        const response = await fetch(`${API_BASE}/images/${filename}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tags: newTags })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+          successCount++;
+          // Update local cache
+          allImages[filename].tags = newTags;
+        } else {
+          errorCount++;
+        }
+      }
+    } catch (error) {
+      console.error(`Error removing tag from ${filename}:`, error);
+      errorCount++;
+    }
+  }
+  
+  // Refresh the modal to show updated tags
+  const countSpan = document.getElementById('bulk-count');
+  countSpan.textContent = selectedImages.size;
+  
+  // Recalculate tag frequencies
+  const tagCounts = {};
+  selectedArray.forEach(filename => {
+    const imageData = allImages[filename];
+    const tags = imageData.tags || [];
+    tags.forEach(tag => {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+  });
+  
+  const allTags = [];
+  const someTags = [];
+  
+  Object.entries(tagCounts).forEach(([tag, count]) => {
+    if (count === selectedArray.length) {
+      allTags.push(tag);
+    } else {
+      someTags.push(tag);
+    }
+  });
+  
+  renderBulkTagBadges('bulk-all-tags', allTags, false);
+  renderBulkTagBadges('bulk-some-tags', someTags, true);
+  
+  // Reload gallery in background
+  loadGallery();
+}
+
+async function makeTagAll(tagName) {
+  const selectedArray = Array.from(selectedImages);
+  let successCount = 0;
+  let errorCount = 0;
+  
+  // Add tag to all selected images that don't have it
+  for (const filename of selectedArray) {
+    try {
+      const imageData = allImages[filename];
+      const existingTags = imageData.tags || [];
+      
+      // Only update if this image doesn't have the tag
+      if (!existingTags.includes(tagName)) {
+        const newTags = [...existingTags, tagName];
+        
+        const response = await fetch(`${API_BASE}/images/${filename}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tags: newTags })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+          successCount++;
+          // Update local cache
+          allImages[filename].tags = newTags;
+        } else {
+          errorCount++;
+        }
+      }
+    } catch (error) {
+      console.error(`Error adding tag to ${filename}:`, error);
+      errorCount++;
+    }
+  }
+  
+  // Refresh the modal to show updated tags
+  const countSpan = document.getElementById('bulk-count');
+  countSpan.textContent = selectedImages.size;
+  
+  // Recalculate tag frequencies
+  const tagCounts = {};
+  selectedArray.forEach(filename => {
+    const imageData = allImages[filename];
+    const tags = imageData.tags || [];
+    tags.forEach(tag => {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+  });
+  
+  const allTags = [];
+  const someTags = [];
+  
+  Object.entries(tagCounts).forEach(([tag, count]) => {
+    if (count === selectedArray.length) {
+      allTags.push(tag);
+    } else {
+      someTags.push(tag);
+    }
+  });
+  
+  renderBulkTagBadges('bulk-all-tags', allTags, false);
+  renderBulkTagBadges('bulk-some-tags', someTags, true);
+  
+  // Reload gallery in background
+  loadGallery();
 }
 
 function closeBulkTagModal() {
@@ -716,6 +900,8 @@ async function saveBulkTags() {
       const result = await response.json();
       if (result.success) {
         successCount++;
+        // Update local cache
+        allImages[filename].tags = newTags;
       } else {
         errorCount++;
       }
@@ -725,13 +911,42 @@ async function saveBulkTags() {
     }
   }
   
-  // Show result and refresh
+  // Clear the input
+  document.getElementById('bulk-tags-input').value = '';
+  
+  // Recalculate and re-render the tag badges
+  const countSpan = document.getElementById('bulk-count');
+  countSpan.textContent = selectedImages.size;
+  
+  const tagCounts = {};
+  selectedArray.forEach(filename => {
+    const imageData = allImages[filename];
+    const tags = imageData.tags || [];
+    tags.forEach(tag => {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+  });
+  
+  const allTags = [];
+  const someTags = [];
+  
+  Object.entries(tagCounts).forEach(([tag, count]) => {
+    if (count === selectedArray.length) {
+      allTags.push(tag);
+    } else {
+      someTags.push(tag);
+    }
+  });
+  
+  renderBulkTagBadges('bulk-all-tags', allTags, false);
+  renderBulkTagBadges('bulk-some-tags', someTags, true);
+  
+  // Show result
   if (errorCount > 0) {
-    alert(`Updated ${successCount} images. ${errorCount} failed.`);
+    alert(`Added tags to ${successCount} images. ${errorCount} failed.`);
   }
   
-  closeBulkTagModal();
-  clearSelection();
+  // Reload gallery and tags in background
   await loadGallery();
   await loadTags();
 }
@@ -1727,6 +1942,17 @@ function initBulkActions() {
   }
   if (closeBtn) {
     closeBtn.addEventListener('click', closeBulkTagModal);
+  }
+  
+  // Add Enter key support to bulk tags input
+  const bulkTagsInput = document.getElementById('bulk-tags-input');
+  if (bulkTagsInput) {
+    bulkTagsInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveBulkTags();
+      }
+    });
   }
   
   // Close modal on outside click
