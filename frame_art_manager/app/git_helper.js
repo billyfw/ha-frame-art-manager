@@ -284,28 +284,12 @@ class GitHelper {
     let deletedImages = 0;
     let renamedImages = 0;
     
-    // Check if metadata.json is modified (indicates image metadata changes like tags)
-    const metadataFile = files.find(file => {
-      const filePath = file.path || file;
-      return filePath === 'metadata.json';
-    });
-    
-    if (metadataFile) {
-      const indexStatus = metadataFile.index || '';
-      const workingDirStatus = metadataFile.working_dir || '';
-      const status = indexStatus !== ' ' ? indexStatus : workingDirStatus;
-      
-      // Only count as modified if it's M (modified), not A (added) or D (deleted)
-      if (status === 'M') {
-        modifiedImages++;
-      }
-    }
-    
-    // Filter to only library files (ignore thumbs)
+    // Filter to only library files (ignore thumbs and metadata.json)
     const imageFiles = files.filter(file => {
       const filePath = file.path || file;
       return filePath.startsWith('library/') && 
-             !filePath.startsWith('thumbs/');
+             !filePath.startsWith('thumbs/') &&
+             filePath !== 'metadata.json';
     });
     
     // Categorize each image file
@@ -314,7 +298,9 @@ class GitHelper {
       // Check both index and working_dir status
       const indexStatus = file.index || '';
       const workingDirStatus = file.working_dir || '';
-      const status = indexStatus !== ' ' ? indexStatus : workingDirStatus;
+      const commitStatus = file.status || ''; // For commit diffs (from git show)
+      // Prefer index status if present and not empty/space, otherwise use working_dir or status
+      const status = (indexStatus && indexStatus !== ' ') ? indexStatus : (workingDirStatus || commitStatus);
       
       // Check if this is a rename (R or R100 for 100% similarity)
       // Note: git shows renames as 'R' in the index when staged
@@ -334,6 +320,26 @@ class GitHelper {
         modifiedImages++;
       }
     });
+    
+    // Check if metadata.json is modified (indicates image metadata changes like tags)
+    // Only count metadata changes if there are ONLY metadata changes (no image file operations)
+    const metadataFile = files.find(file => {
+      const filePath = file.path || file;
+      return filePath === 'metadata.json';
+    });
+    
+    if (metadataFile && imageFiles.length === 0) {
+      const indexStatus = metadataFile.index || '';
+      const workingDirStatus = metadataFile.working_dir || '';
+      const commitStatus = metadataFile.status || ''; // For commit diffs (from git show)
+      // Prefer index status if present and not empty/space, otherwise use working_dir or status
+      const status = (indexStatus && indexStatus !== ' ') ? indexStatus : (workingDirStatus || commitStatus);
+      
+      // Only count as modified if it's M (modified), not A (added) or D (deleted)
+      if (status === 'M') {
+        modifiedImages++;
+      }
+    }
     
     return { newImages, modifiedImages, deletedImages, renamedImages };
   }

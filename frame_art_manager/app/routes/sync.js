@@ -10,8 +10,14 @@ router.get('/status', async (req, res) => {
   try {
     const git = new GitHelper(req.frameArtPath);
     
-    // Fetch from remote first to get latest commit info
-    await git.git.fetch('origin', 'main');
+    // Try to fetch from remote first to get latest commit info
+    // If this fails (network down), continue anyway with local status
+    try {
+      await git.git.fetch('origin', 'main');
+    } catch (fetchError) {
+      console.warn('Could not fetch from remote (network may be down):', fetchError.message);
+      // Continue with local status
+    }
     
     // Get semantic sync status
     const semanticStatus = await git.getSemanticSyncStatus();

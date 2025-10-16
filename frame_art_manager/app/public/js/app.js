@@ -387,10 +387,11 @@ function updateSyncButtonState(state, text, syncStatus, _unused, errorMessage) {
       const plural = syncStatus.upload.newImages !== 1 ? 's' : '';
       lines.push(`${syncStatus.upload.newImages} new image${plural} to upload`);
     }
-    if (syncStatus.upload.modifiedImages > 0) {
-      const count = syncStatus.upload.modifiedImages;
-      const text = count === 1 ? 'image modification' : 'image modifications';
-      lines.push(`${count} ${text} to upload`);
+    // Combine modifications and renames
+    const uploadModCount = (syncStatus.upload.modifiedImages || 0) + (syncStatus.upload.renamedImages || 0);
+    if (uploadModCount > 0) {
+      const text = uploadModCount === 1 ? 'image modification' : 'image modifications';
+      lines.push(`${uploadModCount} ${text} to upload`);
     }
     if (syncStatus.upload.deletedImages > 0) {
       const count = syncStatus.upload.deletedImages;
@@ -403,10 +404,11 @@ function updateSyncButtonState(state, text, syncStatus, _unused, errorMessage) {
       const plural = syncStatus.download.newImages !== 1 ? 's' : '';
       lines.push(`${syncStatus.download.newImages} new image${plural} to download`);
     }
-    if (syncStatus.download.modifiedImages > 0) {
-      const count = syncStatus.download.modifiedImages;
-      const text = count === 1 ? 'image modification' : 'image modifications';
-      lines.push(`${count} ${text} to download`);
+    // Combine modifications and renames
+    const downloadModCount = (syncStatus.download.modifiedImages || 0) + (syncStatus.download.renamedImages || 0);
+    if (downloadModCount > 0) {
+      const text = downloadModCount === 1 ? 'image modification' : 'image modifications';
+      lines.push(`${downloadModCount} ${text} to download`);
     }
     if (syncStatus.download.deletedImages > 0) {
       const count = syncStatus.download.deletedImages;
@@ -467,7 +469,8 @@ async function manualSync() {
     
     const pullData = await pullResponse.json();
     
-    if (!pullData.success) {
+    // Check both HTTP status and success flag
+    if (!pullResponse.ok || !pullData.success) {
       // Check for conflicts
       if (pullData.hasConflicts) {
         console.error('Sync conflict detected:', pullData.error);
@@ -491,7 +494,8 @@ async function manualSync() {
     
     const pushData = await pushResponse.json();
     
-    if (!pushData.success) {
+    // Check both HTTP status and success flag
+    if (!pushResponse.ok || !pushData.success) {
       console.error('Push failed:', pushData.error);
       alert(`Push failed: ${pushData.error}`);
       updateSyncButtonState('error', 'Error', null, null, pushData.error);
@@ -509,8 +513,9 @@ async function manualSync() {
     
   } catch (error) {
     console.error('Error during manual sync:', error);
-    alert(`Sync error: ${error.message}`);
-    updateSyncButtonState('error', 'Error', null, null, error.message);
+    const errorMsg = error.message || 'Network error or server unavailable';
+    alert(`Sync error: ${errorMsg}`);
+    updateSyncButtonState('error', 'Error', null, null, errorMsg);
   }
 }
 
@@ -1856,12 +1861,22 @@ function initModal() {
   const filterSelect = document.getElementById('modal-filter');
   const expandBtn = document.getElementById('expand-image-btn');
 
-  if (closeBtn) closeBtn.onclick = () => modal.classList.remove('active');
-  if (cancelBtn) cancelBtn.onclick = () => modal.classList.remove('active');
+  // Helper function to close modal and auto-sync
+  const closeModalAndSync = async () => {
+    modal.classList.remove('active');
+    // Check if there are changes to sync and auto-sync
+    const status = await fetch(`${API_BASE}/sync/status`).then(r => r.json());
+    if (status.success && status.status.hasChanges) {
+      await manualSync();
+    }
+  };
+  
+  if (closeBtn) closeBtn.onclick = closeModalAndSync;
+  if (cancelBtn) cancelBtn.onclick = closeModalAndSync;
   
   window.onclick = (event) => {
     if (event.target === modal) {
-      modal.classList.remove('active');
+      closeModalAndSync();
     }
   };
 
