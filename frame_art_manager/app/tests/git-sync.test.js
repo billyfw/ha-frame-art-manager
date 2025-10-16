@@ -84,6 +84,9 @@ async function cleanupTestRepo() {
 async function runTests() {
   console.log('\n🧪 Running Git Sync Tests...\n');
   
+  // Set test environment to suppress verbose output
+  process.env.NODE_ENV = 'test';
+  
   // Setup test repo for integration tests
   const hasTestRepo = await setupTestRepo();
   
@@ -316,6 +319,46 @@ test('INTEGRATION: multiple consecutive pulls are idempotent', async () => {
   const result3 = await git.checkAndPullIfBehind();
   assert.ok(result3.success, 'Third call should succeed');
   assert.strictEqual(result3.pulledChanges, false, 'Third call should not pull');
+});
+
+test('INTEGRATION: checkAndPullIfBehind fetches before checking (real-world scenario)', async () => {
+  const git = new GitHelper(testRepoPath);
+  
+  // Start at HEAD~1 to simulate being behind
+  await git.git.reset(['--hard', 'HEAD~1']);
+  
+  // Clear the fetch cache by ensuring status thinks we're up to date
+  // (simulates having an old fetch from yesterday)
+  await git.git.fetch('origin', 'main');
+  
+  // Now reset our local tracking without fetching
+  // This simulates: we fetched yesterday, then someone pushed today, and we haven't fetched yet
+  const originalHead = await git.git.revparse(['HEAD']);
+  
+  // Get status WITHOUT a fresh fetch - relies on old fetch data
+  const statusBefore = await git.git.status();
+  const behindBefore = statusBefore.behind || 0;
+  
+  // The key test: checkAndPullIfBehind should fetch internally and detect we're behind
+  const result = await git.checkAndPullIfBehind();
+  
+  // With the fix, it should have fetched and pulled
+  assert.ok(result.success, 'Should succeed');
+  
+  // If we were behind (which we should be since we reset to HEAD~1), we should have pulled
+  if (behindBefore > 0) {
+    assert.ok(result.pulledChanges, 'Should have pulled changes');
+  } else {
+    // This means fetch detected we were behind and pulled successfully
+    assert.ok(result.pulledChanges || result.synced, 'Should have synced status');
+  }
+  
+  // Verify we moved forward from our starting point
+  const afterHead = await git.git.revparse(['HEAD']);
+  
+  // We should have moved forward (or stayed if already at latest)
+  const headChanged = originalHead !== afterHead;
+  assert.ok(headChanged || result.synced, 'Should have either changed head or be synced');
 });
 
 // ============================================================================

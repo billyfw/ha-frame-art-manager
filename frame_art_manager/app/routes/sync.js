@@ -10,6 +10,9 @@ router.get('/status', async (req, res) => {
   try {
     const git = new GitHelper(req.frameArtPath);
     
+    // Fetch from remote first to get latest commit info
+    await git.git.fetch('origin', 'main');
+    
     // Get semantic sync status
     const semanticStatus = await git.getSemanticSyncStatus();
     const lastSync = await git.getLastSyncTime();

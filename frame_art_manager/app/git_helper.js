@@ -102,23 +102,34 @@ class GitHelper {
         };
       }
       
-      // Check if we have uncommitted local changes
-      const status = await this.getStatus();
-      if (status.files.length > 0) {
+      // Check if we have uncommitted local changes (before fetching)
+      const statusBefore = await this.getStatus();
+      if (statusBefore.files.length > 0) {
         // Don't auto-pull if there are local changes
         return {
           success: true,
           synced: false,
           skipped: true,
           reason: 'Uncommitted local changes detected',
-          uncommittedFiles: status.files.map(f => f.path)
+          uncommittedFiles: statusBefore.files.map(f => f.path)
         };
       }
       
-      // Check if we're behind remote
+      // CRITICAL: Fetch from remote to get latest commit info
+      if (process.env.NODE_ENV !== 'test') {
+        console.log('Fetching from remote to check for updates...');
+      }
+      await this.git.fetch('origin', 'main');
+      
+      // Now check if we're behind remote (after fetch)
+      const status = await this.getStatus();
       const behind = status.behind || 0;
+      
       if (behind > 0) {
         // We're behind, attempt to pull
+        if (process.env.NODE_ENV !== 'test') {
+          console.log(`Behind remote by ${behind} commit${behind !== 1 ? 's' : ''}, pulling...`);
+        }
         const pullResult = await this.pullLatest();
         
         if (pullResult.success) {
