@@ -212,6 +212,7 @@ function formatDate(dateString) {
 document.addEventListener('DOMContentLoaded', async () => {
   initTabs();
   loadLibraryPath();
+  initCloudSyncButton(); // Initialize cloud sync button in toolbar - BEFORE checking sync
   
   // Check for sync updates on page load (auto-pull if behind)
   await checkSyncOnLoad();
@@ -229,30 +230,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTVTagPickerModal();
   initSettingsNavigation();
   initUploadNavigation();
-  initCloudSyncButton(); // Initialize cloud sync button in toolbar
 });
 
 // Check for sync updates on page load
 async function checkSyncOnLoad() {
   try {
+    // Show checking state
+    updateSyncButtonState('syncing', 'Checking...', null, null, null);
+    
     console.log('Checking for cloud updates...');
     const response = await fetch(`${API_BASE}/sync/check`);
     const data = await response.json();
     
     if (data.success && data.pulledChanges) {
       console.log(`✅ ${data.message}`);
-      // Optionally show a subtle notification to user
-      // showNotification(`Synced: ${data.message}`, 'success');
+      // Show synced state since we just pulled
+      updateSyncButtonState('synced', 'Synced', null, null, null);
     } else if (data.skipped) {
       console.log(`⚠️ Sync skipped: ${data.reason}`);
+      // Show warning state - there are uncommitted changes
+      updateSyncButtonState('unsynced', 'Unsynced', null, null, data.reason);
     } else if (!data.success && data.error) {
       console.warn(`⚠️ Sync check failed: ${data.error}`);
+      updateSyncButtonState('error', 'Error', null, null, data.error);
     } else {
       console.log('✅ Already up to date');
+      // We're synced - but need to check if there are local changes
+      await updateSyncStatus();
     }
-    
-    // Update sync button state after initial check
-    await updateSyncStatus();
   } catch (error) {
     console.error('Error checking sync on load:', error);
     // Fail silently - don't block page load if sync check fails
