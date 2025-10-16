@@ -944,7 +944,7 @@ header h1 {
   width: auto;
   height: auto;
   border-radius: 0;
-  padding: 0;
+  padding: 4px 8px;
   right: 15px;
   top: 15px;
   line-height: 1;
@@ -952,10 +952,19 @@ header h1 {
 
 .close-simple:hover {
   color: #2c3e50;
+  background: #d0d4d8;
+  border-radius: 4px;
 }
 
 .close:hover {
   background: rgba(0,0,0,0.8);
+}
+
+/* Override for close-simple buttons - needs to come after .close:hover */
+.close.close-simple:hover {
+  background: #d0d4d8;
+  color: #2c3e50;
+  padding: 4px 8px;
 }
 
 /* Image modal close button tweaks: white X on light gray, further from right edge */
@@ -1398,14 +1407,14 @@ header h1 {
 }
 
 .bulk-actions-buttons .btn-primary {
-  background: white;
-  color: #3498db;
-  font-weight: 600;
+  background: #e8eaed;
+  color: #2c3e50;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .bulk-actions-buttons .btn-primary:hover {
-  background: #f0f0f0;
-  color: #2980b9;
+  background: #a8d5f2;
+  color: #2c3e50;
 }
 
 .bulk-actions-buttons .btn-danger {
@@ -1419,30 +1428,13 @@ header h1 {
 
 .bulk-actions-buttons .btn-secondary {
   background: #e8eaed;
-  color: #2c3e50 !important;
-  border: 1px solid #d0d4d8;
-  transition: background 0.15s ease, border-color 0.15s ease;
-  font-size: 14px !important;
-  font-weight: 400 !important;
+  color: #2c3e50;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .bulk-actions-buttons .btn-secondary:hover {
-  background: #e4e7ea;
-  border-color: #b8bfc4;
-}
-
-/* Ensure clear selection button has correct styling */
-#clear-selection-btn {
-  background: #e8eaed !important;
-  color: #2c3e50 !important;
-  border: 1px solid #d0d4d8 !important;
-  font-size: 14px !important;
-  font-weight: 400 !important;
-}
-
-#clear-selection-btn:hover {
-  background: #e4e7ea !important;
-  border-color: #b8bfc4 !important;
+  background: #a8d5f2;
+  color: #2c3e50;
 }
 
 /* Bulk Tag Modal */
