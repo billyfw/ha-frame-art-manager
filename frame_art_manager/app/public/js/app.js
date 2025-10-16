@@ -248,8 +248,9 @@ async function checkSyncOnLoad() {
       updateSyncButtonState('synced', 'Synced', null, null, null);
     } else if (data.skipped) {
       console.log(`⚠️ Sync skipped: ${data.reason}`);
-      // Show warning state - there are uncommitted changes
-      updateSyncButtonState('unsynced', 'Unsynced', null, null, data.reason);
+      // There are uncommitted local changes - auto-push them
+      console.log('Auto-pushing local changes...');
+      await autoPushLocalChanges();
     } else if (!data.success && data.error) {
       console.warn(`⚠️ Sync check failed: ${data.error}`);
       updateSyncButtonState('error', 'Error', null, null, data.error);
@@ -262,6 +263,32 @@ async function checkSyncOnLoad() {
     console.error('Error checking sync on load:', error);
     // Fail silently - don't block page load if sync check fails
     updateSyncButtonState('error', 'Error', null, null, error.message);
+  }
+}
+
+// Auto-push local changes on page load
+async function autoPushLocalChanges() {
+  try {
+    console.log('Auto-pushing local changes...');
+    const pushResponse = await fetch(`${API_BASE}/sync/push`, {
+      method: 'POST'
+    });
+    
+    const pushData = await pushResponse.json();
+    
+    if (pushData.success) {
+      console.log('✅ Auto-push successful:', pushData.message);
+      // Update status to show we're synced
+      await updateSyncStatus();
+    } else {
+      console.error('❌ Auto-push failed:', pushData.error);
+      // Fetch the current sync status to show proper badge/tooltip
+      await updateSyncStatus();
+    }
+  } catch (error) {
+    console.error('Error during auto-push:', error);
+    // Fetch the current sync status to show proper badge/tooltip
+    await updateSyncStatus();
   }
 }
 
@@ -800,6 +827,9 @@ async function removeBulkTag(tagName, isPartial) {
   
   // Reload gallery in background
   loadGallery();
+  
+  // Update sync status since metadata changed
+  await updateSyncStatus();
 }
 
 async function makeTagAll(tagName) {
@@ -868,6 +898,9 @@ async function makeTagAll(tagName) {
   
   // Reload gallery in background
   loadGallery();
+  
+  // Update sync status since metadata changed
+  await updateSyncStatus();
 }
 
 function closeBulkTagModal() {
@@ -954,6 +987,9 @@ async function saveBulkTags() {
   // Reload gallery and tags in background
   await loadGallery();
   await loadTags();
+  
+  // Update sync status since metadata changed
+  await updateSyncStatus();
 }
 
 // Image modal tag management functions
@@ -999,6 +1035,9 @@ async function removeImageTag(tagName) {
       
       // Reload gallery in background
       loadGallery();
+      
+      // Update sync status since metadata changed
+      await updateSyncStatus();
     } else {
       alert('Failed to remove tag');
     }
@@ -1042,6 +1081,9 @@ async function addImageTags() {
       // Reload gallery and tags in background
       loadGallery();
       loadTags();
+      
+      // Update sync status since metadata changed
+      await updateSyncStatus();
     } else {
       alert('Failed to add tags');
     }
@@ -1293,6 +1335,9 @@ function initUploadForm() {
         
         loadGallery();
         loadTags(); // Reload tags in case new ones were added
+        
+        // Update sync status since new file was added
+        await updateSyncStatus();
         
         // Switch back to gallery view after showing success message
         setTimeout(() => {
@@ -2015,6 +2060,9 @@ async function saveFilenameChange() {
       document.getElementById('modal-image').src = `/library/${result.newFilename}`;
       
       hideEditFilenameForm();
+      
+      // Update sync status since files changed
+      await updateSyncStatus();
     } else {
       alert(result.error || 'Failed to rename image');
     }
@@ -2046,6 +2094,9 @@ async function saveImageChanges() {
       
       // Reload gallery in background
       loadGallery();
+      
+      // Update sync status since metadata changed
+      await updateSyncStatus();
     }
   } catch (error) {
     console.error('Error saving changes:', error);
@@ -2067,6 +2118,9 @@ async function deleteImage() {
     if (result.success) {
       document.getElementById('image-modal').classList.remove('active');
       loadGallery();
+      
+      // Update sync status since file was deleted
+      await updateSyncStatus();
     }
   } catch (error) {
     console.error('Error deleting image:', error);

@@ -177,21 +177,45 @@ router.post('/:filename/rename', async (req, res) => {
       // File doesn't exist, we can proceed
     }
     
-    // Rename the actual file
-    const oldImagePath = path.join(req.frameArtPath, 'library', oldFilename);
-    await fs.rename(oldImagePath, newImagePath);
+    // Use git mv for atomic rename operation
+    const GitHelper = require('../git_helper');
+    const git = new GitHelper(req.frameArtPath);
     
-    // Rename the thumbnail if it exists
-    const oldThumbPath = path.join(req.frameArtPath, 'thumbs', `thumb_${oldFilename}`);
-    const newThumbPath = path.join(req.frameArtPath, 'thumbs', `thumb_${newFilename}`);
+    console.log(`[RENAME] Starting rename: ${oldFilename} -> ${newFilename}`);
+    
+    // 1. Use git mv to rename the image file
+    // This stages the rename automatically
     try {
-      await fs.rename(oldThumbPath, newThumbPath);
-    } catch {
-      // Thumbnail might not exist, that's ok
+      console.log(`[RENAME] Calling git mv for image...`);
+      await git.git.mv(
+        path.join('library', oldFilename),
+        path.join('library', newFilename)
+      );
+      console.log(`[RENAME] git mv succeeded for image`);
+    } catch (gitMvError) {
+      console.error('[RENAME] git mv failed for image:', gitMvError);
+      throw new Error(`Failed to rename image file: ${gitMvError.message}`);
     }
     
-    // Update metadata
+    // 2. Rename the thumbnail if it exists (also using git mv)
+    const oldThumbPath = path.join(req.frameArtPath, 'thumbs', `thumb_${oldFilename}`);
+    try {
+      await fs.access(oldThumbPath);
+      // Thumbnail exists, use git mv
+      console.log(`[RENAME] Calling git mv for thumbnail...`);
+      await git.git.mv(
+        path.join('thumbs', `thumb_${oldFilename}`),
+        path.join('thumbs', `thumb_${newFilename}`)
+      );
+      console.log(`[RENAME] git mv succeeded for thumbnail`);
+    } catch (thumbError) {
+      // Thumbnail might not exist or git mv failed - log but continue
+      console.warn('[RENAME] Thumbnail rename issue:', thumbError.message);
+    }
+    
+    // 3. Update metadata and stage it
     await helper.renameImage(oldFilename, newFilename);
+    await git.git.add('metadata.json');
     
     res.json({ 
       success: true, 

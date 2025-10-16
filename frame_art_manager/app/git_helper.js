@@ -273,40 +273,69 @@ class GitHelper {
 
   /**
    * Parse file list to extract semantic image counts (ignoring thumbnails and metadata)
-   * @param {Array} files - Array of file paths
+   * Handles renames as a single operation, not as delete + add
+   * @param {Array} files - Array of file paths or file objects
    * @param {Array} newImageFiles - Array of new image file paths to check against
-   * @returns {Object} - {newImages: number, updatedImages: number}
+   * @returns {Object} - {newImages: number, modifiedImages: number, deletedImages: number, renamedImages: number}
    */
   parseImageChanges(files, newImageFiles = []) {
     let newImages = 0;
     let modifiedImages = 0;
     let deletedImages = 0;
+    let renamedImages = 0;
     
-    // Filter to only library files (ignore thumbs and metadata.json)
+    // Check if metadata.json is modified (indicates image metadata changes like tags)
+    const metadataFile = files.find(file => {
+      const filePath = file.path || file;
+      return filePath === 'metadata.json';
+    });
+    
+    if (metadataFile) {
+      const indexStatus = metadataFile.index || '';
+      const workingDirStatus = metadataFile.working_dir || '';
+      const status = indexStatus !== ' ' ? indexStatus : workingDirStatus;
+      
+      // Only count as modified if it's M (modified), not A (added) or D (deleted)
+      if (status === 'M') {
+        modifiedImages++;
+      }
+    }
+    
+    // Filter to only library files (ignore thumbs)
     const imageFiles = files.filter(file => {
       const filePath = file.path || file;
       return filePath.startsWith('library/') && 
-             !filePath.startsWith('thumbs/') && 
-             filePath !== 'metadata.json';
+             !filePath.startsWith('thumbs/');
     });
     
     // Categorize each image file
     imageFiles.forEach(file => {
       const filePath = file.path || file;
-      const status = file.working_dir || file.index || 'M'; // M = modified, A = added, D = deleted, etc
+      // Check both index and working_dir status
+      const indexStatus = file.index || '';
+      const workingDirStatus = file.working_dir || '';
+      const status = indexStatus !== ' ' ? indexStatus : workingDirStatus;
       
+      // Check if this is a rename (R or R100 for 100% similarity)
+      // Note: git shows renames as 'R' in the index when staged
+      if (status === 'R' || status.startsWith('R')) {
+        renamedImages++;
+      }
       // Check if this is a new file (added) or if it's in the newImageFiles list
-      if (status === 'A' || status === '?' || newImageFiles.includes(filePath)) {
+      else if (status === 'A' || status === '?' || newImageFiles.includes(filePath)) {
         newImages++;
-      } else if (status === 'D') {
+      } 
+      // Check if deleted
+      else if (status === 'D') {
         deletedImages++;
-      } else {
-        // Modified or renamed
+      } 
+      // Otherwise it's modified
+      else if (status === 'M') {
         modifiedImages++;
       }
     });
     
-    return { newImages, modifiedImages, deletedImages };
+    return { newImages, modifiedImages, deletedImages, renamedImages };
   }
 
   /**
@@ -332,7 +361,7 @@ class GitHelper {
         .map(file => file.path || file);
       
       // Parse unpushed commits (ahead)
-      let unpushedChanges = { newImages: 0, modifiedImages: 0, deletedImages: 0 };
+      let unpushedChanges = { newImages: 0, modifiedImages: 0, deletedImages: 0, renamedImages: 0 };
       if (status.ahead > 0) {
         try {
           // Get diff of commits ahead
@@ -362,7 +391,7 @@ class GitHelper {
       }
       
       // Parse unpulled commits (behind)
-      let unpulledChanges = { newImages: 0, modifiedImages: 0, deletedImages: 0 };
+      let unpulledChanges = { newImages: 0, modifiedImages: 0, deletedImages: 0, renamedImages: 0 };
       if (status.behind > 0) {
         try {
           // Get diff of commits behind
@@ -392,23 +421,26 @@ class GitHelper {
       }
       
       // Combine upload counts (local + unpushed)
-      const uploadCount = localChanges.newImages + localChanges.modifiedImages + localChanges.deletedImages +
-                         unpushedChanges.newImages + unpushedChanges.modifiedImages + unpushedChanges.deletedImages;
+      // Count renames as 1 change each, not 2
+      const uploadCount = localChanges.newImages + localChanges.modifiedImages + localChanges.deletedImages + localChanges.renamedImages +
+                         unpushedChanges.newImages + unpushedChanges.modifiedImages + unpushedChanges.deletedImages + unpushedChanges.renamedImages;
       
-      const downloadCount = unpulledChanges.newImages + unpulledChanges.modifiedImages + unpulledChanges.deletedImages;
+      const downloadCount = unpulledChanges.newImages + unpulledChanges.modifiedImages + unpulledChanges.deletedImages + unpulledChanges.renamedImages;
       
       return {
         upload: {
           count: uploadCount,
           newImages: localChanges.newImages + unpushedChanges.newImages,
           modifiedImages: localChanges.modifiedImages + unpushedChanges.modifiedImages,
-          deletedImages: localChanges.deletedImages + unpushedChanges.deletedImages
+          deletedImages: localChanges.deletedImages + unpushedChanges.deletedImages,
+          renamedImages: localChanges.renamedImages + unpushedChanges.renamedImages
         },
         download: {
           count: downloadCount,
           newImages: unpulledChanges.newImages,
           modifiedImages: unpulledChanges.modifiedImages,
-          deletedImages: unpulledChanges.deletedImages
+          deletedImages: unpulledChanges.deletedImages,
+          renamedImages: unpulledChanges.renamedImages
         },
         hasChanges: uploadCount > 0 || downloadCount > 0
       };
