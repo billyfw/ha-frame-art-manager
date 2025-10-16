@@ -1514,6 +1514,12 @@ function openImageModal(filename) {
   
   currentImage = filename;
 
+  // Clear multi-select when opening image detail modal
+  // This ensures the multi-select toolbar disappears since we're focusing on a single image
+  if (selectedImages.size > 0) {
+    clearSelection();
+  }
+
   // Set image
   document.getElementById('modal-image').src = `/library/${filename}`;
   document.getElementById('modal-filename').textContent = getDisplayName(filename);
