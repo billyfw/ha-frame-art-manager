@@ -756,15 +756,20 @@ class GitHelper {
     
     // Filter out tags that appear in both added and removed (these are just comma changes)
     // Only tags that were truly added or removed should be reported
-    const actuallyRemoved = removedTags.filter(tag => !addedTags.includes(tag));
-    const actuallyAdded = addedTags.filter(tag => !removedTags.includes(tag));
+  const actuallyRemoved = removedTags.filter(tag => !addedTags.includes(tag));
+  const actuallyAdded = addedTags.filter(tag => !removedTags.includes(tag));
+
+  // Deduplicate tags to avoid reporting the same tag multiple times when
+  // the diff contains duplicate + lines (can happen with unstable formatting)
+  const uniqueRemoved = [...new Set(actuallyRemoved)];
+  const uniqueAdded = [...new Set(actuallyAdded)];
     
-    if (actuallyRemoved.length > 0) {
-      changes.push(`  ${baseName}: removed tag${actuallyRemoved.length > 1 ? 's' : ''}: ${actuallyRemoved.join(', ')} (${fileName})`);
+    if (uniqueRemoved.length > 0) {
+      changes.push(`  ${baseName}: removed tag${uniqueRemoved.length > 1 ? 's' : ''}: ${uniqueRemoved.join(', ')} (${fileName})`);
     }
     
-    if (actuallyAdded.length > 0) {
-      changes.push(`  ${baseName}: added tag${actuallyAdded.length > 1 ? 's' : ''}: ${actuallyAdded.join(', ')} (${fileName})`);
+    if (uniqueAdded.length > 0) {
+      changes.push(`  ${baseName}: added tag${uniqueAdded.length > 1 ? 's' : ''}: ${uniqueAdded.join(', ')} (${fileName})`);
     }
     
     if (propertyChanges.length > 0) {
