@@ -24,7 +24,8 @@ const testSuites = [
   { name: 'Semantic Sync Tests', file: 'semantic-sync.test.js' },
   { name: 'Git Sync Tests', file: 'git-sync.test.js' },
   { name: 'Metadata Helper Tests', file: 'metadata-helper.test.js' },
-  { name: 'File Coordination Tests', file: 'file-coordination.test.js' }
+  { name: 'File Coordination Tests', file: 'file-coordination.test.js' },
+  { name: 'Commit Message Tests', file: 'commit-message.test.js' }
 ];
 
 // Results tracking
