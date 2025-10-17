@@ -11,8 +11,7 @@
   "ext": "js,json,css,html",
   "ignore": [
     "node_modules/**",
-    "tests/**",
-    "sync_logs.json"
+    "tests/**"
   ],
   "verbose": true,
   "env": {

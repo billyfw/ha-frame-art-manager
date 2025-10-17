@@ -163,7 +163,11 @@ class GitHelper {
             synced: true,
             pulledChanges: true,
             commitsReceived: behind,
-            message: `Pulled ${behind} commit${behind !== 1 ? 's' : ''} from remote`
+            message: pullResult.autoResolvedConflict
+              ? pullResult.message || 'Conflicts detected and resolved using cloud version'
+              : `Pulled ${behind} commit${behind !== 1 ? 's' : ''} from remote`,
+            autoResolvedConflict: pullResult.autoResolvedConflict || false,
+            lostChangesSummary: pullResult.lostChangesSummary || []
           };
         } else {
           return {
@@ -198,22 +202,31 @@ class GitHelper {
    * @returns {Promise<{success: boolean, summary?: object, error?: string, hasConflicts?: boolean, conflictType?: string}>}
    */
   async pullLatest() {
+    let localChangesSummary = [];
     try {
+      // Ensure we have the latest remote state for comparisons and pulls
+      await this.git.fetch('origin', 'main');
+      localChangesSummary = await this.describeLocalChangesRelativeToRemote();
+
       // Pull with rebase and autostash to handle concurrent modifications
-      // --autostash: Automatically stash uncommitted changes before rebase, then pop after
-      // This prevents "cannot rebase: you have unstaged changes" errors
+      // --autostash automatically stashes uncommitted changes before rebase and reapplies them after
       const pullResult = await this.git.raw(['pull', '--rebase', '--autostash', 'origin', 'main']);
-      
+
       // Also pull LFS files explicitly
       await this.git.raw(['lfs', 'pull']);
 
-      // Check if we're in a conflict state after pull
+      // Verify no conflicts remain after the pull
       const conflictCheck = await this.checkForConflicts();
       if (conflictCheck.hasConflicts) {
+        const summary = localChangesSummary.length > 0
+          ? localChangesSummary
+          : await this.describeLocalChangesRelativeToRemote();
+        await this.resolveConflictsByTakingRemote();
         return {
-          success: false,
-          error: `${conflictCheck.conflictType} conflict detected`,
-          hasConflicts: true,
+          success: true,
+          autoResolvedConflict: true,
+          message: 'Conflicts detected during sync. Local changes were replaced with the cloud version.',
+          lostChangesSummary: summary,
           conflictType: conflictCheck.conflictType,
           conflictedFiles: conflictCheck.conflictedFiles
         };
@@ -232,7 +245,7 @@ class GitHelper {
                             error.message.includes('Could not resolve host') ||
                             error.message.includes('Connection refused') ||
                             error.message.includes('Network is unreachable');
-      
+
       if (isNetworkError) {
         return {
           success: false,
@@ -240,27 +253,42 @@ class GitHelper {
           isNetworkError: true
         };
       }
-      
-      // Check if it's a merge/rebase conflict
-      const hasConflicts = error.message.includes('conflict') || 
-                          error.message.includes('CONFLICT') ||
-                          error.message.includes('Merge conflict');
-      
-      // Try to determine conflict type
-      let conflictType = 'unknown';
-      if (error.message.includes('CONFLICT')) {
-        if (error.message.includes('content')) {
-          conflictType = 'rebase';
-        } else if (error.message.includes('stash')) {
-          conflictType = 'stash';
+
+      const conflictLikely = error.message.includes('conflict') ||
+                             error.message.includes('CONFLICT') ||
+                             error.message.includes('Merge conflict');
+
+      if (conflictLikely) {
+        const conflictCheck = await this.checkForConflicts();
+        const summary = localChangesSummary.length > 0
+          ? localChangesSummary
+          : await this.describeLocalChangesRelativeToRemote();
+
+        try {
+          await this.resolveConflictsByTakingRemote();
+        } catch (cleanupError) {
+          return {
+            success: false,
+            error: `Failed to resolve conflict automatically: ${cleanupError.message}`,
+            hasConflicts: true,
+            conflictType: conflictCheck.conflictType,
+            conflictedFiles: conflictCheck.conflictedFiles
+          };
         }
+
+        return {
+          success: true,
+          autoResolvedConflict: true,
+          message: 'Conflicts detected during sync. Local changes were replaced with the cloud version.',
+          lostChangesSummary: summary,
+          conflictType: conflictCheck.conflictType,
+          conflictedFiles: conflictCheck.conflictedFiles
+        };
       }
-      
+
       return {
         success: false,
-        error: error.message,
-        hasConflicts,
-        conflictType: hasConflicts ? conflictType : undefined
+        error: error.message
       };
     }
   }
@@ -780,6 +808,102 @@ class GitHelper {
     return changes;
   }
 
+  async resolveConflictsByTakingRemote() {
+    try {
+      await this.git.rebase(['--abort']);
+    } catch (abortError) {
+      // Ignore if no rebase is in progress
+      if (!abortError.message.includes('No rebase in progress')) {
+        console.warn('Failed to abort rebase during conflict resolution:', abortError.message);
+      }
+    }
+
+    await this.git.reset(['--hard', 'origin/main']);
+    await this.git.clean('f', ['-d']);
+
+    try {
+      await this.git.raw(['lfs', 'pull']);
+    } catch (lfsError) {
+      console.warn('Failed to refresh LFS assets after conflict resolution:', lfsError.message);
+    }
+
+    try {
+      await this.git.raw(['stash', 'drop', 'autostash']);
+    } catch (stashError) {
+      // It's fine if there was no autostash entry
+    }
+  }
+
+  async describeLocalChangesRelativeToRemote() {
+    const lines = [];
+    try {
+      const nameStatusRaw = await this.git.raw(['diff', '--name-status', 'origin/main..HEAD']);
+      const metadataDiff = await this.git.diff(['origin/main..HEAD', '--', 'metadata.json']);
+      const metadataChanges = metadataDiff ? this.parseMetadataDiff(metadataDiff) : [];
+
+      if (metadataChanges.length > 0) {
+        lines.push('Metadata updates lost:');
+        metadataChanges.forEach(change => {
+          lines.push(`• ${change.trim()}`);
+        });
+      }
+
+      const fileMessages = [];
+      nameStatusRaw.split('\n').map(line => line.trim()).filter(Boolean).forEach(line => {
+        const parts = line.split('\t');
+        if (parts.length === 0) return;
+        const statusCode = parts[0];
+
+        if (statusCode.startsWith('R')) {
+          const fromPath = parts[1];
+          const toPath = parts[2];
+          if (!fromPath || !toPath) return;
+          const label = fromPath.startsWith('library/') || toPath.startsWith('library/')
+            ? 'image'
+            : 'file';
+          fileMessages.push(`Renamed ${label} ${path.basename(fromPath)} → ${path.basename(toPath)}`);
+          return;
+        }
+
+        const filePath = parts[1];
+        if (!filePath || filePath === 'metadata.json') {
+          return;
+        }
+
+        const isImage = filePath.startsWith('library/');
+        const label = isImage ? `image ${path.basename(filePath)}` : `file ${filePath}`;
+
+        switch (statusCode) {
+          case 'A':
+            fileMessages.push(`Added ${label}`);
+            break;
+          case 'M':
+            fileMessages.push(`Modified ${label}`);
+            break;
+          case 'D':
+            fileMessages.push(`Deleted ${label}`);
+            break;
+          default:
+            fileMessages.push(`Changed (${statusCode}) ${label}`);
+        }
+      });
+
+      if (fileMessages.length > 0) {
+        lines.push('File changes lost:');
+        fileMessages.forEach(msg => lines.push(`• ${msg}`));
+      }
+
+      if (lines.length === 0) {
+        return ['No detailed diff available for discarded changes.'];
+      }
+
+      return lines;
+    } catch (error) {
+      console.warn('Could not describe local changes relative to remote:', error.message);
+      return ['No detailed diff available for discarded changes.'];
+    }
+  }
+
   /**
    * Get semantic sync status with upload/download counts
    * @returns {Promise<Object>}
@@ -926,60 +1050,6 @@ class GitHelper {
       };
     } catch (error) {
       throw new Error(`Failed to get branch info: ${error.message}`);
-    }
-  }
-
-  /**
-   * Abort rebase and return to pre-rebase state
-   * @returns {Promise<{success: boolean, error?: string}>}
-   */
-  async abortRebase() {
-    try {
-      await this.git.rebase(['--abort']);
-      return {
-        success: true,
-        message: 'Rebase aborted successfully'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * Reset repository to match remote exactly (discards all local changes)
-   * USE WITH CAUTION - this will lose all uncommitted and unpushed changes
-   * @returns {Promise<{success: boolean, error?: string}>}
-   */
-  async resetToRemote() {
-    try {
-      // Fetch latest from remote
-      await this.git.fetch('origin', 'main');
-      
-      // Abort any rebase in progress
-      try {
-        await this.git.rebase(['--abort']);
-      } catch (err) {
-        // Ignore if no rebase in progress
-      }
-      
-      // Reset to remote state
-      await this.git.reset(['--hard', 'origin/main']);
-      
-      // Clean any untracked files
-      await this.git.clean('f', ['-d']);
-      
-      return {
-        success: true,
-        message: 'Repository reset to remote state'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.message
-      };
     }
   }
 

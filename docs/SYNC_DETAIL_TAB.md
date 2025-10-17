@@ -20,54 +20,23 @@ Shows real-time Git repository status including:
 
 **API Endpoint:** `GET /api/sync/git-status`
 
-### 2. **Conflict Detection & Resolution** ✅
-- Automatically detects merge/rebase conflicts
-- Shows warning box with list of conflicted files
-- One-click "Abort Merge/Rebase" button to safely cancel conflicts
-- Returns repository to previous clean state
+### 2. **Automatic Conflict Handling** ✅
+- Detects merge/rebase conflicts during pulls
+- Automatically resolves them by keeping the cloud (remote) version
+- Prevents the repository from remaining in a conflicted state
+- Captures discarded local changes for user-facing notifications
 
-**API Endpoint:** `POST /api/sync/abort-merge`
-
-### 3. **Sync History/Logs** ✅  
-- Displays last 100 sync operations
-- Color-coded status:
-  - Green border: Success
-  - Red border: Failure  
-  - Orange border: Warning
-- Shows for each log entry:
-  - Operation type (pull, push, commit, etc.)
-  - Timestamp (relative: "5 minutes ago")
-  - Message
-  - Error details (if failed)
-- Refresh and Clear buttons
-
-**API Endpoints:**
-- `GET /api/sync/logs` - Retrieve logs
-- `DELETE /api/sync/logs` - Clear all logs
-
-### 4. **Recovery Actions** ✅
-
-#### Force Pull (Discard Local)
-- Discards all local uncommitted changes
-- Resets to remote `origin/main` state
-- Cleans untracked files
-- **Warning:** Requires confirmation
-
-#### Reset to Remote (DESTRUCTIVE)
-- Hard reset to remote state
-- **Double confirmation required** (must type "RESET")
-- Nuclear option for when everything is broken
-- Immediately reloads gallery after reset
-
-**API Endpoint:** `POST /api/sync/reset-to-remote`
+### 3. **Automatic Change Summaries** ✅
+- When conflicts occur, the backend records which local changes were discarded during the sync attempt
+- Summaries surface in the UI as real-time alerts so users know what was lost
+- Data is returned in the sync API response and not persisted to disk; users can rely on Git history for longer-term audits
 
 ## File Changes
 
 ### Backend
 1. **`routes/sync.js`**
    - Added `GET /api/sync/git-status` endpoint
-   - Added `POST /api/sync/abort-merge` endpoint  
-   - Added `POST /api/sync/reset-to-remote` endpoint
+  - Integrated automatic conflict-resolution support for `/api/sync/full`
 
 ### Frontend
 2. **`public/index.html`**
@@ -80,14 +49,9 @@ Shows real-time Git repository status including:
    - File status icons and badges (already existed)
 
 4. **`public/js/app.js`**
-   - `initSyncDetail()` - Initialize event listeners
-   - `loadSyncStatus()` - Fetch and display git status
-   - `loadSyncLogs()` - Fetch and display sync logs
-   - `clearSyncLogs()` - Clear log history
-   - `abortConflict()` - Abort merge/rebase
-   - `forcePull()` - Force pull from remote
-   - `resetToRemote()` - Hard reset to remote
-   - Helper functions for formatting
+  - `initSyncDetail()` - Initialize Sync tab data
+  - `loadSyncStatus()` - Fetch and display git status
+  - Helper functions for formatting and notifications
 
 ## User Experience
 
@@ -99,24 +63,18 @@ Git Status
 └─ Last Commit: a67e0d4 - Load UI before background sync
 
 Uncommitted Files: (none)
-
-Sync History
-├─ push - success - 5 minutes ago
-└─ pull - success - 1 hour ago
 ```
 
-### Error State with Conflict
+### Conflict Detected (Auto-Resolved)
 ```
-⚠️ Merge Conflict Detected
-The following files have conflicts:
-  • metadata.json
+⚠️ Conflict Detected During Pull
+• Local metadata tag updates conflicted with cloud changes
 
-[Abort Merge/Rebase] ← One-click fix
+Action Taken Automatically:
+• Kept cloud version
+• Alerted user with human-readable summary of discarded local changes
 
-Git Status  
-├─ Branch: main
-├─ Sync Status: ⚠ Conflicts
-└─ Conflicted Files: metadata.json
+Repository returns to a clean state without user intervention.
 ```
 
 ### Diverged State
@@ -129,8 +87,8 @@ Git Status
 Uncommitted Files:
   M metadata.json
 
-Recovery Actions:
-[📥 Force Pull (Discard Local)] [⚠️ Reset to Remote]
+Conflicts:
+Automatically resolved using cloud version; discarded changes listed in alert.
 ```
 
 ## Code Improvements
@@ -240,14 +198,12 @@ To test the Sync Detail tab:
 1. Open Advanced Settings (gear icon ⚙)
 2. Click "Sync Detail" tab
 3. View current Git status
-4. Check sync logs
-5. Test recovery actions (be careful with destructive operations!)
+4. Trigger a sync with conflicting local changes to confirm the automatic alert shows discarded updates
 
 ## Safety Features
 
-- All destructive operations require confirmation
-- Reset to Remote requires typing "RESET" to confirm
-- All operations are logged
+- Conflicts are resolved automatically to avoid destructive manual steps
+- Discarded local changes are summarized and shown to the user immediately
 - Errors are displayed clearly to user
 - Gallery automatically reloads after major changes
 
@@ -256,10 +212,7 @@ To test the Sync Detail tab:
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/api/sync/git-status` | GET | Get detailed Git status |
-| `/api/sync/logs` | GET | Retrieve sync logs |
-| `/api/sync/logs` | DELETE | Clear sync logs |
-| `/api/sync/abort-merge` | POST | Abort merge/rebase |
-| `/api/sync/reset-to-remote` | POST | Hard reset to remote |
+| `/api/sync/full` | POST | Commit → pull → push (auto conflict resolution) |
 
 ---
 
