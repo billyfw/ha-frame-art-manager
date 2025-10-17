@@ -1,0 +1,21 @@
+{
+  "watch": [
+    "server.js",
+    "routes/**/*.js",
+    "public/**/*.js",
+    "public/**/*.css",
+    "public/**/*.html",
+    "git_helper.js",
+    "metadata_helper.js"
+  ],
+  "ext": "js,json,css,html",
+  "ignore": [
+    "node_modules/**",
+    "tests/**",
+    "sync_logs.json"
+  ],
+  "verbose": true,
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

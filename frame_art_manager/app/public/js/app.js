@@ -14,6 +14,55 @@ let selectedImages = new Set();
 let lastClickedIndex = null;
 let sortAscending = true; // true = ascending (A-Z, oldest first), false = descending
 
+// Hash-based routing
+function handleRoute() {
+  const hash = window.location.hash.slice(1) || '/'; // Remove '#' and default to '/'
+  
+  if (hash.startsWith('/advanced')) {
+    const parts = hash.split('/');
+    const subTab = parts[2] || 'settings'; // /advanced/sync -> 'sync'
+    switchToTab('advanced');
+    switchToAdvancedSubTab(subTab);
+  } else if (hash === '/upload') {
+    switchToTab('upload');
+  } else {
+    // Default to gallery
+    switchToTab('gallery');
+  }
+}
+
+function navigateTo(path) {
+  window.location.hash = '#' + path;
+  // handleRoute will be called automatically by hashchange event
+}
+
+function switchToAdvancedSubTab(tabName) {
+  // Remove active class from all buttons and contents
+  document.querySelectorAll('.advanced-tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.advanced-tab-content').forEach(content => content.classList.remove('active'));
+  
+  // Add active class to target button and content
+  const targetButton = document.querySelector(`[data-tab="${tabName}"]`);
+  const targetContent = document.getElementById(`advanced-${tabName}-content`);
+  
+  if (targetButton) targetButton.classList.add('active');
+  if (targetContent) targetContent.classList.add('active');
+  
+  // Reload data based on which sub-tab
+  if (tabName === 'sync') {
+    // Always reload sync status when viewing sync tab
+    // Use setTimeout to ensure DOM is fully ready
+    setTimeout(() => {
+      console.log('Loading sync status...');
+      loadSyncStatus();
+    }, 0);
+  } else if (tabName === 'metadata') {
+    // Reload metadata when viewing metadata tab
+    loadMetadata();
+  }
+  // settings tab doesn't need reload, data is already loaded
+}
+
 // Debug flag: force the tag filter dropdown to always be visible
 let DEBUG_ALWAYS_SHOW_TAG_DROPDOWN = false;
 
@@ -215,6 +264,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadLibraryPath();
   initCloudSyncButton(); // Initialize cloud sync button in toolbar - BEFORE checking sync
   
+  // Set up hash-based routing
+  window.addEventListener('hashchange', handleRoute);
+  window.addEventListener('load', handleRoute);
+  
   // Load UI first so user can start working immediately
   await loadTVs(); // Load TVs first so they're available for the filter dropdown
   loadGallery();
@@ -230,6 +283,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTVTagPickerModal();
   initSettingsNavigation();
   initUploadNavigation();
+  
+  // Handle initial route
+  handleRoute();
   
   // Check for sync updates in the background (after UI is loaded)
   checkSyncOnLoad();
@@ -604,7 +660,9 @@ function switchToTab(tabName) {
   }
 
   // Reload data similar to initTabs click behavior
-  if (tabName === 'gallery') loadGallery();
+  if (tabName === 'gallery') {
+    loadGallery();
+  }
   if (tabName === 'advanced') {
     loadLibraryPath();
     loadTags();
@@ -619,13 +677,13 @@ function initUploadNavigation() {
 
   if (openUploadBtn) {
     openUploadBtn.addEventListener('click', () => {
-      switchToTab('upload');
+      navigateTo('/upload');
     });
   }
 
   if (goHomeUploadBtn) {
     goHomeUploadBtn.addEventListener('click', () => {
-      switchToTab('gallery');
+      navigateTo('/');
     });
   }
 }
@@ -643,13 +701,13 @@ function initSettingsNavigation() {
       tagFilterDropdown?.classList.remove('active');
       // Also ensure hidden and portal closed
       closeTagDropdownPortal();
-      switchToTab('advanced');
+      navigateTo('/advanced/settings');
     });
   }
 
   if (goHomeBtn) {
     goHomeBtn.addEventListener('click', () => {
-      switchToTab('gallery');
+      navigateTo('/');
     });
   }
 
@@ -663,17 +721,7 @@ function initAdvancedSubTabs() {
   tabButtons.forEach(button => {
     button.addEventListener('click', () => {
       const tabName = button.dataset.tab;
-      
-      // Remove active class from all buttons and contents
-      document.querySelectorAll('.advanced-tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.advanced-tab-content').forEach(content => content.classList.remove('active'));
-      
-      // Add active class to clicked button and corresponding content
-      button.classList.add('active');
-      const targetContent = document.getElementById(`advanced-${tabName}-content`);
-      if (targetContent) {
-        targetContent.classList.add('active');
-      }
+      navigateTo(`/advanced/${tabName}`);
     });
   });
 }
@@ -947,7 +995,7 @@ async function makeTagAll(tagName) {
   loadGallery();
   
   // Update sync status since metadata changed
-  await updateSyncStatus();
+  await updateSyncStatus()
 }
 
 function closeBulkTagModal() {
@@ -1084,7 +1132,7 @@ async function removeImageTag(tagName) {
       loadGallery();
       
       // Update sync status since metadata changed
-      await updateSyncStatus();
+      await updateSyncStatus()
     } else {
       alert('Failed to remove tag');
     }
@@ -2218,23 +2266,16 @@ async function loadMetadata() {
 
 // Sync Detail Functions
 function initSyncDetail() {
-  const refreshStatusBtn = document.getElementById('refresh-sync-status-btn');
-  const refreshLogsBtn = document.getElementById('refresh-sync-logs-btn');
-  const clearLogsBtn = document.getElementById('clear-sync-logs-btn');
   const abortConflictBtn = document.getElementById('abort-conflict-btn');
   const forcePullBtn = document.getElementById('force-pull-btn');
   const resetToRemoteBtn = document.getElementById('reset-to-remote-btn');
   
-  if (refreshStatusBtn) refreshStatusBtn.addEventListener('click', loadSyncStatus);
-  if (refreshLogsBtn) refreshLogsBtn.addEventListener('click', loadSyncLogs);
-  if (clearLogsBtn) clearLogsBtn.addEventListener('click', clearSyncLogs);
   if (abortConflictBtn) abortConflictBtn.addEventListener('click', abortConflict);
   if (forcePullBtn) forcePullBtn.addEventListener('click', forcePull);
   if (resetToRemoteBtn) resetToRemoteBtn.addEventListener('click', resetToRemote);
   
   // Load initial data
   loadSyncStatus();
-  loadSyncLogs();
 }
 
 async function loadSyncStatus() {
@@ -2255,61 +2296,130 @@ async function loadSyncStatus() {
     const status = data.gitStatus;
     
     // Build status display
-    let html = '<div class="git-status-grid">';
+    let html = '<div class="git-status-container">';
     
-    // Branch
-    html += '<div class="git-status-label">Branch:</div>';
-    html += `<div class="git-status-value">${status.branch}${!status.isMainBranch ? ' ⚠️ Not on main' : ''}</div>`;
+    // Status grid
+    html += '<div class="git-status-grid">';
     
     // Sync status
     html += '<div class="git-status-label">Sync Status:</div>';
     html += '<div class="git-status-value">';
     const uncommittedCount = (status.modified || []).length + (status.created || []).length + (status.deleted || []).length;
+    
+    // Build badges
+    let badges = '';
+    let explanation = '';
+    
     if (status.ahead === 0 && status.behind === 0 && uncommittedCount === 0) {
-      html += '<span class="status-badge clean">✓ Clean</span>';
+      badges += '<span class="status-badge clean">✓ Clean</span>';
+      explanation = '<span class="sync-explanation">Your local repository is fully synced with the cloud. All changes have been committed and pushed.</span>';
+    } else {
+      // Build explanation based on what's present
+      let explanationParts = [];
+      
+      if (status.ahead > 0) {
+        badges += `<span class="status-badge ahead">↑ ${status.ahead} ahead</span>`;
+        const commitWord = status.ahead === 1 ? 'commit' : 'commits';
+        explanationParts.push(`${status.ahead} local ${commitWord} not pushed to cloud`);
+      }
+      
+      if (status.behind > 0) {
+        badges += `<span class="status-badge behind">↓ ${status.behind} behind</span>`;
+        const commitWord = status.behind === 1 ? 'commit' : 'commits';
+        explanationParts.push(`${status.behind} cloud ${commitWord} not downloaded`);
+      }
+      
+      if (uncommittedCount > 0) {
+        badges += '<span class="status-badge uncommitted">● Uncommitted</span>';
+        
+        // Fetch detailed changes for metadata.json
+        const modFiles = status.modified || [];
+        let detailedDescription = '';
+        
+        if (modFiles.includes('metadata.json')) {
+          // Fetch detailed metadata changes
+          try {
+            const detailsResponse = await fetch(`${API_BASE}/sync/uncommitted-details`);
+            const detailsData = await detailsResponse.json();
+            
+            if (detailsData.success && detailsData.changes && detailsData.changes.length > 0) {
+              // Format the changes as a readable list
+              detailedDescription = detailsData.changes.join('; ');
+            } else {
+              detailedDescription = 'modified: metadata.json';
+            }
+          } catch (detailsError) {
+            console.warn('Could not fetch uncommitted details:', detailsError);
+            detailedDescription = 'modified: metadata.json';
+          }
+        } else {
+          // For non-metadata files, list them
+          let fileDetails = [];
+          
+          if (modFiles.length > 0) {
+            const fileNames = modFiles.map(f => f.split('/').pop()).join(', ');
+            fileDetails.push(`modified: ${fileNames}`);
+          }
+          const addFiles = status.created || [];
+          if (addFiles.length > 0) {
+            const fileNames = addFiles.map(f => f.split('/').pop()).join(', ');
+            fileDetails.push(`new: ${fileNames}`);
+          }
+          const delFiles = status.deleted || [];
+          if (delFiles.length > 0) {
+            const fileNames = delFiles.map(f => f.split('/').pop()).join(', ');
+            fileDetails.push(`deleted: ${fileNames}`);
+          }
+          
+          detailedDescription = fileDetails.join('; ');
+        }
+        
+        explanationParts.push(detailedDescription);
+      }
+      
+      if (status.hasConflicts) {
+        badges += '<span class="status-badge conflict">⚠ Conflicts</span>';
+        const conflictFiles = status.conflicted || [];
+        const fileNames = conflictFiles.map(f => f.split('/').pop()).join(', ');
+        explanationParts.push(`Merge conflicts in: ${fileNames}`);
+      }
+      
+      explanation = '<span class="sync-explanation">' + explanationParts.join('. ') + '.</span>';
     }
-    if (status.ahead > 0) {
-      html += `<span class="status-badge ahead">↑ ${status.ahead} ahead</span>`;
-    }
-    if (status.behind > 0) {
-      html += `<span class="status-badge behind">↓ ${status.behind} behind</span>`;
-    }
-    if (status.hasConflicts) {
-      html += '<span class="status-badge conflict">⚠ Conflicts</span>';
-    }
+    
+    html += badges + ' ' + explanation;
     html += '</div>';
     
-    // Last commit
-    if (status.lastCommit) {
-      html += '<div class="git-status-label">Last Commit:</div>';
-      // Escape HTML and convert newlines to <br> for proper display
-      const escapedMessage = status.lastCommit.message
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\n/g, '<br>');
-      html += `<div class="git-status-value"><code>${status.lastCommit.hash}</code> - ${escapedMessage}</div>`;
-    }
+    html += '</div>'; // Close git-status-grid
     
-    html += '</div>';
-    
-    // Build uncommitted files list
-    const uncommittedFiles = [];
-    if (status.modified) status.modified.forEach(f => uncommittedFiles.push({path: f, status: 'M'}));
-    if (status.created) status.created.forEach(f => uncommittedFiles.push({path: f, status: 'A'}));
-    if (status.deleted) status.deleted.forEach(f => uncommittedFiles.push({path: f, status: 'D'}));
-    if (status.renamed) status.renamed.forEach(f => uncommittedFiles.push({path: f.to || f, status: 'R'}));
-    
-    // Uncommitted files
-    if (uncommittedFiles.length > 0) {
-      html += '<div style="margin-top:20px;"><strong>Uncommitted Files:</strong></div>';
-      html += '<ul class="file-list">';
-      uncommittedFiles.forEach(file => {
-        const icon = getFileStatusIcon(file.status);
-        html += `<li><span class="file-status-icon ${getFileStatusClass(file.status)}">${icon}</span> ${file.path}</li>`;
+    // Recent commits - scrollable list (completely outside the grid)
+    if (status.recentCommits && status.recentCommits.length > 0) {
+      html += '<div style="margin-top:20px; display:block; clear:both;"><strong>Recent Commits:</strong>';
+      html += '<div class="commits-container-scrollable"><ul class="commits-list-compact">';
+      status.recentCommits.forEach(commit => {
+        // Escape HTML first
+        const escapedMessage = commit.message
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\n/g, ' '); // Replace newlines with space
+        // Replace -- separators with line breaks for better readability
+        // Then format with bold base names and gray parentheticals
+        // Pattern: "baseName: action (filename)" - bold only up to first colon
+        const formattedMessage = escapedMessage
+          .replace(/ -- /g, '<br>')
+          .replace(/(^|<br>)(\s*)([^:]+?):/g, '$1$2<span class="commit-base-name">$3</span>:')
+          .replace(/(\([^)]+\))/g, '<span class="commit-filename-paren">$1</span>');
+        // Format date/time
+        const commitDate = new Date(commit.date);
+        const dateStr = commitDate.toLocaleDateString() + ' ' + commitDate.toLocaleTimeString();
+        // No truncation - let CSS handle wrapping
+        html += `<li><code class="commit-hash-small">${commit.hash}</code> <span class="commit-date">${dateStr}</span> <span class="commit-message-text">${formattedMessage}</span></li>`;
       });
-      html += '</ul>';
+      html += '</ul></div></div>';
     }
+    
+    html += '</div>'; // Close git-status-container
     
     container.innerHTML = html;
     
@@ -2323,67 +2433,6 @@ async function loadSyncStatus() {
   } catch (error) {
     console.error('Error loading sync status:', error);
     container.innerHTML = `<div class="error">Error loading status: ${error.message}</div>`;
-  }
-}
-
-async function loadSyncLogs() {
-  const container = document.getElementById('sync-logs-container');
-  container.innerHTML = '<div class="loading-indicator">Loading sync logs...</div>';
-
-  try {
-    const response = await fetch(`${API_BASE}/sync/logs`);
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error);
-    }
-    
-    if (data.logs.length === 0) {
-      container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📝</div><p>No sync logs yet</p></div>';
-      return;
-    }
-    
-    let html = '';
-    data.logs.forEach(log => {
-      const statusClass = log.status === 'success' ? 'success' : (log.error ? 'failure' : 'warning');
-      html += `
-        <div class="sync-log-entry ${statusClass}">
-          <div class="sync-log-header">
-            <span class="sync-log-operation">${log.operation}</span>
-            <span class="sync-log-time">${formatTimestamp(log.timestamp)}</span>
-          </div>
-          <div class="sync-log-message">${log.message || 'No message'}</div>
-          ${log.error ? `<div class="sync-log-error">Error: ${log.error}</div>` : ''}
-        </div>
-      `;
-    });
-    
-    container.innerHTML = html;
-    
-  } catch (error) {
-    console.error('Error loading sync logs:', error);
-    container.innerHTML = `<div class="error">Error loading logs: ${error.message}</div>`;
-  }
-}
-
-async function clearSyncLogs() {
-  if (!confirm('Are you sure you want to clear all sync logs?')) {
-    return;
-  }
-  
-  try {
-    const response = await fetch(`${API_BASE}/sync/logs`, { method: 'DELETE' });
-    const data = await response.json();
-    
-    if (data.success) {
-      showNotification('Sync logs cleared', 'success');
-      loadSyncLogs();
-    } else {
-      throw new Error(data.error);
-    }
-  } catch (error) {
-    console.error('Error clearing logs:', error);
-    showNotification('Failed to clear logs: ' + error.message, 'error');
   }
 }
 
@@ -2402,7 +2451,6 @@ async function abortConflict() {
     if (data.success) {
       showNotification(data.message, 'success');
       loadSyncStatus();
-      loadSyncLogs();
     } else {
       throw new Error(data.error);
     }
@@ -2428,7 +2476,6 @@ async function forcePull() {
     if (data.success) {
       showNotification(data.message, 'success');
       loadSyncStatus();
-      loadSyncLogs();
       // Reload gallery to show updated state
       loadGallery();
     } else {
@@ -2461,7 +2508,6 @@ async function resetToRemote() {
     if (data.success) {
       showNotification(data.message, 'success');
       loadSyncStatus();
-      loadSyncLogs();
       // Reload gallery to show updated state
       loadGallery();
     } else {
@@ -2491,29 +2537,6 @@ function getFileStatusClass(status) {
     case 'R': return 'renamed';
     default: return '';
   }
-}
-
-function formatTimestamp(timestamp) {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diff = now - date;
-  
-  // Less than 1 minute
-  if (diff < 60000) {
-    return 'just now';
-  }
-  // Less than 1 hour
-  if (diff < 3600000) {
-    const mins = Math.floor(diff / 60000);
-    return `${mins} minute${mins > 1 ? 's' : ''} ago`;
-  }
-  // Less than 24 hours
-  if (diff < 86400000) {
-    const hours = Math.floor(diff / 3600000);
-    return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-  }
-  // Otherwise show date
-  return date.toLocaleString();
 }
 
 // Bulk Actions Functions
