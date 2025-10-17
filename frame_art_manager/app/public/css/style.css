@@ -242,6 +242,10 @@ header h1 {
   position: relative;
 }
 
+.control-item.control-sort {
+  padding-right: 0 !important;
+}
+
 .control-item:last-child {
   border-right: none;
   padding-right: 4px;
@@ -262,10 +266,18 @@ header h1 {
 .control-sort {
   flex: 0 1 auto;
   min-width: 50px;
-  max-width: 300px;
   /* Allow dropdowns to overflow this container */
   overflow: visible;
   white-space: nowrap;
+}
+
+.control-filter {
+  max-width: 300px;
+}
+
+.control-sort {
+  max-width: none;
+  flex: 0 0 auto;
 }
 
 .control-filter {
@@ -275,6 +287,17 @@ header h1 {
 .control-sort {
   justify-content: flex-end;
   background: transparent;
+  padding-right: 0 !important;
+  gap: 3px;
+}
+
+.sort-label {
+  color: #999;
+  font-size: 13px;
+  margin-left: 4px;
+  margin-right: 2px;
+  user-select: none;
+  flex-shrink: 0;
 }
 
 .control-sync,
@@ -315,7 +338,17 @@ header h1 {
   background-color: rgba(0, 0, 0, 0.18);
 }
 
-.controls input,
+.controls input {
+  width: 100%;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  font-size: 14px;
+  outline: none;
+  white-space: nowrap;
+}
+
 .controls select {
   width: 100%;
   padding: 4px 6px;
@@ -353,10 +386,21 @@ header h1 {
 }
 
 .control-sort select {
-  text-align: right;
-  text-align-last: right;
+  text-align: left;
+  text-align-last: left;
   direction: ltr;
   background: transparent !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  padding: 1px 10px 1px 2px !important;
+  flex-shrink: 0;
+  font-size: 13px !important;
+  margin: 0;
+}
+
+.control-sort select {
+  background-position: right 4px center !important;
 }
 
 .controls select:focus {
@@ -1694,17 +1738,30 @@ header h1 {
     min-width: 0 !important;
   }
 
-  .control-filter,
-  .control-sort {
+  .control-filter {
     flex: 0 1 auto !important;
     min-width: 50px;
     max-width: 300px;
   }
 
-  .controls input,
+  .control-sort {
+    flex: 0 0 auto !important;
+    min-width: auto;
+    max-width: none;
+  }
+
+  .controls input {
+    min-width: 0 !important;
+    width: 100%;
+  }
+
   .controls select {
     min-width: 0 !important;
     width: 100%;
+  }
+
+  .control-sort select {
+    width: fit-content !important;
   }
 
   .custom-multiselect,

@@ -1391,8 +1391,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Function to resize sort select based on selected option
+  function resizeSortSelect(trigger) {
+    if (!sortOrderSelect) return;
+    
+    // Create a temporary span to measure text width
+    const tempSpan = document.createElement('span');
+    tempSpan.style.visibility = 'hidden';
+    tempSpan.style.position = 'absolute';
+    tempSpan.style.whiteSpace = 'nowrap';
+    tempSpan.style.fontSize = '13px';
+    tempSpan.style.fontFamily = window.getComputedStyle(sortOrderSelect).fontFamily;
+    tempSpan.textContent = sortOrderSelect.options[sortOrderSelect.selectedIndex].text;
+    document.body.appendChild(tempSpan);
+    
+    const textWidth = tempSpan.offsetWidth;
+    document.body.removeChild(tempSpan);
+    
+    // Set width to text width plus space for arrow (16px)
+  const computedWidth = textWidth + 2; // tiny buffer to prevent truncation
+    sortOrderSelect.style.setProperty('box-sizing', 'content-box');
+    sortOrderSelect.style.setProperty('width', `${computedWidth}px`, 'important');
+    sortOrderSelect.style.setProperty('min-width', `${computedWidth}px`, 'important');
+    sortOrderSelect.style.setProperty('max-width', `${computedWidth}px`, 'important');
+
+    if (trigger) {
+      console.log('[Gallery] resizeSortSelect', {
+        trigger,
+        text: tempSpan.textContent,
+        textWidth,
+        computedWidth
+      });
+    }
+  }
+
   if (sortOrderSelect) {
-    sortOrderSelect.addEventListener('change', () => renderGallery());
+    sortOrderSelect.addEventListener('change', () => {
+      resizeSortSelect('change');
+      renderGallery();
+    });
+    // Initial resize
+    resizeSortSelect('init');
   }
 
   // Toggle sort direction
