@@ -880,7 +880,7 @@ function selectAllImages() {
 
   if (selectedTags.length > 0) {
     filteredImages = filteredImages.filter(([_, data]) => 
-      data.tags && selectedTags.every(tag => data.tags.includes(tag))
+      data.tags && selectedTags.some(tag => data.tags.includes(tag))
     );
   }
 
@@ -1304,10 +1304,10 @@ function renderGallery(filter = '') {
     );
   }
 
-  // Filter by tags (image must have ALL selected tags)
+  // Filter by tags (image must have ANY of the selected tags)
   if (selectedTags.length > 0) {
     filteredImages = filteredImages.filter(([_, data]) => 
-      data.tags && selectedTags.every(tag => data.tags.includes(tag))
+      data.tags && selectedTags.some(tag => data.tags.includes(tag))
     );
   }
 
@@ -2046,12 +2046,30 @@ async function loadTagsForFilter() {
     
     // Populate TV shortcuts section
     const tvShortcutsContainer = document.getElementById('tv-shortcuts');
+    
+    // Calculate tags that are not part of any TV
+    const allTVTags = new Set();
+    if (allTVs && allTVs.length > 0) {
+      allTVs.forEach(tv => {
+        if (tv.tags && tv.tags.length > 0) {
+          tv.tags.forEach(tag => allTVTags.add(tag));
+        }
+      });
+    }
+    const nonTVTags = allTags.filter(tag => !allTVTags.has(tag));
+    
     if (allTVs && allTVs.length > 0) {
       const tvsWithTags = allTVs.filter(tv => tv.tags && tv.tags.length > 0);
       
-      if (tvsWithTags.length > 0) {
+      if (tvsWithTags.length > 0 || nonTVTags.length > 0) {
         tvShortcutsContainer.innerHTML = `
           <div class="tv-shortcuts-header">TV Shortcuts</div>
+          ${nonTVTags.length > 0 ? `
+            <div class="multiselect-option">
+              <input type="checkbox" id="tv-shortcut-no-tvs" value="no-tvs" class="tv-shortcut-checkbox" data-tv-tags='${JSON.stringify(nonTVTags)}'>
+              <label for="tv-shortcut-no-tvs">*No TVs</label>
+            </div>
+          ` : ''}
           ${tvsWithTags.map(tv => `
             <div class="multiselect-option">
               <input type="checkbox" id="tv-shortcut-${tv.id}" value="${tv.id}" class="tv-shortcut-checkbox" data-tv-tags='${JSON.stringify(tv.tags)}'>
@@ -2068,6 +2086,22 @@ async function loadTagsForFilter() {
         });
       } else {
         tvShortcutsContainer.innerHTML = '';
+      }
+    } else if (nonTVTags.length > 0) {
+      // No TVs exist, but we have tags - show "No TVs" option
+      tvShortcutsContainer.innerHTML = `
+        <div class="tv-shortcuts-header">TV Shortcuts</div>
+        <div class="multiselect-option">
+          <input type="checkbox" id="tv-shortcut-no-tvs" value="no-tvs" class="tv-shortcut-checkbox" data-tv-tags='${JSON.stringify(nonTVTags)}'>
+          <label for="tv-shortcut-no-tvs">*No TVs</label>
+        </div>
+        <div class="tv-shortcuts-divider"></div>
+      `;
+      
+      // Add event listener
+      const noTVsCheckbox = tvShortcutsContainer.querySelector('.tv-shortcut-checkbox');
+      if (noTVsCheckbox) {
+        noTVsCheckbox.addEventListener('change', handleTVShortcutChange);
       }
     } else {
       tvShortcutsContainer.innerHTML = '';
@@ -2096,8 +2130,46 @@ function handleTVShortcutChange(event) {
   const checkbox = event.target;
   const tvTags = JSON.parse(checkbox.dataset.tvTags);
   const isChecked = checkbox.checked;
+  const isNoTVs = checkbox.id === 'tv-shortcut-no-tvs';
   
-  // Select or deselect all tags for this TV
+  if (isChecked) {
+    if (isNoTVs) {
+      // If "No TVs" is being checked, uncheck all other TV shortcuts first
+      const otherTVCheckboxes = document.querySelectorAll('.tv-shortcut-checkbox:not(#tv-shortcut-no-tvs)');
+      otherTVCheckboxes.forEach(tvCheckbox => {
+        if (tvCheckbox.checked || tvCheckbox.indeterminate) {
+          const otherTVTags = JSON.parse(tvCheckbox.dataset.tvTags);
+          // Uncheck all tags from this TV
+          otherTVTags.forEach(tag => {
+            const tagCheckbox = document.getElementById(`tag-${tag}`);
+            if (tagCheckbox) {
+              tagCheckbox.checked = false;
+            }
+          });
+          tvCheckbox.checked = false;
+          tvCheckbox.indeterminate = false;
+        }
+      });
+    } else {
+      // Regular TV is being checked - uncheck tags not in this TV
+      const tvTagsSet = new Set(tvTags);
+      const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
+      allTagCheckboxes.forEach(tagCheckbox => {
+        if (!tvTagsSet.has(tagCheckbox.value)) {
+          tagCheckbox.checked = false;
+        }
+      });
+      
+      // Also uncheck "No TVs" if it was checked
+      const noTVsCheckbox = document.getElementById('tv-shortcut-no-tvs');
+      if (noTVsCheckbox) {
+        noTVsCheckbox.checked = false;
+        noTVsCheckbox.indeterminate = false;
+      }
+    }
+  }
+  
+  // Select or deselect all tags for this TV/No TVs
   tvTags.forEach(tag => {
     const tagCheckbox = document.getElementById(`tag-${tag}`);
     if (tagCheckbox) {
@@ -2134,22 +2206,55 @@ function updateTagFilterDisplay() {
 
 function updateTVShortcutStates() {
   const tvCheckboxes = document.querySelectorAll('.tv-shortcut-checkbox');
+  const selectedTagCheckboxes = document.querySelectorAll('.tag-checkbox:checked');
+  const selectedTags = Array.from(selectedTagCheckboxes).map(cb => cb.value);
+  const selectedTagsSet = new Set(selectedTags);
   
   tvCheckboxes.forEach(tvCheckbox => {
     const tvTags = JSON.parse(tvCheckbox.dataset.tvTags);
-    const selectedTagCheckboxes = document.querySelectorAll('.tag-checkbox:checked');
-    const selectedTags = Array.from(selectedTagCheckboxes).map(cb => cb.value);
+    const isNoTVs = tvCheckbox.id === 'tv-shortcut-no-tvs';
     
-    // Check if all TV tags are selected
-    const allTVTagsSelected = tvTags.every(tag => selectedTags.includes(tag));
-    
-    // Update checkbox state without triggering change event
-    const wasChecked = tvCheckbox.checked;
-    tvCheckbox.checked = allTVTagsSelected;
-    
-    // Set indeterminate state if some but not all tags are selected
-    const someTVTagsSelected = tvTags.some(tag => selectedTags.includes(tag));
-    tvCheckbox.indeterminate = someTVTagsSelected && !allTVTagsSelected;
+    if (isNoTVs) {
+      // Special logic for "No TVs" checkbox
+      const nonTVTagsSet = new Set(tvTags);
+      
+      // Check if any selected tag is part of a TV
+      const hasAnyTVTag = selectedTags.some(tag => !nonTVTagsSet.has(tag));
+      
+      if (hasAnyTVTag) {
+        // Any TV tag is selected - uncheck "No TVs"
+        tvCheckbox.checked = false;
+        tvCheckbox.indeterminate = false;
+      } else if (selectedTags.length === 0) {
+        // No tags selected
+        tvCheckbox.checked = false;
+        tvCheckbox.indeterminate = false;
+      } else {
+        // Only non-TV tags are selected
+        const allNonTVTagsSelected = tvTags.length > 0 && tvTags.every(tag => selectedTagsSet.has(tag));
+        
+        if (allNonTVTagsSelected && selectedTags.length === tvTags.length) {
+          // Exactly the non-TV tags are selected
+          tvCheckbox.checked = true;
+          tvCheckbox.indeterminate = false;
+        } else {
+          // Subset of non-TV tags selected
+          tvCheckbox.checked = false;
+          tvCheckbox.indeterminate = true;
+        }
+      }
+    } else {
+      // Regular TV checkbox logic
+      // Check if all TV tags are selected
+      const allTVTagsSelected = tvTags.every(tag => selectedTagsSet.has(tag));
+      
+      // Update checkbox state without triggering change event
+      tvCheckbox.checked = allTVTagsSelected;
+      
+      // Set indeterminate state if some but not all tags are selected
+      const someTVTagsSelected = tvTags.some(tag => selectedTagsSet.has(tag));
+      tvCheckbox.indeterminate = someTVTagsSelected && !allTVTagsSelected;
+    }
   });
 }
 
