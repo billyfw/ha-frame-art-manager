@@ -281,23 +281,26 @@ test('INTEGRATION: already up to date returns correct status', async () => {
 test('INTEGRATION: pull actually updates working tree', async () => {
   const git = new GitHelper(testRepoPath);
   
-  // Get current HEAD
-  const originalHead = await git.git.revparse(['HEAD']);
+  // Fetch to ensure we have latest remote state
+  await git.git.fetch('origin', 'main');
   
-  // Reset 1 commit behind
-  await git.git.reset(['--hard', 'HEAD~1']);
+  // Get origin/main HEAD (the target we should reach after pull)
+  const targetHead = await git.git.revparse(['origin/main']);
+  
+  // Reset 1 commit behind origin/main
+  await git.git.reset(['--hard', 'origin/main~1']);
   
   // Verify we're behind
   const beforeHead = await git.git.revparse(['HEAD']);
-  assert.notStrictEqual(beforeHead, originalHead, 'Should be at different commit');
+  assert.notStrictEqual(beforeHead, targetHead, 'Should be at different commit');
   
   // Pull
   const result = await git.checkAndPullIfBehind();
   assert.ok(result.success && result.pulledChanges, 'Pull should succeed');
   
-  // Verify we're back at original HEAD
+  // Verify we're now at origin/main
   const afterHead = await git.git.revparse(['HEAD']);
-  assert.strictEqual(afterHead, originalHead, 'Should be back at original HEAD');
+  assert.strictEqual(afterHead, targetHead, 'Should be at origin/main HEAD');
 });
 
 test('INTEGRATION: multiple consecutive pulls are idempotent', async () => {
