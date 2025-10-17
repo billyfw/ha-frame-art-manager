@@ -31,6 +31,68 @@ class GitHelper {
   }
 
   /**
+   * Retry a git operation with exponential backoff
+   * @param {Function} operation - Async function to retry
+   * @param {number} maxRetries - Maximum number of retry attempts (default 3)
+   * @param {number} initialDelay - Initial delay in ms (default 2000)
+   * @param {string} operationName - Name for logging
+   * @returns {Promise<any>} - Result from the operation
+   */
+  static async retryWithBackoff(operation, maxRetries = 3, initialDelay = 2000, operationName = 'operation') {
+    let lastError;
+    const isTestEnv = process.env.NODE_ENV === 'test';
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (!isTestEnv) {
+          console.log(`🔄 Attempting ${operationName} (attempt ${attempt}/${maxRetries})...`);
+        }
+        const result = await operation();
+        if (!isTestEnv && attempt > 1) {
+          console.log(`✅ ${operationName} succeeded on attempt ${attempt}`);
+        }
+        return result;
+      } catch (error) {
+        lastError = error;
+        
+        // Check if it's a network error that's worth retrying
+        const isRetryable = error.message.includes('Could not read from remote repository') ||
+                           error.message.includes('unable to access') ||
+                           error.message.includes('Failed to connect') ||
+                           error.message.includes('Could not resolve host') ||
+                           error.message.includes('Connection refused') ||
+                           error.message.includes('Network is unreachable') ||
+                           error.message.includes('fetch') ||
+                           error.message.includes('timeout');
+        
+        if (!isRetryable) {
+          // Not a network error, don't retry
+          if (!isTestEnv) {
+            console.log(`⚠️  ${operationName} failed with non-retryable error: ${error.message}`);
+          }
+          throw error;
+        }
+        
+        if (attempt < maxRetries) {
+          const delay = initialDelay * Math.pow(2, attempt - 1); // Exponential backoff
+          if (!isTestEnv) {
+            console.log(`⏳ ${operationName} failed (attempt ${attempt}/${maxRetries}): ${error.message}`);
+            console.log(`   Retrying in ${delay}ms...`);
+          }
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          if (!isTestEnv) {
+            console.log(`❌ ${operationName} failed after ${maxRetries} attempts`);
+          }
+        }
+      }
+    }
+    
+    // All retries exhausted
+    throw new Error(`Failed after ${maxRetries} attempts: ${lastError.message}`);
+  }
+
+  /**
    * Release sync lock
    */
   static releaseSyncLock() {
@@ -140,11 +202,16 @@ class GitHelper {
         };
       }
       
-      // CRITICAL: Fetch from remote to get latest commit info
+      // CRITICAL: Fetch from remote to get latest commit info (with retries)
       if (process.env.NODE_ENV !== 'test') {
         console.log('Fetching from remote to check for updates...');
       }
-      await this.git.fetch('origin', 'main');
+      await GitHelper.retryWithBackoff(
+        () => this.git.fetch('origin', 'main'),
+        3,
+        2000,
+        'git fetch'
+      );
       
       // Now check if we're behind remote (after fetch)
       const status = await this.getStatus();
@@ -206,19 +273,34 @@ class GitHelper {
     let localChangesSummary = [];
     let remoteChangesSummary = [];
     try {
-      // Ensure we have the latest remote state for comparisons and pulls
-      await this.git.fetch('origin', 'main');
+      // Ensure we have the latest remote state for comparisons and pulls (with retries)
+      await GitHelper.retryWithBackoff(
+        () => this.git.fetch('origin', 'main'),
+        3,
+        2000,
+        'git fetch'
+      );
       
       // Capture committed local changes (for conflicts that happen during rebase)
       localChangesSummary = await this.describeLocalChangesRelativeToRemote();
       remoteChangesSummary = await this.describeRemoteChangesFromUpstream();
 
-      // Pull with rebase and autostash to handle concurrent modifications
+      // Pull with rebase and autostash to handle concurrent modifications (with retries)
       // --autostash automatically stashes uncommitted changes before rebase and reapplies them after
-      const pullResult = await this.git.raw(['pull', '--rebase', '--autostash', 'origin', 'main']);
+      const pullResult = await GitHelper.retryWithBackoff(
+        () => this.git.raw(['pull', '--rebase', '--autostash', 'origin', 'main']),
+        3,
+        2000,
+        'git pull'
+      );
 
-      // Also pull LFS files explicitly
-      await this.git.raw(['lfs', 'pull']);
+      // Also pull LFS files explicitly (with retries)
+      await GitHelper.retryWithBackoff(
+        () => this.git.raw(['lfs', 'pull']),
+        3,
+        2000,
+        'git lfs pull'
+      );
 
       // Verify no conflicts remain after the pull
       const conflictCheck = await this.checkForConflicts();
@@ -413,7 +495,12 @@ class GitHelper {
    */
   async pushChanges() {
     try {
-      await this.git.push('origin', 'main');
+      await GitHelper.retryWithBackoff(
+        () => this.git.push('origin', 'main'),
+        3,
+        2000,
+        'git push'
+      );
       return {
         success: true,
         message: 'Successfully pushed changes to remote'
@@ -663,6 +750,7 @@ class GitHelper {
     let imageHasActualChanges = false; // Track if current image has real changes (+ or - lines)
     let inImagesSection = false; // Track if we're in the "images" section
     let hasSeenImagesSection = false; // Track if we've explicitly seen the "images" section header
+    let currentImageIsNew = false; // Track if current image is completely new (to skip default property reports)
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -717,7 +805,7 @@ class GitHelper {
         }
         
         // Save previous image changes if it had ACTUAL changes (not just context lines)
-        if (currentImage && imageHasActualChanges && 
+        if (currentImage && imageHasActualChanges && !currentImageIsNew &&
             (addedTags.length > 0 || removedTags.length > 0 || propertyChanges.length > 0)) {
           changes.push(...this.formatImageChanges(currentImage, addedTags, removedTags, propertyChanges));
         }
@@ -728,6 +816,8 @@ class GitHelper {
         propertyChanges = [];
         inTagsArray = false;
         imageHasActualChanges = false; // Reset for new image
+        // Check if this entire image entry is new (line starts with +)
+        currentImageIsNew = line.trim().startsWith('+');
         continue;
       }
       
@@ -765,7 +855,8 @@ class GitHelper {
       
       // Detect other property changes (matte, filter, etc.)
       // Check if line starts with - or + (after optional whitespace from diff)
-      if (currentImage && !inTagsArray && (line.includes('"matte"') || line.includes('"filter"'))) {
+      // Skip reporting matte/filter for completely new images (they're just defaults)
+      if (currentImage && !inTagsArray && !currentImageIsNew && (line.includes('"matte"') || line.includes('"filter"'))) {
         const startsWithDiffMarker = /^\s*[-+]/.test(line);
         if (startsWithDiffMarker) {
           imageHasActualChanges = true; // Mark that this image has real changes
@@ -777,8 +868,8 @@ class GitHelper {
       }
     }
     
-    // Don't forget the last image - but only if it had actual changes
-    if (currentImage && imageHasActualChanges && 
+    // Don't forget the last image - but only if it had actual changes and isn't completely new
+    if (currentImage && imageHasActualChanges && !currentImageIsNew &&
         (addedTags.length > 0 || removedTags.length > 0 || propertyChanges.length > 0)) {
       changes.push(...this.formatImageChanges(currentImage, addedTags, removedTags, propertyChanges));
     }

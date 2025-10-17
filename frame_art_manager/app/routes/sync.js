@@ -15,12 +15,17 @@ router.get('/status', async (req, res) => {
     // Check for conflicts first
     const conflictCheck = await git.checkForConflicts();
     
-    // Try to fetch from remote first to get latest commit info
+    // Try to fetch from remote first to get latest commit info (with retries)
     // If this fails (network down), continue anyway with local status
     try {
-      await git.git.fetch('origin', 'main');
+      await GitHelper.retryWithBackoff(
+        () => git.git.fetch('origin', 'main'),
+        3,
+        2000,
+        'git fetch'
+      );
     } catch (fetchError) {
-      console.warn('Could not fetch from remote (network may be down):', fetchError.message);
+      console.warn('Could not fetch from remote after retries (network may be down):', fetchError.message);
       // Continue with local status
     }
     
