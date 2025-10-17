@@ -373,7 +373,7 @@ class MetadataHelper {
 
   /**
    * Clean up unused tags from global tag list
-   * Removes tags that are not used by any image
+   * Removes tags that are not used by any image or TV
    * Note: This method modifies the metadata object passed to it
    */
   async cleanupUnusedTags(metadata) {
@@ -386,6 +386,15 @@ class MetadataHelper {
     for (const imageData of Object.values(metadata.images)) {
       if (imageData.tags && Array.isArray(imageData.tags)) {
         imageData.tags.forEach(tag => tagsInUse.add(tag));
+      }
+    }
+
+    // Also collect tags in use by TVs
+    if (metadata.tvs && Array.isArray(metadata.tvs)) {
+      for (const tv of metadata.tvs) {
+        if (tv.tags && Array.isArray(tv.tags)) {
+          tv.tags.forEach(tag => tagsInUse.add(tag));
+        }
       }
     }
 
