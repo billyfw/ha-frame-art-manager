@@ -113,6 +113,9 @@ class MetadataHelper {
       });
     }
 
+    // Clean up unused tags from global list
+    await this.cleanupUnusedTags(metadata);
+
     await this.writeMetadata(metadata);
     return metadata.images[filename];
   }
@@ -128,6 +131,10 @@ class MetadataHelper {
     }
 
     delete metadata.images[filename];
+
+    // Clean up unused tags from global list
+    await this.cleanupUnusedTags(metadata);
+
     await this.writeMetadata(metadata);
     return true;
   }
@@ -362,6 +369,35 @@ class MetadataHelper {
   async getAllTags() {
     const metadata = await this.readMetadata();
     return metadata.tags || [];
+  }
+
+  /**
+   * Clean up unused tags from global tag list
+   * Removes tags that are not used by any image
+   * Note: This method modifies the metadata object passed to it
+   */
+  async cleanupUnusedTags(metadata) {
+    if (!metadata.tags || metadata.tags.length === 0) {
+      return;
+    }
+
+    // Collect all tags currently in use by images
+    const tagsInUse = new Set();
+    for (const imageData of Object.values(metadata.images)) {
+      if (imageData.tags && Array.isArray(imageData.tags)) {
+        imageData.tags.forEach(tag => tagsInUse.add(tag));
+      }
+    }
+
+    // Filter global tags to only include those in use
+    const originalLength = metadata.tags.length;
+    metadata.tags = metadata.tags.filter(tag => tagsInUse.has(tag));
+
+    // Log if any tags were removed
+    const removedCount = originalLength - metadata.tags.length;
+    if (removedCount > 0) {
+      console.log(`[CLEANUP] Removed ${removedCount} unused tag(s) from global list`);
+    }
   }
 }
 
