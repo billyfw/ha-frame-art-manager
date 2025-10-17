@@ -845,6 +845,35 @@ function clearSelection() {
   renderGallery();
 }
 
+function selectAllImages() {
+  // Get all currently visible/filtered images
+  const searchTerm = document.getElementById('search-input').value.toLowerCase();
+  const selectedTagCheckboxes = document.querySelectorAll('.tag-checkbox:checked');
+  const selectedTags = Array.from(selectedTagCheckboxes).map(cb => cb.value);
+
+  let filteredImages = Object.entries(allImages);
+
+  // Apply same filters as renderGallery
+  if (searchTerm) {
+    filteredImages = filteredImages.filter(([filename]) => 
+      filename.toLowerCase().includes(searchTerm)
+    );
+  }
+
+  if (selectedTags.length > 0) {
+    filteredImages = filteredImages.filter(([_, data]) => 
+      data.tags && selectedTags.every(tag => data.tags.includes(tag))
+    );
+  }
+
+  // Add all filtered images to selection
+  filteredImages.forEach(([filename]) => {
+    selectedImages.add(filename);
+  });
+
+  renderGallery();
+}
+
 function openBulkTagModal() {
   console.log('openBulkTagModal called, selectedImages:', selectedImages);
   const modal = document.getElementById('bulk-tag-modal');
@@ -2889,6 +2918,7 @@ function getFileStatusClass(status) {
 function initBulkActions() {
   const bulkTagBtn = document.getElementById('bulk-tag-btn');
   const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+  const selectAllBtn = document.getElementById('select-all-btn');
   const clearBtn = document.getElementById('clear-selection-btn');
   const addTagsBtn = document.getElementById('add-bulk-tags-btn');
   const cancelBtn = document.getElementById('cancel-bulk-tags-btn');
@@ -2901,6 +2931,9 @@ function initBulkActions() {
   }
   if (bulkDeleteBtn) {
     bulkDeleteBtn.addEventListener('click', deleteBulkImages);
+  }
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener('click', selectAllImages);
   }
   if (clearBtn) {
     clearBtn.addEventListener('click', clearSelection);
