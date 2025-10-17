@@ -2,6 +2,9 @@ const simpleGit = require('simple-git');
 const path = require('path');
 const fs = require('fs').promises;
 
+// Global sync lock to prevent concurrent git operations
+let syncInProgress = false;
+
 /**
  * GitHelper - Manages Git LFS operations for the Frame Art repository
  * Handles verification, pull, commit, push, and status tracking
@@ -11,6 +14,28 @@ class GitHelper {
     this.frameArtPath = frameArtPath;
     this.git = simpleGit(frameArtPath);
     this.expectedRemote = 'billyfw/frame_art';
+  }
+
+  /**
+   * Acquire sync lock - prevents concurrent git operations
+   * Returns true if lock acquired, false if sync already in progress
+   */
+  static async acquireSyncLock() {
+    if (syncInProgress) {
+      console.log('⚠️  Sync already in progress, rejecting concurrent request');
+      return false;
+    }
+    syncInProgress = true;
+    console.log('🔒 Sync lock acquired');
+    return true;
+  }
+
+  /**
+   * Release sync lock
+   */
+  static releaseSyncLock() {
+    syncInProgress = false;
+    console.log('🔓 Sync lock released');
   }
 
   /**
@@ -168,16 +193,31 @@ class GitHelper {
   }
 
   /**
-   * Pull latest changes from remote
-   * @returns {Promise<{success: boolean, summary?: object, error?: string}>}
+   * Pull latest changes from remote with autostash
+   * Automatically stashes uncommitted changes before rebasing and reapplies them after
+   * @returns {Promise<{success: boolean, summary?: object, error?: string, hasConflicts?: boolean, conflictType?: string}>}
    */
   async pullLatest() {
     try {
-      // Pull with LFS
-      const pullResult = await this.git.pull('origin', 'main');
+      // Pull with rebase and autostash to handle concurrent modifications
+      // --autostash: Automatically stash uncommitted changes before rebase, then pop after
+      // This prevents "cannot rebase: you have unstaged changes" errors
+      const pullResult = await this.git.raw(['pull', '--rebase', '--autostash', 'origin', 'main']);
       
       // Also pull LFS files explicitly
       await this.git.raw(['lfs', 'pull']);
+
+      // Check if we're in a conflict state after pull
+      const conflictCheck = await this.checkForConflicts();
+      if (conflictCheck.hasConflicts) {
+        return {
+          success: false,
+          error: `${conflictCheck.conflictType} conflict detected`,
+          hasConflicts: true,
+          conflictType: conflictCheck.conflictType,
+          conflictedFiles: conflictCheck.conflictedFiles
+        };
+      }
 
       return {
         success: true,
@@ -185,16 +225,90 @@ class GitHelper {
         message: 'Successfully pulled latest changes'
       };
     } catch (error) {
-      // Check if it's a merge conflict
+      // Check if it's a merge/rebase conflict
       const hasConflicts = error.message.includes('conflict') || 
                           error.message.includes('CONFLICT') ||
                           error.message.includes('Merge conflict');
       
+      // Try to determine conflict type
+      let conflictType = 'unknown';
+      if (error.message.includes('CONFLICT')) {
+        if (error.message.includes('content')) {
+          conflictType = 'rebase';
+        } else if (error.message.includes('stash')) {
+          conflictType = 'stash';
+        }
+      }
+      
       return {
         success: false,
         error: error.message,
-        hasConflicts
+        hasConflicts,
+        conflictType: hasConflicts ? conflictType : undefined
       };
+    }
+  }
+
+  /**
+   * Check if repository is in a conflict state
+   * @returns {Promise<{hasConflicts: boolean, conflictType?: string, conflictedFiles?: string[]}>}
+   */
+  async checkForConflicts() {
+    try {
+      const status = await this.git.status();
+      
+      // Check for rebase in progress
+      const rebaseInProgress = status.files.some(file => file.index === 'U' || file.working_dir === 'U');
+      
+      // Check for conflicted files
+      const conflictedFiles = status.files
+        .filter(file => file.index === 'U' || file.working_dir === 'U')
+        .map(file => file.path);
+      
+      if (rebaseInProgress || conflictedFiles.length > 0) {
+        return {
+          hasConflicts: true,
+          conflictType: 'rebase',
+          conflictedFiles
+        };
+      }
+      
+      // Check if there are stash conflicts (git will leave files with conflict markers)
+      // After autostash pop failure, files will show as modified with conflicts
+      const filesWithConflicts = status.files.filter(file => 
+        file.working_dir === 'M' && file.index === ' '
+      );
+      
+      if (filesWithConflicts.length > 0) {
+        // Check if any of these files have conflict markers
+        for (const file of filesWithConflicts) {
+          try {
+            const content = await this.git.show(['HEAD:' + file.path]);
+            const workingContent = await require('fs').promises.readFile(
+              require('path').join(this.frameArtPath, file.path), 
+              'utf-8'
+            );
+            
+            // Check for conflict markers
+            if (workingContent.includes('<<<<<<<') || 
+                workingContent.includes('=======') || 
+                workingContent.includes('>>>>>>>')) {
+              return {
+                hasConflicts: true,
+                conflictType: 'stash',
+                conflictedFiles: [file.path]
+              };
+            }
+          } catch (err) {
+            // Ignore errors reading files
+          }
+        }
+      }
+      
+      return { hasConflicts: false };
+    } catch (error) {
+      console.error('Error checking for conflicts:', error);
+      return { hasConflicts: false };
     }
   }
 
@@ -345,6 +459,227 @@ class GitHelper {
   }
 
   /**
+   * Generate a detailed commit message based on file changes
+   * @param {Array} files - Array of file objects from git status
+   * @returns {Promise<string>} - Detailed commit message with specific file changes
+   */
+  async generateCommitMessage(files) {
+    const allDetails = [];
+    
+    // Get metadata changes if metadata.json was modified
+    let metadataChanges = null;
+    const metadataFile = files.find(file => {
+      const filePath = file.path || file;
+      return filePath === 'metadata.json';
+    });
+    
+    if (metadataFile) {
+      metadataChanges = await this.getMetadataChanges();
+    }
+    
+    // Process image files
+    const imageFiles = files.filter(file => {
+      const filePath = file.path || file;
+      return filePath.startsWith('library/') && !filePath.startsWith('thumbs/');
+    });
+    
+    imageFiles.forEach(file => {
+      const filePath = file.path || file;
+      const fileName = filePath.split('/').pop();
+      const indexStatus = file.index || '';
+      const workingDirStatus = file.working_dir || '';
+      const status = (indexStatus && indexStatus !== ' ') ? indexStatus : workingDirStatus;
+      
+      if (status === 'R' || status.startsWith('R')) {
+        // Renamed file
+        const from = file.from || 'unknown';
+        const to = file.to || fileName;
+        const fromName = from.split('/').pop();
+        const toName = to.split('/').pop();
+        allDetails.push(`renamed: ${fromName} → ${toName}`);
+      } else if (status === 'A' || status === '?') {
+        // New file
+        allDetails.push(`added: ${fileName}`);
+      } else if (status === 'D') {
+        // Deleted file
+        allDetails.push(`deleted: ${fileName}`);
+      } else if (status === 'M') {
+        // Modified file (binary change)
+        allDetails.push(`modified: ${fileName}`);
+      }
+    });
+    
+    // Add metadata-only changes with details
+    if (metadataChanges && metadataChanges.length > 0) {
+      metadataChanges.forEach(change => {
+        allDetails.push(change);
+      });
+    } else if (metadataFile && imageFiles.length === 0) {
+      // Metadata changed but we couldn't determine what
+      allDetails.push('metadata: property updates');
+    }
+    
+    // Return everything on one line separated by --
+    if (allDetails.length > 0) {
+      return allDetails.join(' -- ');
+    }
+    
+    return 'Sync: Auto-commit from manual sync';
+  }
+
+  /**
+   * Detect what changed in metadata.json by comparing unstaged or staged changes
+   * @returns {Promise<Array<string>>} - Array of change descriptions
+   */
+  async getMetadataChanges() {
+    try {
+      // First check working directory (unstaged changes)
+      // Use -U10 to get 10 lines of context so we can see the image filename
+      const workingDiff = await this.git.diff(['-U10', 'metadata.json']);
+      
+      console.log('Working diff length:', workingDiff ? workingDiff.length : 0);
+      
+      if (workingDiff) {
+        const changes = this.parseMetadataDiff(workingDiff);
+        console.log('Parsed changes from working diff:', changes);
+        return changes;
+      }
+      
+      // If no unstaged changes, check staged changes
+      const cachedDiff = await this.git.diff(['-U10', '--cached', 'metadata.json']);
+      
+      console.log('Cached diff length:', cachedDiff ? cachedDiff.length : 0);
+      
+      if (cachedDiff) {
+        const changes = this.parseMetadataDiff(cachedDiff);
+        console.log('Parsed changes from cached diff:', changes);
+        return changes;
+      }
+      
+      console.log('No diff found for metadata.json');
+      return [];
+    } catch (error) {
+      console.warn('Could not get metadata changes:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Parse metadata.json diff to extract meaningful changes
+   * @param {string} diff - Git diff output
+   * @returns {Array<string>} - Array of human-readable changes
+   */
+  parseMetadataDiff(diff) {
+    const changes = [];
+    const lines = diff.split('\n');
+    
+    let currentImage = null;
+    let addedTags = [];
+    let removedTags = [];
+    let propertyChanges = [];
+    let inTagsArray = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      
+      // Detect which image is being modified - look for lines like: "book1-2a.jpg": {
+      // Image names have pattern: quote, filename with extension, quote, colon, brace
+      const imageMatch = trimmed.match(/^"([^"]+\.(jpg|jpeg|png|gif|webp))"\s*:\s*\{/i);
+      if (imageMatch) {
+        // Save previous image changes if any
+        if (currentImage && (addedTags.length > 0 || removedTags.length > 0 || propertyChanges.length > 0)) {
+          changes.push(...this.formatImageChanges(currentImage, addedTags, removedTags, propertyChanges));
+        }
+        
+        currentImage = imageMatch[1];
+        addedTags = [];
+        removedTags = [];
+        propertyChanges = [];
+        inTagsArray = false;
+      }
+      
+      // Track when we're in the tags array
+      if (currentImage && line.includes('"tags"')) {
+        inTagsArray = true;
+      }
+      
+      // Detect tag changes within the tags array
+      if (currentImage && inTagsArray) {
+        // Look for removed tags: lines starting with - and containing a quoted string
+        if (line.match(/^\s*-\s*"([^"]+)"/)) {
+          const match = line.match(/"([^"]+)"/);
+          if (match && match[1] !== 'tags') {
+            removedTags.push(match[1]);
+          }
+        }
+        // Look for added tags: lines starting with + and containing a quoted string
+        else if (line.match(/^\s*\+\s*"([^"]+)"/)) {
+          const match = line.match(/"([^"]+)"/);
+          if (match && match[1] !== 'tags') {
+            addedTags.push(match[1]);
+          }
+        }
+        
+        // Exit tags array when we hit the closing bracket
+        if (line.includes(']')) {
+          inTagsArray = false;
+        }
+      }
+      
+      // Detect other property changes (matte, filter, etc.)
+      if (currentImage && !inTagsArray && (line.includes('"matte"') || line.includes('"filter"'))) {
+        if (line.startsWith('-') || line.startsWith('+')) {
+          const match = line.match(/"([^"]+)":\s*"([^"]+)"/);
+          if (match && match[1] !== 'updated') {
+            propertyChanges.push(match[1]);
+          }
+        }
+      }
+    }
+    
+    // Don't forget the last image
+    if (currentImage && (addedTags.length > 0 || removedTags.length > 0 || propertyChanges.length > 0)) {
+      changes.push(...this.formatImageChanges(currentImage, addedTags, removedTags, propertyChanges));
+    }
+    
+    return changes;
+  }
+
+  /**
+   * Format image changes into readable strings
+   * @param {string} imageName - Name of the image file
+   * @param {Array<string>} addedTags - Tags that were added
+   * @param {Array<string>} removedTags - Tags that were removed
+   * @param {Array<string>} propertyChanges - Properties that changed
+   * @returns {Array<string>} - Formatted change descriptions
+   */
+  formatImageChanges(imageName, addedTags, removedTags, propertyChanges) {
+    const changes = [];
+    const fileName = imageName.split('/').pop();
+    
+    // Filter out tags that appear in both added and removed (these are just comma changes)
+    // Only tags that were truly added or removed should be reported
+    const actuallyRemoved = removedTags.filter(tag => !addedTags.includes(tag));
+    const actuallyAdded = addedTags.filter(tag => !removedTags.includes(tag));
+    
+    if (actuallyRemoved.length > 0) {
+      changes.push(`  ${fileName}: removed tag${actuallyRemoved.length > 1 ? 's' : ''}: ${actuallyRemoved.join(', ')}`);
+    }
+    
+    if (actuallyAdded.length > 0) {
+      changes.push(`  ${fileName}: added tag${actuallyAdded.length > 1 ? 's' : ''}: ${actuallyAdded.join(', ')}`);
+    }
+    
+    if (propertyChanges.length > 0) {
+      const uniqueProps = [...new Set(propertyChanges)];
+      changes.push(`  ${fileName}: updated ${uniqueProps.join(', ')}`);
+    }
+    
+    return changes;
+  }
+
+  /**
    * Get semantic sync status with upload/download counts
    * @returns {Promise<Object>}
    */
@@ -490,6 +825,109 @@ class GitHelper {
       };
     } catch (error) {
       throw new Error(`Failed to get branch info: ${error.message}`);
+    }
+  }
+
+  /**
+   * Abort rebase and return to pre-rebase state
+   * @returns {Promise<{success: boolean, error?: string}>}
+   */
+  async abortRebase() {
+    try {
+      await this.git.rebase(['--abort']);
+      return {
+        success: true,
+        message: 'Rebase aborted successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Reset repository to match remote exactly (discards all local changes)
+   * USE WITH CAUTION - this will lose all uncommitted and unpushed changes
+   * @returns {Promise<{success: boolean, error?: string}>}
+   */
+  async resetToRemote() {
+    try {
+      // Fetch latest from remote
+      await this.git.fetch('origin', 'main');
+      
+      // Abort any rebase in progress
+      try {
+        await this.git.rebase(['--abort']);
+      } catch (err) {
+        // Ignore if no rebase in progress
+      }
+      
+      // Reset to remote state
+      await this.git.reset(['--hard', 'origin/main']);
+      
+      // Clean any untracked files
+      await this.git.clean('f', ['-d']);
+      
+      return {
+        success: true,
+        message: 'Repository reset to remote state'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get detailed conflict information
+   * @returns {Promise<{hasConflicts: boolean, conflicts?: Array}>}
+   */
+  async getConflictDetails() {
+    try {
+      const conflictCheck = await this.checkForConflicts();
+      
+      if (!conflictCheck.hasConflicts) {
+        return { hasConflicts: false };
+      }
+      
+      const conflicts = [];
+      
+      for (const filePath of conflictCheck.conflictedFiles) {
+        try {
+          const fullPath = require('path').join(this.frameArtPath, filePath);
+          const content = await require('fs').promises.readFile(fullPath, 'utf-8');
+          
+          // Extract conflict sections
+          const conflictRegex = /<<<<<<< .*?\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>> .*?\n/g;
+          const matches = [...content.matchAll(conflictRegex)];
+          
+          conflicts.push({
+            file: filePath,
+            conflictCount: matches.length,
+            hasConflictMarkers: matches.length > 0
+          });
+        } catch (err) {
+          conflicts.push({
+            file: filePath,
+            error: 'Could not read file'
+          });
+        }
+      }
+      
+      return {
+        hasConflicts: true,
+        conflictType: conflictCheck.conflictType,
+        conflicts
+      };
+    } catch (error) {
+      return {
+        hasConflicts: false,
+        error: error.message
+      };
     }
   }
 

@@ -2099,3 +2099,219 @@ header h1 {
   border: 1px solid #d1e8f1;
   font-size: 0.9rem;
 }
+
+/* Sync Detail Tab Styles */
+.warning-box {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.warning-box h4 {
+  color: #d32f2f;
+  font-size: 1.1rem;
+}
+
+.btn-warning {
+  background: #ff9800;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-warning:hover {
+  background: #f57c00;
+}
+
+.btn-danger {
+  background: #d32f2f;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-danger:hover {
+  background: #b71c1c;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.git-status-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px 20px;
+  font-size: 0.95rem;
+}
+
+.git-status-label {
+  font-weight: 600;
+  color: #5a6c7d;
+}
+
+.git-status-value {
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: #2c3e50;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-right: 5px;
+}
+
+.status-badge.clean {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-badge.ahead {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-badge.behind {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-badge.conflict {
+  background: #f8d7da;
+  color: #d32f2f;
+  border: 1px solid #d32f2f;
+}
+
+.file-list {
+  list-style: none;
+  margin: 10px 0;
+  padding: 0;
+}
+
+.file-list li {
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #e1e4e8;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-status-icon {
+  font-weight: bold;
+  width: 20px;
+  text-align: center;
+}
+
+.file-status-icon.modified { color: #ff9800; }
+.file-status-icon.added { color: #4caf50; }
+.file-status-icon.deleted { color: #f44336; }
+.file-status-icon.renamed { color: #2196f3; }
+
+.sync-logs {
+  max-height: 500px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #e1e4e8;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.sync-log-entry {
+  padding: 12px 15px;
+  border-left: 4px solid #e1e4e8;
+  margin-bottom: 10px;
+  background: #fafbfc;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.sync-log-entry:hover {
+  background: #f3f4f6;
+}
+
+.sync-log-entry.success {
+  border-left-color: #4caf50;
+}
+
+.sync-log-entry.failure {
+  border-left-color: #f44336;
+}
+
+.sync-log-entry.warning {
+  border-left-color: #ff9800;
+}
+
+.sync-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.sync-log-operation {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.95rem;
+}
+
+.sync-log-time {
+  font-size: 0.85rem;
+  color: #7f8c8d;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.sync-log-message {
+  color: #5a6c7d;
+  font-size: 0.9rem;
+  margin-bottom: 5px;
+}
+
+.sync-log-error {
+  color: #d32f2f;
+  font-size: 0.85rem;
+  background: #ffebee;
+  padding: 8px 10px;
+  border-radius: 4px;
+  margin-top: 8px;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: 30px;
+  color: #7f8c8d;
+  font-style: italic;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #95a5a6;
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 10px;
+}
+

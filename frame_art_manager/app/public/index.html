@@ -137,6 +137,7 @@
         <div class="advanced-tabs">
           <button class="advanced-tab-btn active" data-tab="settings">Settings</button>
           <button class="advanced-tab-btn" data-tab="metadata">Metadata</button>
+          <button class="advanced-tab-btn" data-tab="sync">Sync Detail</button>
         </div>
 
         <!-- Settings Sub-tab -->
@@ -188,6 +189,57 @@
             
             <div class="metadata-viewer">
               <pre id="metadata-content" class="code-block">Loading metadata...</pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sync Detail Sub-tab -->
+        <div id="advanced-sync-content" class="advanced-tab-content">
+          <!-- Git Status Section -->
+          <div class="subsection">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px;">
+              <h3 style="margin:0;">Git Status</h3>
+              <button id="refresh-sync-status-btn" class="btn-secondary">🔄 Refresh</button>
+            </div>
+            
+            <div id="git-status-container" class="info-box" style="margin-bottom:20px;">
+              <div class="loading-indicator">Loading git status...</div>
+            </div>
+
+            <!-- Conflict Warning (hidden by default) -->
+            <div id="conflict-warning" class="warning-box" style="display:none; margin-bottom:20px;">
+              <h4 style="margin:0 0 10px 0; color:#d32f2f;">⚠️ Merge Conflict Detected</h4>
+              <p style="margin:0 0 10px 0;">The following files have conflicts:</p>
+              <ul id="conflict-files-list" style="margin:0 0 15px 0; padding-left:20px;"></ul>
+              <button id="abort-conflict-btn" class="btn-warning">Abort Merge/Rebase</button>
+            </div>
+          </div>
+
+          <!-- Recovery Actions Section -->
+          <div class="subsection">
+            <h3>Recovery Actions</h3>
+            <div class="action-buttons">
+              <button id="force-pull-btn" class="btn-secondary" title="Discard local changes and pull from remote">
+                📥 Force Pull (Discard Local)
+              </button>
+              <button id="reset-to-remote-btn" class="btn-danger" title="Hard reset to remote state - WARNING: Destructive!">
+                ⚠️ Reset to Remote
+              </button>
+            </div>
+          </div>
+
+          <!-- Sync History Section -->
+          <div class="subsection">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px;">
+              <h3 style="margin:0;">Sync History</h3>
+              <div style="display:flex; gap:10px;">
+                <button id="refresh-sync-logs-btn" class="btn-secondary">🔄 Refresh</button>
+                <button id="clear-sync-logs-btn" class="btn-secondary">🗑️ Clear Logs</button>
+              </div>
+            </div>
+            
+            <div id="sync-logs-container" class="sync-logs">
+              <div class="loading-indicator">Loading sync logs...</div>
             </div>
           </div>
         </div>
