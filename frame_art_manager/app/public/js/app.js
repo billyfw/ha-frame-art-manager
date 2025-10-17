@@ -55,6 +55,7 @@ function switchToAdvancedSubTab(tabName) {
     setTimeout(() => {
       console.log('Loading sync status...');
       loadSyncStatus();
+      loadSyncLogs();
     }, 0);
   } else if (tabName === 'metadata') {
     // Reload metadata when viewing metadata tab
@@ -319,6 +320,7 @@ async function checkSyncOnLoad() {
       await loadGallery();
       await loadTags();
       await updateSyncStatus();
+      await loadSyncLogs();
       return; // Skip the finally block since we already released
     } else if (data.skipped) {
       console.log(`⚠️ Sync skipped: ${data.reason}`);
@@ -342,6 +344,7 @@ async function checkSyncOnLoad() {
     console.error('Error checking sync on load:', error);
     // Fail silently - don't block page load if sync check fails
     updateSyncButtonState('error', 'Error', null, null, error.message);
+    await loadSyncLogs();
   } finally {
     isSyncInProgress = false; // Always clear flag
   }
@@ -381,15 +384,18 @@ async function autoPushLocalChanges() {
       await loadTags();
       // Update status to show we're synced
       await updateSyncStatus();
+      await loadSyncLogs();
     } else {
       console.error(`❌ [FE-${callId}] Auto-sync failed:`, syncData.error);
       // Fetch the current sync status to show proper badge/tooltip
       await updateSyncStatus();
+      await loadSyncLogs();
     }
   } catch (error) {
     console.error(`💥 [FE-${callId}] Error during auto-sync:`, error);
     // Fetch the current sync status to show proper badge/tooltip
     await updateSyncStatus();
+    await loadSyncLogs();
   } finally {
     console.log(`🔓 [FE-${callId}] Frontend lock released\n`);
     isSyncInProgress = false; // Always clear flag
@@ -623,6 +629,7 @@ async function manualSync() {
         alert(`Sync failed: ${syncData.error}`);
         updateSyncButtonState('error', 'Error', null, null, syncData.error);
       }
+      await loadSyncLogs();
       isSyncInProgress = false; // Clear flag
       return;
     }
@@ -636,6 +643,7 @@ async function manualSync() {
     // Reload gallery to show any new images from pull
     await loadGallery();
     await loadTags();
+    await loadSyncLogs();
     
     // Release lock before updating status so the status update isn't skipped
     console.log(`🔓 [FE-${callId}] Frontend lock released\n`);
@@ -649,6 +657,7 @@ async function manualSync() {
     const errorMsg = error.message || 'Network error or server unavailable';
     alert(`Sync error: ${errorMsg}`);
     updateSyncButtonState('error', 'Error', null, null, errorMsg);
+    await loadSyncLogs();
     console.log(`🔓 [FE-${callId}] Frontend lock released (error path)\n`);
     isSyncInProgress = false; // Clear flag on exception
   }
@@ -1505,25 +1514,20 @@ function initUploadForm() {
       const result = await response.json();
 
       if (result.success) {
-        statusDiv.innerHTML = '<div class="success">Image uploaded successfully!</div>';
-        // Disable all form inputs to prevent further interaction
-        const inputs = form.querySelectorAll('input, select, button');
-        inputs.forEach(input => input.disabled = true);
+        // Close upload modal immediately and return to gallery
+        switchToTab('gallery');
         
+        // Reset form for next use
+        form.reset();
+        statusDiv.innerHTML = '';
+        submitButton.disabled = false;
+        
+        // Reload gallery and tags
         loadGallery();
         loadTags(); // Reload tags in case new ones were added
         
-        // Update sync status since new file was added
-        await updateSyncStatus();
-        
-        // Switch back to gallery view after showing success message
-        setTimeout(() => {
-          switchToTab('gallery');
-          // Re-enable form and reset for next use
-          inputs.forEach(input => input.disabled = false);
-          form.reset();
-          statusDiv.innerHTML = '';
-        }, 500); // Brief delay to show success message
+        // Trigger auto-sync (has built-in guards for sync-in-progress)
+        await manualSync();
       } else {
         statusDiv.innerHTML = `<div class="error">Upload failed: ${result.error}</div>`;
         submitButton.disabled = false;
@@ -2350,6 +2354,226 @@ async function loadMetadata() {
 function initSyncDetail() {
   // Load initial data
   loadSyncStatus();
+  loadSyncLogs();
+  
+  // Set up conflict filter checkbox
+  const conflictCheckbox = document.getElementById('show-conflicts-only');
+  if (conflictCheckbox) {
+    conflictCheckbox.addEventListener('change', () => {
+      loadSyncLogs();
+    });
+  }
+}
+
+async function loadSyncLogs() {
+  const container = document.getElementById('sync-log-container');
+  if (!container) return;
+
+  // Show loading state when the container is empty
+  if (!container.dataset.loaded) {
+    container.innerHTML = '<div class="loading-indicator">Loading sync history...</div>';
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/sync/logs`);
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to load sync history');
+    }
+
+    let logs = Array.isArray(data.logs) ? data.logs : [];
+    
+    // Apply conflict filter if checkbox is checked
+    const conflictCheckbox = document.getElementById('show-conflicts-only');
+    const showConflictsOnly = conflictCheckbox && conflictCheckbox.checked;
+    
+    if (showConflictsOnly) {
+      logs = logs.filter(entry => entry.hasConflicts === true);
+    }
+
+    if (logs.length === 0) {
+      const emptyMessage = showConflictsOnly 
+        ? 'No conflicts found in sync history.' 
+        : 'No sync history yet. Run a sync to see activity here.';
+      container.innerHTML = `<div class="sync-log-empty">${emptyMessage}</div>`;
+      container.dataset.loaded = 'true';
+      return;
+    }
+
+    const entriesHtml = logs.map(renderSyncLogEntry).join('');
+    container.innerHTML = `<ul class="sync-log-list-compact">${entriesHtml}</ul>`;
+    container.dataset.loaded = 'true';
+  } catch (error) {
+    console.error('Error loading sync logs:', error);
+    container.innerHTML = `<div class="error">Failed to load sync history: ${escapeHtml(error.message || 'Unknown error')}</div>`;
+    container.dataset.loaded = 'true';
+  }
+}
+
+function renderSyncLogEntry(entry) {
+  const statusMap = {
+    success: { className: 'success', label: 'Success' },
+    warning: { className: 'warning', label: 'Warning' },
+    failure: { className: 'failure', label: 'Error' }
+  };
+
+  const normalizedStatus = (entry.status || '').toLowerCase();
+  const statusMeta = statusMap[normalizedStatus] || { className: 'info', label: formatStatusLabel(entry.status) };
+
+  const timestamp = entry.timestamp
+    ? formatSyncLogTimestamp(entry.timestamp)
+    : '—';
+
+  const mainMessage = entry.message
+    || formatOperationLabel(entry.operation)
+    || 'Sync update';
+
+  const detailLines = [];
+
+  // Simple non-conflict details
+  if (entry.remoteCommit) {
+    detailLines.push(`Commit: ${entry.remoteCommit.slice(0, 7)}`);
+  }
+
+  if (entry.branch && entry.branch !== 'unknown') {
+    detailLines.push(`Branch: ${entry.branch}`);
+  }
+
+  // Format conflicts with newlines
+  if (entry.hasConflicts && Array.isArray(entry.conflictedFiles) && entry.conflictedFiles.length > 0) {
+    const conflictType = entry.conflictType ? `${entry.conflictType}: ` : '';
+    detailLines.push(`Conflicts: ${conflictType}`);
+    entry.conflictedFiles.forEach(file => {
+      const filename = file.split('/').pop();
+      detailLines.push(`---${filename}`);
+    });
+    detailLines.push(''); // blank line after conflicts
+  }
+
+  // Format remote changes with newlines
+  if (Array.isArray(entry.remoteChanges) && entry.remoteChanges.length > 0) {
+    detailLines.push('Remote:');
+    entry.remoteChanges.forEach(change => {
+      const cleaned = change.trim().replace(/^[-•]\s*/, '');
+      if (cleaned) {
+        detailLines.push(`---${cleaned}`);
+      }
+    });
+    detailLines.push(''); // blank line after remote
+  }
+
+  // Format discarded changes with newlines
+  if (Array.isArray(entry.lostChanges) && entry.lostChanges.length > 0) {
+    detailLines.push('Discarded:');
+    entry.lostChanges.forEach(change => {
+      const cleaned = change.trim().replace(/^[-•]\s*/, '');
+      if (cleaned) {
+        detailLines.push(`---${cleaned}`);
+      }
+    });
+    detailLines.push(''); // blank line after discarded
+  }
+
+  // Error info
+  if (entry.error) {
+    detailLines.push(`Error: ${entry.error}`);
+  }
+
+  const detailText = detailLines.join('\n').trim();
+
+  return `
+    <li class="sync-log-row">
+      <div class="sync-log-main">
+        <span class="sync-log-time">${escapeHtml(timestamp)}</span>
+        <span class="sync-log-status ${statusMeta.className}">${escapeHtml(statusMeta.label)}</span>
+        <span class="sync-log-message">${escapeHtml(mainMessage)}</span>
+      </div>
+      ${detailText ? `<div class="sync-log-detail"><pre>${escapeHtml(detailText)}</pre></div>` : ''}
+    </li>
+  `;
+}
+
+function summarizeLogLines(lines) {
+  if (!Array.isArray(lines) || lines.length === 0) {
+    return '';
+  }
+
+  const result = [];
+  let currentHeading = null;
+  let buffer = [];
+
+  const flush = () => {
+    if (currentHeading && buffer.length > 0) {
+      result.push(`${currentHeading}: ${buffer.join('; ')}`);
+    } else if (currentHeading) {
+      result.push(currentHeading);
+    } else if (buffer.length > 0) {
+      result.push(buffer.join('; '));
+    }
+    currentHeading = null;
+    buffer = [];
+  };
+
+  lines.forEach(raw => {
+    const trimmed = (raw || '').trim();
+    if (!trimmed) return;
+
+    if (trimmed.endsWith(':')) {
+      flush();
+      currentHeading = trimmed.slice(0, -1).trim();
+      return;
+    }
+
+    const normalized = trimmed
+      .replace(/^[-•]\s*/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (normalized) {
+      buffer.push(normalized);
+    }
+  });
+
+  flush();
+  return result.join(' • ');
+}
+
+function formatOperationLabel(operation) {
+  if (!operation) return 'Sync';
+  return operation
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function formatStatusLabel(status) {
+  if (!status) return 'Info';
+  const normalized = status.replace(/[-_\s]+/g, ' ').trim();
+  if (!normalized) return 'Info';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function formatSyncLogTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return timestamp;
+  }
+  return date.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+}
+
+function escapeHtml(untrustedValue) {
+  if (untrustedValue === null || untrustedValue === undefined) return '';
+  return String(untrustedValue)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 async function loadSyncStatus() {

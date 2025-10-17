@@ -199,14 +199,19 @@ class GitHelper {
   /**
    * Pull latest changes from remote with autostash
    * Automatically stashes uncommitted changes before rebasing and reapplies them after
+   * @param {Array} preCommitChanges - Optional array of changes that were captured before committing (used when conflicts occur)
    * @returns {Promise<{success: boolean, summary?: object, error?: string, hasConflicts?: boolean, conflictType?: string}>}
    */
-  async pullLatest() {
+  async pullLatest(preCommitChanges = []) {
     let localChangesSummary = [];
+    let remoteChangesSummary = [];
     try {
       // Ensure we have the latest remote state for comparisons and pulls
       await this.git.fetch('origin', 'main');
+      
+      // Capture committed local changes (for conflicts that happen during rebase)
       localChangesSummary = await this.describeLocalChangesRelativeToRemote();
+      remoteChangesSummary = await this.describeRemoteChangesFromUpstream();
 
       // Pull with rebase and autostash to handle concurrent modifications
       // --autostash automatically stashes uncommitted changes before rebase and reapplies them after
@@ -218,15 +223,23 @@ class GitHelper {
       // Verify no conflicts remain after the pull
       const conflictCheck = await this.checkForConflicts();
       if (conflictCheck.hasConflicts) {
-        const summary = localChangesSummary.length > 0
-          ? localChangesSummary
-          : await this.describeLocalChangesRelativeToRemote();
+        console.log('🔍 Conflict detected - preCommitChanges:', preCommitChanges);
+        console.log('🔍 Conflict detected - localChangesSummary:', localChangesSummary);
+        // Use pre-commit changes if available, otherwise use committed local changes
+        const allLocalChanges = preCommitChanges.length > 0 
+          ? preCommitChanges 
+          : localChangesSummary;
+        console.log('🔍 Conflict detected - using summary:', allLocalChanges);
+        const summary = allLocalChanges.length > 0
+          ? allLocalChanges
+          : ['No detailed diff available for discarded changes.'];
         await this.resolveConflictsByTakingRemote();
         return {
           success: true,
           autoResolvedConflict: true,
           message: 'Conflicts detected during sync. Local changes were replaced with the cloud version.',
           lostChangesSummary: summary,
+          remoteChangesSummary,
           conflictType: conflictCheck.conflictType,
           conflictedFiles: conflictCheck.conflictedFiles
         };
@@ -235,7 +248,8 @@ class GitHelper {
       return {
         success: true,
         summary: pullResult,
-        message: 'Successfully pulled latest changes'
+        message: 'Successfully pulled latest changes',
+        remoteChangesSummary
       };
     } catch (error) {
       // Check for network/connectivity issues first
@@ -260,9 +274,13 @@ class GitHelper {
 
       if (conflictLikely) {
         const conflictCheck = await this.checkForConflicts();
-        const summary = localChangesSummary.length > 0
-          ? localChangesSummary
-          : await this.describeLocalChangesRelativeToRemote();
+        // Use pre-commit changes if available, otherwise use committed local changes
+        const allLocalChanges = preCommitChanges.length > 0 
+          ? preCommitChanges 
+          : localChangesSummary;
+        const summary = allLocalChanges.length > 0
+          ? allLocalChanges
+          : ['No detailed diff available for discarded changes.'];
 
         try {
           await this.resolveConflictsByTakingRemote();
@@ -281,6 +299,7 @@ class GitHelper {
           autoResolvedConflict: true,
           message: 'Conflicts detected during sync. Local changes were replaced with the cloud version.',
           lostChangesSummary: summary,
+          remoteChangesSummary,
           conflictType: conflictCheck.conflictType,
           conflictedFiles: conflictCheck.conflictedFiles
         };
@@ -288,7 +307,8 @@ class GitHelper {
 
       return {
         success: false,
-        error: error.message
+        error: error.message,
+        remoteChangesSummary
       };
     }
   }
@@ -834,6 +854,87 @@ class GitHelper {
     }
   }
 
+  async describeUncommittedChanges() {
+    const lines = [];
+    try {
+      const status = await this.git.status();
+      console.log('🔍 describeUncommittedChanges - status.files:', JSON.stringify(status.files, null, 2));
+      
+      // Check for uncommitted metadata changes
+      const metadataModified = status.files.some(f => 
+        (f.path === 'metadata.json' || f === 'metadata.json') && 
+        (f.working_dir === 'M' || f.index === 'M')
+      );
+      
+      console.log('🔍 describeUncommittedChanges - metadataModified:', metadataModified);
+      
+      if (metadataModified) {
+        try {
+          // Use -U10 for sufficient context to parse metadata changes
+          const metadataDiff = await this.git.diff(['-U10', 'HEAD', '--', 'metadata.json']);
+          console.log('🔍 describeUncommittedChanges - metadataDiff length:', metadataDiff ? metadataDiff.length : 0);
+          const metadataChanges = metadataDiff ? this.parseMetadataDiff(metadataDiff) : [];
+          console.log('🔍 describeUncommittedChanges - metadataChanges:', metadataChanges);
+          if (metadataChanges.length > 0) {
+            lines.push('Uncommitted metadata changes:');
+            metadataChanges.forEach(change => {
+              lines.push(`• ${change.trim()}`);
+            });
+          }
+        } catch (diffError) {
+          console.warn('Could not parse metadata diff:', diffError.message);
+        }
+      }
+      
+      // Check for other uncommitted file changes
+      const fileMessages = [];
+      status.files.forEach(file => {
+        const filePath = file.path || file;
+        if (filePath === 'metadata.json') return; // Already handled above
+        
+        const workingStatus = file.working_dir || '';
+        const indexStatus = file.index || '';
+        const statusCode = indexStatus || workingStatus;
+        
+        if (!statusCode || statusCode === ' ') return;
+        
+        const isImage = filePath.startsWith('library/');
+        const label = isImage ? `image ${path.basename(filePath)}` : `file ${filePath}`;
+        
+        switch (statusCode) {
+          case 'A':
+          case '?':
+            fileMessages.push(`Added ${label}`);
+            break;
+          case 'M':
+            fileMessages.push(`Modified ${label}`);
+            break;
+          case 'D':
+            fileMessages.push(`Deleted ${label}`);
+            break;
+          case 'R':
+            fileMessages.push(`Renamed ${label}`);
+            break;
+          default:
+            if (statusCode !== ' ') {
+              fileMessages.push(`Changed (${statusCode}) ${label}`);
+            }
+        }
+      });
+      
+      if (fileMessages.length > 0) {
+        lines.push('Uncommitted file changes:');
+        fileMessages.forEach(msg => lines.push(`• ${msg}`));
+      }
+      
+      console.log('🔍 describeUncommittedChanges - final lines:', lines);
+      return lines;
+    } catch (error) {
+      console.warn('Could not describe uncommitted changes:', error.message);
+      return [];
+    }
+  }
+
   async describeLocalChangesRelativeToRemote() {
     const lines = [];
     try {
@@ -901,6 +1002,68 @@ class GitHelper {
     } catch (error) {
       console.warn('Could not describe local changes relative to remote:', error.message);
       return ['No detailed diff available for discarded changes.'];
+    }
+  }
+
+  async describeRemoteChangesFromUpstream() {
+    const lines = [];
+    try {
+      const nameStatusRaw = await this.git.raw(['diff', '--name-status', 'HEAD..origin/main']);
+      const metadataDiff = await this.git.diff(['HEAD..origin/main', '--', 'metadata.json']);
+      const metadataChanges = metadataDiff ? this.parseMetadataDiff(metadataDiff) : [];
+
+      metadataChanges.forEach(change => {
+        const trimmed = change.trim();
+        if (trimmed) {
+          lines.push(`Remote metadata update — ${trimmed}`);
+        }
+      });
+
+      nameStatusRaw.split('\n')
+        .map(line => line.trim())
+        .filter(Boolean)
+        .forEach(line => {
+          const parts = line.split('\t');
+          if (parts.length === 0) return;
+          const statusCode = parts[0];
+
+          if (statusCode.startsWith('R')) {
+            const fromPath = parts[1];
+            const toPath = parts[2];
+            if (!fromPath || !toPath) return;
+            const isImage = fromPath.startsWith('library/') || toPath.startsWith('library/');
+            const label = isImage ? 'image' : 'file';
+            lines.push(`Remote renamed ${label} ${path.basename(fromPath)} → ${path.basename(toPath)}`);
+            return;
+          }
+
+          const filePath = parts[1];
+          if (!filePath || filePath === 'metadata.json') {
+            return;
+          }
+
+          const isImage = filePath.startsWith('library/');
+          const label = isImage ? `image ${path.basename(filePath)}` : `file ${filePath}`;
+
+          switch (statusCode) {
+            case 'A':
+              lines.push(`Remote added ${label}`);
+              break;
+            case 'M':
+              lines.push(`Remote modified ${label}`);
+              break;
+            case 'D':
+              lines.push(`Remote deleted ${label}`);
+              break;
+            default:
+              lines.push(`Remote changed (${statusCode}) ${label}`);
+          }
+        });
+
+      return lines;
+    } catch (error) {
+      console.warn('Could not describe remote changes from upstream:', error.message);
+      return [];
     }
   }
 

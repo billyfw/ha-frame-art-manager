@@ -26,10 +26,16 @@ Shows real-time Git repository status including:
 - Prevents the repository from remaining in a conflicted state
 - Captures discarded local changes for user-facing notifications
 
-### 3. **Automatic Change Summaries** ✅
+### 3. **Sync History with Conflict Highlights** ✅
+- Reintroduces `/api/sync/logs` to expose recent sync activity
+- Each entry captures status (`success`, `warning`, `failure`), message, branch, HEAD commit, and conflict metadata
+- Conflict overrides surface as orange “warning” cards with discarded local change bullet lists
+- History is stored locally in `app/sync_logs.json` (ignored by Git) with a rolling limit of 200 entries
+
+### 4. **Automatic Change Summaries** ✅
 - When conflicts occur, the backend records which local changes were discarded during the sync attempt
-- Summaries surface in the UI as real-time alerts so users know what was lost
-- Data is returned in the sync API response and not persisted to disk; users can rely on Git history for longer-term audits
+- Summaries surface immediately via alert **and** persist in the sync history to build an audit trail
+- Conflict entries include affected files and the commit that replaced local work
 
 ## File Changes
 
@@ -37,6 +43,8 @@ Shows real-time Git repository status including:
 1. **`routes/sync.js`**
    - Added `GET /api/sync/git-status` endpoint
   - Integrated automatic conflict-resolution support for `/api/sync/full`
+  - Added enhanced logging pipeline (`logSyncOperation`, `getSyncLogs`, `clearSyncLogs`)
+  - Re-exposed `GET /api/sync/logs` and `DELETE /api/sync/logs`
 
 ### Frontend
 2. **`public/index.html`**
@@ -51,6 +59,7 @@ Shows real-time Git repository status including:
 4. **`public/js/app.js`**
   - `initSyncDetail()` - Initialize Sync tab data
   - `loadSyncStatus()` - Fetch and display git status
+  - `loadSyncLogs()` / `renderSyncLogEntry()` - Fetch and render sync history with conflict highlights
   - Helper functions for formatting and notifications
 
 ## User Experience
@@ -63,6 +72,9 @@ Git Status
 └─ Last Commit: a67e0d4 - Load UI before background sync
 
 Uncommitted Files: (none)
+
+Sync History
+└─ ✅ Successfully completed full sync (commit → pull → push)
 ```
 
 ### Conflict Detected (Auto-Resolved)
@@ -199,6 +211,16 @@ To test the Sync Detail tab:
 2. Click "Sync Detail" tab
 3. View current Git status
 4. Trigger a sync with conflicting local changes to confirm the automatic alert shows discarded updates
+5. Scroll to Sync History and verify a new warning entry lists the discarded changes
+
+## API Reference
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/sync/git-status` | GET | Get detailed Git status |
+| `/api/sync/logs` | GET | Retrieve sync history with conflict summaries |
+| `/api/sync/logs` | DELETE | Clear stored sync history |
+| `/api/sync/full` | POST | Commit → pull → push (auto conflict resolution) |
 
 ## Safety Features
 

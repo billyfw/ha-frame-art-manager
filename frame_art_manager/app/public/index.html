@@ -50,7 +50,7 @@
         </div>
       </div>
         <button type="button" id="sync-btn" class="btn-icon btn-sync" title="Sync with cloud">
-          <span id="sync-icon">☁️</span>
+          <span id="sync-icon">✅</span>
           <span id="sync-text">Synced</span>
           <span id="sync-badge" class="sync-badge" style="display: none;">0</span>
         </button>
@@ -202,6 +202,19 @@
             
             <div id="git-status-container" class="info-box" style="margin-bottom:20px;">
               <div class="loading-indicator">Loading git status...</div>
+            </div>
+          </div>
+
+          <div class="subsection">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+              <h3 style="margin: 0;">Sync History (last 200)</h3>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer;">
+                <input type="checkbox" id="show-conflicts-only" checked>
+                <span>Show conflicts only</span>
+              </label>
+            </div>
+            <div id="sync-log-container" class="sync-log-container">
+              <div class="loading-indicator">Loading sync history...</div>
             </div>
           </div>
         </div>
