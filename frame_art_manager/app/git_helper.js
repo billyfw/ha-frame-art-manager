@@ -857,12 +857,39 @@ class GitHelper {
       // Check if line starts with - or + (after optional whitespace from diff)
       // Skip reporting matte/filter for completely new images (they're just defaults)
       if (currentImage && !inTagsArray && !currentImageIsNew && (line.includes('"matte"') || line.includes('"filter"'))) {
-        const startsWithDiffMarker = /^\s*[-+]/.test(line);
-        if (startsWithDiffMarker) {
-          imageHasActualChanges = true; // Mark that this image has real changes
+        const isRemovalLine = /^\s*-/.test(line);
+        const isAdditionLine = /^\s*\+/.test(line);
+        
+        if (isRemovalLine) {
+          // Track the removed value
           const match = line.match(/"([^"]+)":\s*"([^"]+)"/);
           if (match && match[1] !== 'updated') {
-            propertyChanges.push(match[1]);
+            const propName = match[1];
+            const oldValue = match[2];
+            
+            // Look ahead to see if there's a corresponding + line with a different value
+            let hasActualChange = false;
+            for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+              const nextLine = lines[j];
+              if (/^\s*\+/.test(nextLine) && nextLine.includes(`"${propName}"`)) {
+                const nextMatch = nextLine.match(/"([^"]+)":\s*"([^"]+)"/);
+                if (nextMatch && nextMatch[1] === propName) {
+                  const newValue = nextMatch[2];
+                  // Only count as a change if the value actually changed
+                  if (oldValue !== newValue) {
+                    hasActualChange = true;
+                  }
+                }
+                break;
+              }
+            }
+            
+            if (hasActualChange) {
+              imageHasActualChanges = true;
+              if (!propertyChanges.includes(propName)) {
+                propertyChanges.push(propName);
+              }
+            }
           }
         }
       }

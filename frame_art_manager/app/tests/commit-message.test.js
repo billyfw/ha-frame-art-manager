@@ -791,6 +791,82 @@ test('parseMetadataDiff: ignores images that appear only in context (no actual c
     'Should NOT report img_453432232a since it has no actual changes (only context lines)');
 });
 
+// BUG FIX TEST: Property value comparison (formatting changes shouldn't be reported as changes)
+test('parseMetadataDiff: ignores property formatting changes (same value)', () => {
+  // This simulates a diff where matte/filter lines appear as - and + but the VALUES are the same
+  // This can happen when JSON formatting changes but actual values don't
+  const diff = `@@ -10,8 +10,8 @@
+     "existing-image.jpg": {
+-      "matte": "none",
+-      "filter": "none",
++      "matte": "none",
++      "filter": "none",
+       "tags": [
+         "test"
+       ],`;
+
+  const changes = gitHelper.parseMetadataDiff(diff);
+  
+  // Should NOT report this as a change since the values didn't actually change
+  assert.strictEqual(changes.length, 0, 'Should not report property changes when values are the same');
+});
+
+// BUG FIX TEST: Property value comparison (actual changes should be reported)
+test('parseMetadataDiff: detects property changes when values actually differ', () => {
+  // This simulates a diff where matte value actually changes from "none" to "square_white"
+  const diff = `@@ -10,8 +10,8 @@
+     "changed-image.jpg": {
+-      "matte": "none",
++      "matte": "square_white",
+       "filter": "none",
+       "tags": [
+         "test"
+       ],`;
+
+  const changes = gitHelper.parseMetadataDiff(diff);
+  
+  // Should report this as a change since the value actually changed
+  assert.strictEqual(changes.length, 1, 'Should report property change when value actually differs');
+  assert.ok(changes[0].includes('changed-image.jpg'), 'Should mention the image');
+  assert.ok(changes[0].includes('matte'), 'Should mention matte property');
+});
+
+// BUG FIX TEST: Existing image in context when new images added
+test('parseMetadataDiff: ignores existing image properties when new images added nearby', () => {
+  // This simulates the exact bug scenario: new images added, existing image appears in context
+  // amanda-tx-license-back-copy is existing, img_4834 is new
+  const diff = `@@ -15,6 +15,31 @@
+     },
++    "img_4834-54280340.jpg": {
++      "matte": "none",
++      "filter": "none",
++      "tags": [],
++      "dimensions": {
++        "width": 3024,
++        "height": 4032
++      },
++      "aspectRatio": 0.75,
++      "added": "2025-10-17T22:20:18.619Z"
++    },
+     "amanda-tx-license-back-copy-ce27751c.jpg": {
+       "matte": "square_white",
+       "filter": "sepia",
+       "tags": [
+         "amanda",
+         "license"
+       ],`;
+
+  const changes = gitHelper.parseMetadataDiff(diff);
+  
+  // Should only report the NEW image being added, NOT report amanda-tx-license-back-copy
+  // as having "updated matte, filter" since it's just context (no - or + lines)
+  assert.strictEqual(changes.length, 0, 'Should not report any metadata changes (new images go in different part of commit message)');
+  
+  // Make sure amanda is not mentioned in property changes
+  assert.ok(!changes.some(c => c.includes('amanda-tx-license-back-copy') && c.includes('matte')), 
+    'Should NOT report amanda-tx-license-back-copy as having property changes');
+});
+
 // INTEGRATION TESTS: generateCommitMessage format
 
 test('generateCommitMessage: single metadata change produces single-line format', () => {

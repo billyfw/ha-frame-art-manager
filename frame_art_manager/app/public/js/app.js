@@ -411,11 +411,16 @@ async function updateSyncStatus() {
     return;
   }
   
+  console.log('🔍 updateSyncStatus() called');
+  
   try {
     const response = await fetch(`${API_BASE}/sync/status`);
     const data = await response.json();
     
+    console.log('📊 Sync status response:', data);
+    
     if (!data.success) {
+      console.error('❌ Sync status check failed');
       updateSyncButtonState('error', 'Error', null, null, null);
       return;
     }
@@ -424,8 +429,10 @@ async function updateSyncStatus() {
     
     // Determine state based on status
     if (status.hasChanges) {
+      console.log('⚠️  Has changes - setting unsynced state');
       updateSyncButtonState('unsynced', 'Unsynced', status, null, null);
     } else {
+      console.log('✅ No changes - setting synced state');
       updateSyncButtonState('synced', 'Synced', null, null, null);
     }
     
@@ -437,12 +444,17 @@ async function updateSyncStatus() {
 
 // Update sync button visual state
 function updateSyncButtonState(state, text, syncStatus, _unused, errorMessage) {
+  console.log(`🎨 updateSyncButtonState() called with state: ${state}, text: ${text}`);
+  
   const syncBtn = document.getElementById('sync-btn');
   const syncIcon = document.getElementById('sync-icon');
   const syncText = document.getElementById('sync-text');
   const syncBadge = document.getElementById('sync-badge');
   
-  if (!syncBtn) return;
+  if (!syncBtn) {
+    console.error('❌ Sync button element not found!');
+    return;
+  }
   
   // Remove all state classes
   syncBtn.classList.remove('synced', 'syncing', 'unsynced', 'error');
@@ -651,7 +663,13 @@ async function manualSync() {
     isSyncInProgress = false; // Clear flag on success
     
     // Update sync status (now that lock is released)
-    await updateSyncStatus();
+    try {
+      await updateSyncStatus();
+    } catch (statusError) {
+      console.error(`⚠️  [FE-${callId}] Failed to update sync status:`, statusError);
+      // Fallback: ensure button is at least set to synced state
+      updateSyncButtonState('synced', 'Synced', null, null, null);
+    }
     
   } catch (error) {
     console.error(`💥 [FE-${callId}] Error during manual sync:`, error);
@@ -3009,6 +3027,15 @@ async function deleteBulkImages() {
   // Clear selection and refresh gallery
   clearSelection();
   await loadGallery();
+  
+  // Update sync status since files were deleted
+  await updateSyncStatus();
+  
+  // Auto-sync after deletion if there are changes
+  const status = await fetch(`${API_BASE}/sync/status`).then(r => r.json());
+  if (status.success && status.status.hasChanges) {
+    await manualSync();
+  }
 }
 
 // TV Modal Functions
