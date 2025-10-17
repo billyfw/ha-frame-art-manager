@@ -272,22 +272,24 @@ router.get('/git-status', async (req, res) => {
     const status = await git.getStatus();
     const branchInfo = await git.getBranchInfo();
     
-    // Get last commit info
-    let lastCommit = null;
+    // Get recent commits info (last 50)
+    let recentCommits = [];
     try {
-      const log = await git.git.log({ maxCount: 1 });
-      if (log.latest) {
-        // Get the full commit message including body
-        const fullMessage = log.latest.body ? 
-          `${log.latest.message}\n\n${log.latest.body}` : 
-          log.latest.message;
-        
-        lastCommit = {
-          hash: log.latest.hash.substring(0, 7),
-          message: fullMessage,
-          date: log.latest.date,
-          author: log.latest.author_name
-        };
+      const log = await git.git.log({ maxCount: 50 });
+      if (log.all && log.all.length > 0) {
+        recentCommits = log.all.map(commit => {
+          // Get the full commit message including body
+          const fullMessage = commit.body ? 
+            `${commit.message}\n\n${commit.body}` : 
+            commit.message;
+          
+          return {
+            hash: commit.hash.substring(0, 7),
+            message: fullMessage,
+            date: commit.date,
+            author: commit.author_name
+          };
+        });
       }
     } catch (logError) {
       console.warn('Could not get commit log:', logError.message);
@@ -310,11 +312,41 @@ router.get('/git-status', async (req, res) => {
         conflicted: status.conflicted || [],
         staged: status.staged,
         hasConflicts,
-        lastCommit
+        recentCommits
       }
     });
   } catch (error) {
     console.error('Git status error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/sync/uncommitted-details
+ * Get detailed description of uncommitted changes (parsed from metadata.json diff)
+ */
+router.get('/uncommitted-details', async (req, res) => {
+  try {
+    const git = new GitHelper(req.frameArtPath);
+    const status = await git.getStatus();
+    
+    let detailedChanges = [];
+    
+    // If metadata.json is modified, parse the diff to get detailed changes
+    if (status.modified.includes('metadata.json')) {
+      detailedChanges = await git.getMetadataChanges();
+    }
+    
+    res.json({
+      success: true,
+      changes: detailedChanges,
+      hasChanges: detailedChanges.length > 0
+    });
+  } catch (error) {
+    console.error('Uncommitted details error:', error);
     res.status(500).json({ 
       success: false, 
       error: error.message 

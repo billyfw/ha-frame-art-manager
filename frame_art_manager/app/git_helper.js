@@ -225,6 +225,22 @@ class GitHelper {
         message: 'Successfully pulled latest changes'
       };
     } catch (error) {
+      // Check for network/connectivity issues first
+      const isNetworkError = error.message.includes('Could not read from remote repository') ||
+                            error.message.includes('unable to access') ||
+                            error.message.includes('Failed to connect') ||
+                            error.message.includes('Could not resolve host') ||
+                            error.message.includes('Connection refused') ||
+                            error.message.includes('Network is unreachable');
+      
+      if (isNetworkError) {
+        return {
+          success: false,
+          error: 'Unable to reach remote repository. Changes saved locally but not synced. Check your network connection.',
+          isNetworkError: true
+        };
+      }
+      
       // Check if it's a merge/rebase conflict
       const hasConflicts = error.message.includes('conflict') || 
                           error.message.includes('CONFLICT') ||
@@ -355,9 +371,20 @@ class GitHelper {
         message: 'Successfully pushed changes to remote'
       };
     } catch (error) {
+      // Check for network/connectivity issues
+      const isNetworkError = error.message.includes('Could not read from remote repository') ||
+                            error.message.includes('unable to access') ||
+                            error.message.includes('Failed to connect') ||
+                            error.message.includes('Could not resolve host') ||
+                            error.message.includes('Connection refused') ||
+                            error.message.includes('Network is unreachable');
+      
       return {
         success: false,
-        error: error.message
+        error: isNetworkError 
+          ? 'Unable to reach remote repository. Changes saved locally but not synced. Check your network connection.'
+          : error.message,
+        isNetworkError
       };
     }
   }
@@ -486,6 +513,9 @@ class GitHelper {
     imageFiles.forEach(file => {
       const filePath = file.path || file;
       const fileName = filePath.split('/').pop();
+      // Extract base name without UUID and extension
+      const withoutExt = fileName.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '');
+      const baseName = withoutExt.replace(/-[a-f0-9]+$/i, '');
       const indexStatus = file.index || '';
       const workingDirStatus = file.working_dir || '';
       const status = (indexStatus && indexStatus !== ' ') ? indexStatus : workingDirStatus;
@@ -496,16 +526,20 @@ class GitHelper {
         const to = file.to || fileName;
         const fromName = from.split('/').pop();
         const toName = to.split('/').pop();
-        allDetails.push(`renamed: ${fromName} → ${toName}`);
+        const fromWithoutExt = fromName.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '');
+        const toWithoutExt = toName.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '');
+        const fromBase = fromWithoutExt.replace(/-[a-f0-9]+$/i, '');
+        const toBase = toWithoutExt.replace(/-[a-f0-9]+$/i, '');
+        allDetails.push(`renamed: ${fromBase} → ${toBase} (${fromName} → ${toName})`);
       } else if (status === 'A' || status === '?') {
         // New file
-        allDetails.push(`added: ${fileName}`);
+        allDetails.push(`added: ${baseName} (${fileName})`);
       } else if (status === 'D') {
         // Deleted file
-        allDetails.push(`deleted: ${fileName}`);
+        allDetails.push(`deleted: ${baseName} (${fileName})`);
       } else if (status === 'M') {
         // Modified file (binary change)
-        allDetails.push(`modified: ${fileName}`);
+        allDetails.push(`modified: ${baseName} (${fileName})`);
       }
     });
     
@@ -657,6 +691,10 @@ class GitHelper {
   formatImageChanges(imageName, addedTags, removedTags, propertyChanges) {
     const changes = [];
     const fileName = imageName.split('/').pop();
+    // Extract base name without UUID and extension
+    // Remove extension first, then remove UUID (last hyphen and everything after)
+    const withoutExt = fileName.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '');
+    const baseName = withoutExt.replace(/-[a-f0-9]+$/i, '');
     
     // Filter out tags that appear in both added and removed (these are just comma changes)
     // Only tags that were truly added or removed should be reported
@@ -664,16 +702,16 @@ class GitHelper {
     const actuallyAdded = addedTags.filter(tag => !removedTags.includes(tag));
     
     if (actuallyRemoved.length > 0) {
-      changes.push(`  ${fileName}: removed tag${actuallyRemoved.length > 1 ? 's' : ''}: ${actuallyRemoved.join(', ')}`);
+      changes.push(`  ${baseName}: removed tag${actuallyRemoved.length > 1 ? 's' : ''}: ${actuallyRemoved.join(', ')} (${fileName})`);
     }
     
     if (actuallyAdded.length > 0) {
-      changes.push(`  ${fileName}: added tag${actuallyAdded.length > 1 ? 's' : ''}: ${actuallyAdded.join(', ')}`);
+      changes.push(`  ${baseName}: added tag${actuallyAdded.length > 1 ? 's' : ''}: ${actuallyAdded.join(', ')} (${fileName})`);
     }
     
     if (propertyChanges.length > 0) {
       const uniqueProps = [...new Set(propertyChanges)];
-      changes.push(`  ${fileName}: updated ${uniqueProps.join(', ')}`);
+      changes.push(`  ${baseName}: updated ${uniqueProps.join(', ')} (${fileName})`);
     }
     
     return changes;
