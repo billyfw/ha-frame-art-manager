@@ -301,6 +301,10 @@ class MetadataHelper {
     }
 
     tv.tags = tags || [];
+    
+    // Clean up unused tags from global list
+    await this.cleanupUnusedTags(metadata);
+    
     await this.writeMetadata(metadata);
     return tv;
   }
