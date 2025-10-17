@@ -612,17 +612,65 @@ class GitHelper {
     let removedTags = [];
     let propertyChanges = [];
     let inTagsArray = false;
+    let imageHasActualChanges = false; // Track if current image has real changes (+ or - lines)
+    let inImagesSection = false; // Track if we're in the "images" section
+    let hasSeenImagesSection = false; // Track if we've explicitly seen the "images" section header
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmed = line.trim();
       
+      // Detect when we enter the "images" section
+      if (trimmed.match(/^"images"\s*:\s*\{/)) {
+        inImagesSection = true;
+        hasSeenImagesSection = true;
+        continue;
+      }
+      
+      // Detect when we exit the "images" section (entering "tvs" or "tags" section at root level)
+      // We can tell it's root level if:
+      // 1. We've seen the images section
+      // 2. We see a closing brace for images: },
+      // 3. Followed by "tvs" or "tags"
+      if (hasSeenImagesSection && trimmed === '},') {
+        // This might be the closing of the images section
+        // Check if the next non-empty line is "tvs" or "tags"
+        for (let j = i + 1; j < lines.length; j++) {
+          const nextTrimmed = lines[j].trim();
+          if (nextTrimmed === '') continue;
+          if (nextTrimmed.match(/^"tvs"\s*:\s*\[/) || nextTrimmed.match(/^"tags"\s*:\s*\[/)) {
+            // Save the last image's changes before leaving images section
+            if (currentImage && imageHasActualChanges && 
+                (addedTags.length > 0 || removedTags.length > 0 || propertyChanges.length > 0)) {
+              changes.push(...this.formatImageChanges(currentImage, addedTags, removedTags, propertyChanges));
+            }
+            inImagesSection = false;
+            currentImage = null;
+          }
+          break; // Only check the next non-empty line
+        }
+        continue;
+      }
+      
       // Detect which image is being modified - look for lines like: "book1-2a.jpg": {
       // Image names have pattern: quote, filename with extension, quote, colon, brace
+      // Use trimmed line to handle any leading whitespace
       const imageMatch = trimmed.match(/^"([^"]+\.(jpg|jpeg|png|gif|webp))"\s*:\s*\{/i);
       if (imageMatch) {
-        // Save previous image changes if any
-        if (currentImage && (addedTags.length > 0 || removedTags.length > 0 || propertyChanges.length > 0)) {
+        // If we haven't seen the "images" section header yet, assume we're in it
+        // (for partial diffs that don't include the full JSON structure)
+        if (!hasSeenImagesSection) {
+          inImagesSection = true;
+        }
+        
+        // Only process if we're in the images section
+        if (!inImagesSection) {
+          continue;
+        }
+        
+        // Save previous image changes if it had ACTUAL changes (not just context lines)
+        if (currentImage && imageHasActualChanges && 
+            (addedTags.length > 0 || removedTags.length > 0 || propertyChanges.length > 0)) {
           changes.push(...this.formatImageChanges(currentImage, addedTags, removedTags, propertyChanges));
         }
         
@@ -631,17 +679,22 @@ class GitHelper {
         removedTags = [];
         propertyChanges = [];
         inTagsArray = false;
+        imageHasActualChanges = false; // Reset for new image
+        continue;
       }
       
-      // Track when we're in the tags array
+      // Track when we're in the tags array (within an image entry)
+      // Only process if we have a current image set
       if (currentImage && line.includes('"tags"')) {
         inTagsArray = true;
       }
       
       // Detect tag changes within the tags array
+      // Only process if we have a current image set
       if (currentImage && inTagsArray) {
         // Look for removed tags: lines starting with - and containing a quoted string
         if (line.match(/^\s*-\s*"([^"]+)"/)) {
+          imageHasActualChanges = true; // Mark that this image has real changes
           const match = line.match(/"([^"]+)"/);
           if (match && match[1] !== 'tags') {
             removedTags.push(match[1]);
@@ -649,6 +702,7 @@ class GitHelper {
         }
         // Look for added tags: lines starting with + and containing a quoted string
         else if (line.match(/^\s*\+\s*"([^"]+)"/)) {
+          imageHasActualChanges = true; // Mark that this image has real changes
           const match = line.match(/"([^"]+)"/);
           if (match && match[1] !== 'tags') {
             addedTags.push(match[1]);
@@ -662,8 +716,11 @@ class GitHelper {
       }
       
       // Detect other property changes (matte, filter, etc.)
+      // Check if line starts with - or + (after optional whitespace from diff)
       if (currentImage && !inTagsArray && (line.includes('"matte"') || line.includes('"filter"'))) {
-        if (line.startsWith('-') || line.startsWith('+')) {
+        const startsWithDiffMarker = /^\s*[-+]/.test(line);
+        if (startsWithDiffMarker) {
+          imageHasActualChanges = true; // Mark that this image has real changes
           const match = line.match(/"([^"]+)":\s*"([^"]+)"/);
           if (match && match[1] !== 'updated') {
             propertyChanges.push(match[1]);
@@ -672,8 +729,9 @@ class GitHelper {
       }
     }
     
-    // Don't forget the last image
-    if (currentImage && (addedTags.length > 0 || removedTags.length > 0 || propertyChanges.length > 0)) {
+    // Don't forget the last image - but only if it had actual changes
+    if (currentImage && imageHasActualChanges && 
+        (addedTags.length > 0 || removedTags.length > 0 || propertyChanges.length > 0)) {
       changes.push(...this.formatImageChanges(currentImage, addedTags, removedTags, propertyChanges));
     }
     

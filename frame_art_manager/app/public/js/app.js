@@ -311,8 +311,11 @@ async function checkSyncOnLoad() {
     
     if (data.success && data.pulledChanges) {
       console.log(`✅ ${data.message}`);
+      // Release lock before updating button
+      isSyncInProgress = false;
       // Show synced state since we just pulled
       updateSyncButtonState('synced', 'Synced', null, null, null);
+      return; // Skip the finally block since we already released
     } else if (data.skipped) {
       console.log(`⚠️ Sync skipped: ${data.reason}`);
       // There are uncommitted local changes - auto-push them
@@ -325,8 +328,11 @@ async function checkSyncOnLoad() {
       updateSyncButtonState('error', 'Error', null, null, data.error);
     } else {
       console.log('✅ Already up to date');
-      // We're synced - but need to check if there are local changes
+      // We're synced - release lock before checking for local changes
+      isSyncInProgress = false;
+      // Check if there are local changes
       await updateSyncStatus();
+      return; // Skip the finally block since we already released
     }
   } catch (error) {
     console.error('Error checking sync on load:', error);
@@ -383,6 +389,12 @@ async function autoPushLocalChanges() {
 
 // Update sync button status
 async function updateSyncStatus() {
+  // Don't update status if sync is in progress - let the sync operation control the button state
+  if (isSyncInProgress) {
+    console.log('⏸️  Skipping status update - sync in progress');
+    return;
+  }
+  
   try {
     const response = await fetch(`${API_BASE}/sync/status`);
     const data = await response.json();
@@ -601,11 +613,12 @@ async function manualSync() {
     // Reload gallery to show any new images from pull
     await loadGallery();
     
-    // Update sync status
-    await updateSyncStatus();
-    
+    // Release lock before updating status so the status update isn't skipped
     console.log(`🔓 [FE-${callId}] Frontend lock released\n`);
     isSyncInProgress = false; // Clear flag on success
+    
+    // Update sync status (now that lock is released)
+    await updateSyncStatus();
     
   } catch (error) {
     console.error(`💥 [FE-${callId}] Error during manual sync:`, error);
@@ -2232,6 +2245,12 @@ async function deleteImage() {
       
       // Update sync status since file was deleted
       await updateSyncStatus();
+      
+      // Auto-sync after deletion (same as closing modal with changes)
+      const status = await fetch(`${API_BASE}/sync/status`).then(r => r.json());
+      if (status.success && status.status.hasChanges) {
+        await manualSync();
+      }
     }
   } catch (error) {
     console.error('Error deleting image:', error);

@@ -738,6 +738,59 @@ test('INTEGRATION: getMetadataChanges requires -U10 context flag', () => {
   assert.ok(testNote.includes('-U10'), 'Documentation test: -U10 flag is required');
 });
 
+// BUG FIX TEST: Ensure context-only images don't get reported as changed
+test('parseMetadataDiff: ignores images that appear only in context (no actual changes)', () => {
+  // This simulates a diff where img_453432232a appears in context but has NO changes (+ or - lines)
+  // while aaaimg_4534-test and book1-2a DO have actual changes
+  const diff = `@@ -5,10 +5,11 @@
+     "aaaimg_4534-test-3885c2bc.png": {
+       "matte": "none",
+       "filter": "none",
+       "tags": [
+-        "qwe"
++        "qwe",
++        "aaaa"
+       ],
+       "added": "2025-10-14T12:27:43.193Z",
+       "dimensions": {
+         "width": 2384,
+@@ -18,9 +19,11 @@
+     "book1-2a-52403dc7.jpg": {
+       "matte": "none",
+       "filter": "none",
+-      "tags": [],
++      "tags": [
++        "1111"
++      ],
+       "added": "2025-10-14T00:00:00Z",
+       "dimensions": {
+         "width": 1920,
+@@ -29,6 +32,7 @@
+     "img_453432232a-90938c64.png": {
+       "matte": "square_white",
+       "filter": "none",
+       "tags": [
+         "222"
+       ],
+`;
+
+  const changes = gitHelper.parseMetadataDiff(diff);
+  
+  // Should only report 2 changes (aaaimg_4534-test and book1-2a), NOT img_453432232a
+  // img_453432232a appears in the diff but has no + or - lines, so it shouldn't be reported
+  assert.strictEqual(changes.length, 2, 'Should only report 2 changes');
+  
+  // Check that the reported changes are correct
+  assert.ok(changes.some(c => c.includes('aaaimg_4534-test-3885c2bc.png') && c.includes('added tag') && c.includes('aaaa')), 
+    'Should report aaaa tag added to aaaimg_4534-test');
+  assert.ok(changes.some(c => c.includes('book1-2a-52403dc7.jpg') && c.includes('added tag') && c.includes('1111')), 
+    'Should report 1111 tag added to book1-2a');
+  
+  // Most importantly: should NOT report img_453432232a
+  assert.ok(!changes.some(c => c.includes('img_453432232a')), 
+    'Should NOT report img_453432232a since it has no actual changes (only context lines)');
+});
+
 // INTEGRATION TESTS: generateCommitMessage format
 
 test('generateCommitMessage: single metadata change produces single-line format', () => {
