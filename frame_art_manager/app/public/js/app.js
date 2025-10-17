@@ -274,6 +274,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadGallery();
   loadTags();
   initUploadForm();
+  initBatchUploadForm(); // Initialize batch upload
   initTVForm();
   initTagForm();
   initModal();
@@ -1538,6 +1539,145 @@ function initUploadForm() {
       submitButton.disabled = false;
     }
   });
+}
+
+// Batch Upload Functions
+function initBatchUploadForm() {
+  const batchUploadBtn = document.getElementById('open-batch-upload-btn');
+  
+  if (batchUploadBtn) {
+    batchUploadBtn.addEventListener('click', () => {
+      // Create a file input that allows multiple selection
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.multiple = true;
+      fileInput.accept = 'image/*';
+      
+      fileInput.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        
+        await uploadBatchImages(files);
+      });
+      
+      // Trigger file picker
+      fileInput.click();
+    });
+  }
+}
+
+// Helper function to format file size in human-readable format
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+}
+
+async function uploadBatchImages(files) {
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+  let successCount = 0;
+  let errorCount = 0;
+  let skippedCount = 0;
+  const skippedFiles = [];
+  const totalFiles = files.length;
+  
+  // Show progress indicator in gallery
+  const grid = document.getElementById('image-grid');
+  const progressDiv = document.createElement('div');
+  progressDiv.className = 'loading';
+  progressDiv.style.fontSize = '1.2rem';
+  progressDiv.style.padding = '40px';
+  progressDiv.innerHTML = `Uploading ${totalFiles} image${totalFiles !== 1 ? 's' : ''}...<br><span style="font-size: 1.5rem; font-weight: bold;">0 / ${totalFiles}</span>`;
+  grid.innerHTML = '';
+  grid.appendChild(progressDiv);
+  
+  // Upload each file with default metadata
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    
+    // Check file size before uploading
+    if (file.size > MAX_FILE_SIZE) {
+      skippedCount++;
+      skippedFiles.push({
+        name: file.name,
+        size: formatFileSize(file.size)
+      });
+      console.warn(`Skipped ${file.name}: ${formatFileSize(file.size)} exceeds 5MB limit`);
+      
+      // Update progress
+      const completedCount = i + 1;
+      progressDiv.innerHTML = `Processing ${totalFiles} image${totalFiles !== 1 ? 's' : ''}...<br><span style="font-size: 1.5rem; font-weight: bold;">${completedCount} / ${totalFiles}</span>`;
+      continue;
+    }
+    
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('matte', 'none'); // Default metadata
+      formData.append('filter', 'none'); // Default metadata
+      formData.append('tags', ''); // No tags by default
+      
+      const response = await fetch(`${API_BASE}/images/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        successCount++;
+      } else {
+        errorCount++;
+        console.error(`Failed to upload ${file.name}:`, result.error);
+      }
+      
+      // Update progress
+      const completedCount = i + 1;
+      progressDiv.innerHTML = `Processing ${totalFiles} image${totalFiles !== 1 ? 's' : ''}...<br><span style="font-size: 1.5rem; font-weight: bold;">${completedCount} / ${totalFiles}</span>`;
+      
+    } catch (error) {
+      errorCount++;
+      console.error(`Error uploading ${file.name}:`, error);
+    }
+  }
+  
+  // Build summary message
+  let summaryParts = [];
+  
+  if (successCount > 0) {
+    summaryParts.push(`${successCount} image${successCount !== 1 ? 's' : ''} uploaded successfully`);
+  }
+  
+  if (skippedCount > 0) {
+    summaryParts.push(`${skippedCount} skipped (over 5MB limit)`);
+  }
+  
+  if (errorCount > 0) {
+    summaryParts.push(`${errorCount} failed`);
+  }
+  
+  // Show result summary if there were issues
+  if (skippedCount > 0 || errorCount > 0) {
+    let message = 'Batch upload completed:\n\n' + summaryParts.join('\n');
+    
+    if (skippedFiles.length > 0) {
+      message += '\n\nSkipped files (over 5MB):';
+      skippedFiles.forEach(file => {
+        message += `\n• ${file.name} (${file.size})`;
+      });
+    }
+    
+    alert(message);
+  }
+  
+  // Reload gallery and tags
+  await loadGallery();
+  await loadTags();
+  
+  // Trigger auto-sync
+  await manualSync();
 }
 
 // TV Management

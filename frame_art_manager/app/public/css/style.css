@@ -195,6 +195,7 @@ header h1 {
   gap: 10px;
   margin-bottom: 20px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .btn-add {
@@ -724,6 +725,8 @@ header h1 {
   transition: transform 0.2s, box-shadow 0.2s;
   position: relative;
   user-select: none;
+  display: flex;
+  flex-direction: column;
 }
 
 .image-card:hover {
@@ -744,6 +747,7 @@ header h1 {
 
 .image-wrapper {
   position: relative;
+  flex-shrink: 0;
 }
 
 .image-wrapper img {
@@ -756,7 +760,9 @@ header h1 {
 .image-info {
   padding: 12px;
   position: relative;
-  min-height: 85px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .image-filename {
@@ -799,6 +805,9 @@ header h1 {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  flex: 1;
+  align-content: flex-start;
+  min-height: 24px;
 }
 
 .tag {
@@ -808,12 +817,12 @@ header h1 {
   color: #3498db;
   border-radius: 12px;
   font-size: 0.85rem;
+  height: fit-content;
 }
 
 .image-date {
-  position: absolute;
-  bottom: 8px;
-  right: 12px;
+  margin-top: 6px;
+  text-align: right;
   font-size: 0.75rem;
   color: #95a5a6;
   font-weight: 400;
@@ -1687,6 +1696,19 @@ header h1 {
     font-size: 0.9rem;
     padding: 10px 15px;
     white-space: nowrap;
+  }
+
+  /* Gallery toolbar on mobile */
+  .gallery-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .btn-add {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 100px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
   }
 
   .image-grid {
