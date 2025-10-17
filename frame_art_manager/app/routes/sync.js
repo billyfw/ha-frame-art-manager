@@ -1,4 +1,6 @@
 const express = require('express');
+const fs = require('fs').promises;
+const path = require('path');
 const router = express.Router();
 const GitHelper = require('../git_helper');
 
@@ -71,8 +73,27 @@ router.post('/full', async (req, res) => {
 
   console.log(`✅ [${requestId}] Sync lock acquired successfully`);
 
+  let git = null;
+  let branchName = 'unknown';
+  let resolveHeadCommit = async () => null;
+
   try {
-    const git = new GitHelper(req.frameArtPath);
+    git = new GitHelper(req.frameArtPath);
+    resolveHeadCommit = async () => {
+      if (!git) return null;
+      try {
+        return await git.git.revparse(['HEAD']);
+      } catch (headError) {
+        console.warn(`   [${requestId}] Could not determine HEAD commit:`, headError.message);
+        return null;
+      }
+    };
+    try {
+      const branchInfo = await git.getBranchInfo();
+      branchName = branchInfo?.branch || 'unknown';
+    } catch (branchError) {
+      console.warn(`   [${requestId}] Could not determine branch name:`, branchError.message);
+    }
     
     // Step 1: Commit any uncommitted changes
     console.log(`📝 [${requestId}] Step 1: Checking for uncommitted changes...`);
@@ -80,7 +101,11 @@ router.post('/full', async (req, res) => {
     const hasUncommittedChanges = status.files.length > 0;
     console.log(`   [${requestId}] Uncommitted changes: ${hasUncommittedChanges ? 'YES (' + status.files.length + ' files)' : 'NO'}`);
     
+    // Capture what changes we're about to commit (in case they get lost in a conflict)
+    let preCommitChangesSummary = [];
     if (hasUncommittedChanges) {
+      preCommitChangesSummary = await git.describeUncommittedChanges();
+      console.log(`   [${requestId}] Pre-commit changes captured:`, preCommitChangesSummary);
       console.log(`   [${requestId}] Committing ${status.files.length} uncommitted file(s)...`);
       const commitMessage = await git.generateCommitMessage(status.files);
       console.log(`   [${requestId}] Commit message: ${commitMessage}`);
@@ -89,6 +114,15 @@ router.post('/full', async (req, res) => {
       
       if (!commitResult.success) {
         console.log(`❌ [${requestId}] Commit failed: ${commitResult.error}`);
+        await logSyncOperation(req.frameArtPath, {
+          operation: 'full-sync',
+          status: 'failure',
+          message: `Commit failed: ${commitResult.error}`,
+          error: commitResult.error,
+          branch: branchName,
+          remoteCommit: await resolveHeadCommit(),
+          lostChanges: []
+        });
         
         return res.status(500).json({
           success: false,
@@ -103,24 +137,39 @@ router.post('/full', async (req, res) => {
     
     // Step 2: Pull from remote (now that changes are committed)
     console.log(`⬇️  [${requestId}] Step 2: Pulling from remote...`);
-    const pullResult = await git.pullLatest();
+    const pullResult = await git.pullLatest(preCommitChangesSummary);
+    const remoteChangesSummary = Array.isArray(pullResult.remoteChangesSummary) ? pullResult.remoteChangesSummary : [];
     
     if (!pullResult.success) {
       console.log(`❌ [${requestId}] Pull failed: ${pullResult.error}`);
+      await logSyncOperation(req.frameArtPath, {
+        operation: 'full-sync',
+        status: 'failure',
+        message: `Pull failed: ${pullResult.error}`,
+        error: pullResult.error,
+        hasConflicts: pullResult.hasConflicts || false,
+        conflictType: pullResult.conflictType,
+        conflictedFiles: pullResult.conflictedFiles || [],
+        branch: branchName,
+        remoteCommit: await resolveHeadCommit(),
+        lostChanges: Array.isArray(pullResult.lostChangesSummary) ? pullResult.lostChangesSummary : [],
+        remoteChanges: remoteChangesSummary
+      });
       
       return res.status(pullResult.hasConflicts ? 409 : (pullResult.isNetworkError ? 503 : 500)).json({
         success: false,
         error: pullResult.error,
         hasConflicts: pullResult.hasConflicts || false,
         conflictType: pullResult.conflictType,
-        conflictedFiles: pullResult.conflictedFiles
+        conflictedFiles: pullResult.conflictedFiles,
+        remoteChangesSummary
       });
     }
 
     const autoResolvedConflict = Boolean(pullResult.autoResolvedConflict);
-    const lostChangesSummary = pullResult.lostChangesSummary || [];
-    const conflictType = pullResult.conflictType;
-    const conflictedFiles = pullResult.conflictedFiles;
+    const lostChangesSummary = Array.isArray(pullResult.lostChangesSummary) ? pullResult.lostChangesSummary : [];
+    const conflictType = pullResult.conflictType || null;
+    const conflictedFiles = Array.isArray(pullResult.conflictedFiles) ? pullResult.conflictedFiles : [];
 
     if (autoResolvedConflict) {
       console.log(`⚠️  [${requestId}] Conflicts detected and automatically resolved using cloud version`);
@@ -137,6 +186,15 @@ router.post('/full', async (req, res) => {
     
     if (!pushResult.success) {
       console.log(`❌ [${requestId}] Push failed: ${pushResult.error}`);
+      await logSyncOperation(req.frameArtPath, {
+        operation: 'full-sync',
+        status: 'failure',
+        message: `Push failed: ${pushResult.error}`,
+        error: pushResult.error,
+        branch: branchName,
+        remoteCommit: await resolveHeadCommit(),
+        lostChanges: []
+      });
       
       return res.status(500).json({
         success: false,
@@ -145,6 +203,21 @@ router.post('/full', async (req, res) => {
     }
     
     console.log(`   [${requestId}] ✅ Push successful`);
+    const headCommit = await resolveHeadCommit();
+    await logSyncOperation(req.frameArtPath, {
+      operation: 'full-sync',
+      status: autoResolvedConflict ? 'warning' : 'success',
+      message: autoResolvedConflict
+        ? 'Conflicts detected during sync. Local changes were replaced with the cloud version.'
+        : 'Successfully completed full sync (commit → pull → push)',
+      hasConflicts: autoResolvedConflict,
+      conflictType,
+      conflictedFiles,
+      lostChanges: lostChangesSummary,
+      remoteChanges: remoteChangesSummary,
+      branch: branchName,
+      remoteCommit: headCommit
+    });
     console.log(`🎉 [${requestId}] Full sync completed successfully\n`);
     
     res.json({
@@ -156,11 +229,25 @@ router.post('/full', async (req, res) => {
       autoResolvedConflict,
       lostChangesSummary,
       conflictType,
-      conflictedFiles
+      conflictedFiles,
+      remoteChangesSummary
     });
     
   } catch (error) {
     console.error(`💥 [${requestId}] Full sync error:`, error);
+    try {
+      await logSyncOperation(req.frameArtPath, {
+        operation: 'full-sync',
+        status: 'failure',
+        message: error.message,
+        error: error.message,
+        branch: branchName,
+        remoteCommit: await resolveHeadCommit(),
+        lostChanges: []
+      });
+    } catch (logError) {
+      console.warn(`⚠️  [${requestId}] Failed to log sync error:`, logError.message);
+    }
     res.status(500).json({ 
       success: false, 
       error: error.message 
@@ -218,6 +305,46 @@ router.post('/verify', async (req, res) => {
 });
 
 /**
+ * GET /api/sync/logs
+ * Retrieve recent sync operation logs with conflict summaries
+ */
+router.get('/logs', async (req, res) => {
+  try {
+    const logs = await getSyncLogs();
+    res.json({
+      success: true,
+      logs
+    });
+  } catch (error) {
+    console.error('Get sync logs error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/sync/logs
+ * Clear stored sync logs
+ */
+router.delete('/logs', async (_req, res) => {
+  try {
+    await clearSyncLogs();
+    res.json({
+      success: true,
+      message: 'Sync logs cleared'
+    });
+  } catch (error) {
+    console.error('Clear sync logs error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * GET /api/sync/git-status
  * Get detailed git status for diagnostics
  */
@@ -234,10 +361,10 @@ router.get('/git-status', async (req, res) => {
       if (log.all && log.all.length > 0) {
         recentCommits = log.all.map(commit => {
           // Get the full commit message including body
-          const fullMessage = commit.body ? 
-            `${commit.message}\n\n${commit.body}` : 
+          const fullMessage = commit.body ?
+            `${commit.message}\n\n${commit.body}` :
             commit.message;
-          
+
           return {
             hash: commit.hash.substring(0, 7),
             message: fullMessage,
@@ -330,5 +457,60 @@ router.get('/conflicts', async (req, res) => {
     });
   }
 });
+
+const SYNC_LOG_PATH = path.join(__dirname, '..', 'sync_logs.json');
+const SYNC_LOG_LIMIT = 200;
+
+async function readSyncLogsFile() {
+  try {
+    const data = await fs.readFile(SYNC_LOG_PATH, 'utf8');
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return [];
+    }
+    console.warn('Failed to read sync logs, resetting file:', error.message);
+    return [];
+  }
+}
+
+async function writeSyncLogsFile(entries) {
+  const payload = JSON.stringify(entries, null, 2);
+  await fs.writeFile(SYNC_LOG_PATH, payload);
+}
+
+async function logSyncOperation(_frameArtPath, logEntry = {}) {
+  try {
+    const logs = await readSyncLogsFile();
+    const entry = {
+      timestamp: new Date().toISOString(),
+      operation: logEntry.operation || 'full-sync',
+      status: logEntry.status || 'info',
+      message: logEntry.message || '',
+      error: logEntry.error || null,
+      hasConflicts: Boolean(logEntry.hasConflicts),
+      conflictType: logEntry.conflictType || null,
+      conflictedFiles: Array.isArray(logEntry.conflictedFiles) ? logEntry.conflictedFiles : [],
+      lostChanges: Array.isArray(logEntry.lostChanges) ? logEntry.lostChanges : [],
+      remoteChanges: Array.isArray(logEntry.remoteChanges) ? logEntry.remoteChanges : [],
+      branch: logEntry.branch || 'unknown',
+      remoteCommit: logEntry.remoteCommit || null
+    };
+    logs.unshift(entry);
+    const trimmed = logs.slice(0, SYNC_LOG_LIMIT);
+    await writeSyncLogsFile(trimmed);
+  } catch (error) {
+    console.warn('Failed to log sync operation:', error.message);
+  }
+}
+
+async function getSyncLogs() {
+  return readSyncLogsFile();
+}
+
+async function clearSyncLogs() {
+  await writeSyncLogsFile([]);
+}
 
 module.exports = router;
