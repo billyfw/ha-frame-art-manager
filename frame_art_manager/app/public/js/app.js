@@ -309,12 +309,16 @@ async function checkSyncOnLoad() {
     const response = await fetch(`${API_BASE}/sync/check`);
     const data = await response.json();
     
-    if (data.success && data.pulledChanges) {
+    if (data.success && (data.pulledChanges || data.autoResolvedConflict)) {
       console.log(`✅ ${data.message}`);
-      // Release lock before updating button
+      if (data.autoResolvedConflict) {
+        alertLostLocalChanges(data.lostChangesSummary);
+      }
+      // Release lock before fetching new data
       isSyncInProgress = false;
-      // Show synced state since we just pulled
-      updateSyncButtonState('synced', 'Synced', null, null, null);
+      await loadGallery();
+      await loadTags();
+      await updateSyncStatus();
       return; // Skip the finally block since we already released
     } else if (data.skipped) {
       console.log(`⚠️ Sync skipped: ${data.reason}`);
@@ -327,12 +331,12 @@ async function checkSyncOnLoad() {
       console.warn(`⚠️ Sync check failed: ${data.error}`);
       updateSyncButtonState('error', 'Error', null, null, data.error);
     } else {
-      console.log('✅ Already up to date');
-      // We're synced - release lock before checking for local changes
-      isSyncInProgress = false;
-      // Check if there are local changes
-      await updateSyncStatus();
-      return; // Skip the finally block since we already released
+  console.log('✅ Already up to date');
+  // We're synced - release lock before checking for local changes
+  isSyncInProgress = false;
+  // Check if there are local changes
+  await updateSyncStatus();
+  return; // Skip the finally block since we already released
     }
   } catch (error) {
     console.error('Error checking sync on load:', error);
@@ -370,6 +374,11 @@ async function autoPushLocalChanges() {
     
     if (syncData.success) {
       console.log(`✅ [FE-${callId}] Auto-sync successful:`, syncData.message);
+      if (syncData.autoResolvedConflict) {
+        alertLostLocalChanges(syncData.lostChangesSummary);
+      }
+      await loadGallery();
+      await loadTags();
       // Update status to show we're synced
       await updateSyncStatus();
     } else {
@@ -554,6 +563,16 @@ function initCloudSyncButton() {
   });
 }
 
+function alertLostLocalChanges(lostChangesSummary) {
+  const lines = Array.isArray(lostChangesSummary) && lostChangesSummary.length > 0
+    ? lostChangesSummary
+    : ['Local changes were discarded in favor of the cloud version.'];
+  const message = ['Sync completed using the cloud version.', 'Local changes were discarded:', '']
+    .concat(lines)
+    .join('\n');
+  alert(message);
+}
+
 // Manual sync (commit, pull, then push)
 async function manualSync() {
   const callId = Math.random().toString(36).substring(7);
@@ -609,9 +628,14 @@ async function manualSync() {
     }
     
     console.log(`✅ [FE-${callId}] Full sync complete:`, syncData.message);
+
+    if (syncData.autoResolvedConflict) {
+      alertLostLocalChanges(syncData.lostChangesSummary);
+    }
     
     // Reload gallery to show any new images from pull
     await loadGallery();
+    await loadTags();
     
     // Release lock before updating status so the status update isn't skipped
     console.log(`🔓 [FE-${callId}] Frontend lock released\n`);
@@ -2324,24 +2348,14 @@ async function loadMetadata() {
 
 // Sync Detail Functions
 function initSyncDetail() {
-  const abortConflictBtn = document.getElementById('abort-conflict-btn');
-  const forcePullBtn = document.getElementById('force-pull-btn');
-  const resetToRemoteBtn = document.getElementById('reset-to-remote-btn');
-  
-  if (abortConflictBtn) abortConflictBtn.addEventListener('click', abortConflict);
-  if (forcePullBtn) forcePullBtn.addEventListener('click', forcePull);
-  if (resetToRemoteBtn) resetToRemoteBtn.addEventListener('click', resetToRemote);
-  
   // Load initial data
   loadSyncStatus();
 }
 
 async function loadSyncStatus() {
   const container = document.getElementById('git-status-container');
-  const conflictWarning = document.getElementById('conflict-warning');
   
   container.innerHTML = '<div class="loading-indicator">Loading git status...</div>';
-  conflictWarning.style.display = 'none';
 
   try {
     const response = await fetch(`${API_BASE}/sync/git-status`);
@@ -2481,99 +2495,9 @@ async function loadSyncStatus() {
     
     container.innerHTML = html;
     
-    // Show conflict warning if needed
-    if (status.hasConflicts && status.conflicted && status.conflicted.length > 0) {
-      const filesList = document.getElementById('conflict-files-list');
-      filesList.innerHTML = status.conflicted.map(f => `<li>${f}</li>`).join('');
-      conflictWarning.style.display = 'block';
-    }
-    
   } catch (error) {
     console.error('Error loading sync status:', error);
     container.innerHTML = `<div class="error">Error loading status: ${error.message}</div>`;
-  }
-}
-
-async function abortConflict() {
-  if (!confirm('Abort the current merge/rebase? This will cancel the operation and return to the previous state.')) {
-    return;
-  }
-  
-  try {
-    const response = await fetch(`${API_BASE}/sync/abort-merge`, { 
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    const data = await response.json();
-    
-    if (data.success) {
-      showNotification(data.message, 'success');
-      loadSyncStatus();
-    } else {
-      throw new Error(data.error);
-    }
-  } catch (error) {
-    console.error('Error aborting conflict:', error);
-    showNotification('Failed to abort: ' + error.message, 'error');
-  }
-}
-
-async function forcePull() {
-  if (!confirm('WARNING: This will discard all local uncommitted changes and pull from remote. Are you sure?')) {
-    return;
-  }
-  
-  try {
-    // First reset local changes
-    const response = await fetch(`${API_BASE}/sync/reset-to-remote`, { 
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    const data = await response.json();
-    
-    if (data.success) {
-      showNotification(data.message, 'success');
-      loadSyncStatus();
-      // Reload gallery to show updated state
-      loadGallery();
-    } else {
-      throw new Error(data.error);
-    }
-  } catch (error) {
-    console.error('Error force pulling:', error);
-    showNotification('Failed to force pull: ' + error.message, 'error');
-  }
-}
-
-async function resetToRemote() {
-  const confirmMsg = 'DANGER: This will PERMANENTLY DELETE all local changes and reset to remote state.\n\n' +
-                     'This action CANNOT be undone!\n\n' +
-                     'Type "RESET" to confirm:';
-  const userInput = prompt(confirmMsg);
-  
-  if (userInput !== 'RESET') {
-    showNotification('Reset cancelled', 'info');
-    return;
-  }
-  
-  try {
-    const response = await fetch(`${API_BASE}/sync/reset-to-remote`, { 
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    const data = await response.json();
-    
-    if (data.success) {
-      showNotification(data.message, 'success');
-      loadSyncStatus();
-      // Reload gallery to show updated state
-      loadGallery();
-    } else {
-      throw new Error(data.error);
-    }
-  } catch (error) {
-    console.error('Error resetting to remote:', error);
-    showNotification('Failed to reset: ' + error.message, 'error');
   }
 }
 
