@@ -56,6 +56,18 @@ else
     bashio::log.warning "Git sync will not work without an SSH key"
 fi
 
+# Verify that the Home Assistant config share is mounted when using /config paths
+if [[ "${FRAME_ART_PATH}" == /config/* ]] && [ ! -d "/config/.storage" ]; then
+    bashio::log.error "Home Assistant /config share is not mounted. Check add-on map configuration."
+    bashio::exit.nok "Cannot proceed without access to /config"
+fi
+
+# Ensure the frame art directory exists and is accessible
+if [ ! -d "${FRAME_ART_PATH}" ]; then
+    bashio::log.info "Creating frame art directory: ${FRAME_ART_PATH}"
+    mkdir -p "${FRAME_ART_PATH}"
+fi
+
 # Export environment variables for Node.js app
 export FRAME_ART_PATH="${FRAME_ART_PATH}"
 export PORT="${PORT}"
