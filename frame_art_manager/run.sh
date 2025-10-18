@@ -75,28 +75,62 @@ if bashio::config.has_value 'ssh_private_key'; then
 
     if [ "${VALID_KEY}" = true ]; then
         chmod 600 "${KEY_PATH}"
-            
-            # Get the git remote host alias (default: github-billy)
-            GIT_HOST_ALIAS=$(bashio::config 'git_remote_host_alias')
-            if bashio::var.is_empty "${GIT_HOST_ALIAS}"; then
-                GIT_HOST_ALIAS="github-billy"
-            fi
-            
-            # Create SSH config for the git remote host
-            cat > /root/.ssh/config <<EOF
+        
+        # Log detailed key information for debugging
+        bashio::log.info "SSH key file permissions: $(ls -l ${KEY_PATH})"
+        bashio::log.info "SSH key file size: $(wc -c < ${KEY_PATH}) bytes"
+        bashio::log.info "SSH key BEGIN line: $(head -n 1 ${KEY_PATH})"
+        bashio::log.info "SSH key END line: $(tail -n 1 ${KEY_PATH})"
+        
+        # Test if we can extract the public key
+        bashio::log.info "Testing SSH key with ssh-keygen -y..."
+        if ssh-keygen -y -f "${KEY_PATH}" > /tmp/test_pubkey 2>/tmp/ssh-keygen-error.log; then
+            bashio::log.info "✓ Successfully extracted public key from private key"
+            bashio::log.info "Public key: $(cat /tmp/test_pubkey)"
+        else
+            bashio::log.error "✗ Failed to extract public key. Error:"
+            bashio::log.error "$(cat /tmp/ssh-keygen-error.log)"
+        fi
+        
+        # Get the git remote host alias (default: github-billy)
+        GIT_HOST_ALIAS=$(bashio::config 'git_remote_host_alias')
+        if bashio::var.is_empty "${GIT_HOST_ALIAS}"; then
+            GIT_HOST_ALIAS="github-billy"
+        fi
+        
+        # Create SSH config for the git remote host
+        cat > /root/.ssh/config <<EOF
 Host ${GIT_HOST_ALIAS}
     HostName github.com
     User git
     IdentityFile /root/.ssh/id_ed25519
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
+    LogLevel DEBUG3
 EOF
-            chmod 600 /root/.ssh/config
-            
-            # Add GitHub to known_hosts
-            ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null
-            
-            bashio::log.info "SSH key configured for ${GIT_HOST_ALIAS}"
+        chmod 600 /root/.ssh/config
+        
+        bashio::log.info "SSH config created:"
+        cat /root/.ssh/config | while IFS= read -r line; do
+            bashio::log.info "  ${line}"
+        done
+        
+        # Add GitHub to known_hosts
+        ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null
+        bashio::log.info "Added github.com to known_hosts"
+        
+        # Test SSH connection
+        bashio::log.info "Testing SSH connection to ${GIT_HOST_ALIAS}..."
+        if ssh -T git@${GIT_HOST_ALIAS} 2>&1 | tee /tmp/ssh-test.log; then
+            bashio::log.info "SSH test output: $(cat /tmp/ssh-test.log)"
+        else
+            bashio::log.warning "SSH test failed. Output:"
+            cat /tmp/ssh-test.log | while IFS= read -r line; do
+                bashio::log.warning "  ${line}"
+            done
+        fi
+        
+        bashio::log.info "SSH key configured for ${GIT_HOST_ALIAS}"
     else
         rm -f "${KEY_PATH}"
         bashio::log.error "SSH private key provided is invalid or empty"
