@@ -23,17 +23,43 @@ if bashio::config.has_value 'ssh_private_key'; then
     KEY_PATH=/root/.ssh/id_ed25519
     rm -f "${KEY_PATH}"
     
-    # Use jq to extract each array element and write to file
-    # bashio::config outputs JSON, jq -r '.[]' extracts each string from the array
-    bashio::config 'ssh_private_key' | jq -r '.[]' > "${KEY_PATH}" 2>/tmp/jq_error.log
-    
-    if [ $? -ne 0 ]; then
-        bashio::log.error "Failed to parse SSH key with jq:"
-        cat /tmp/jq_error.log | while IFS= read -r line; do
-            bashio::log.error "  ${line}"
-        done
-        bashio::exit.nok "Failed to parse SSH key configuration"
+    # Debug: Check if jq is available
+    if ! command -v jq >/dev/null 2>&1; then
+        bashio::log.error "jq is not installed!"
+        bashio::exit.nok "jq is required but not found"
     fi
+    bashio::log.info "✓ jq is available: $(jq --version 2>&1)"
+    
+    # Debug: Get the raw config output
+    bashio::log.info "Getting raw SSH key config..."
+    RAW_CONFIG=$(bashio::config 'ssh_private_key' 2>&1)
+    CONFIG_EXIT_CODE=$?
+    
+    if [ $CONFIG_EXIT_CODE -ne 0 ]; then
+        bashio::log.error "Failed to read ssh_private_key config. Exit code: ${CONFIG_EXIT_CODE}"
+        bashio::log.error "Error output: ${RAW_CONFIG}"
+        bashio::exit.nok "Cannot read SSH key configuration"
+    fi
+    
+    bashio::log.info "Raw config output (first 200 chars): ${RAW_CONFIG:0:200}"
+    
+    # Try to parse with jq
+    bashio::log.info "Parsing SSH key array with jq..."
+    echo "${RAW_CONFIG}" | jq -r '.[]' > "${KEY_PATH}" 2>/tmp/jq_error.log
+    JQ_EXIT_CODE=$?
+    
+    if [ $JQ_EXIT_CODE -ne 0 ]; then
+        bashio::log.error "Failed to parse SSH key with jq. Exit code: ${JQ_EXIT_CODE}"
+        if [ -f /tmp/jq_error.log ]; then
+            bashio::log.error "jq error output:"
+            cat /tmp/jq_error.log | while IFS= read -r line; do
+                bashio::log.error "  ${line}"
+            done
+        fi
+        bashio::exit.nok "Failed to parse SSH key configuration with jq"
+    fi
+    
+    bashio::log.info "✓ jq parsing succeeded"
     
     if [ -s "${KEY_PATH}" ]; then
         KEY_LINES=$(wc -l < "${KEY_PATH}" | tr -d ' ')
