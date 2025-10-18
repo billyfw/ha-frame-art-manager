@@ -31,16 +31,8 @@ if bashio::config.has_value 'ssh_private_key'; then
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
     
-    # Write the private key to file using bashio (handles multi-line properly)
-    TEMP_KEY=$(mktemp)
-    if [ -f "${RAW_KEY_TEMP}" ]; then
-        tr -d '\r' < "${RAW_KEY_TEMP}" > "${TEMP_KEY}"
-    elif bashio::config 'ssh_private_key' > "${TEMP_KEY}" 2>/dev/null; then
-        tr -d '\r' < "${TEMP_KEY}" > "${TEMP_KEY}.sanitized"
-        mv "${TEMP_KEY}.sanitized" "${TEMP_KEY}"
-    fi
-
-    mv "${TEMP_KEY}" /root/.ssh/id_ed25519
+    # Write the private key to file using bashio and handle newlines properly
+    bashio::config 'ssh_private_key' | sed 's/\\n/\n/g' > /root/.ssh/id_ed25519
     rm -f "${RAW_KEY_TEMP}" 2>/dev/null || true
 
     KEY_PATH=/root/.ssh/id_ed25519
