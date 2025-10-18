@@ -22,11 +22,11 @@ class GitHelper {
    */
   static async acquireSyncLock() {
     if (syncInProgress) {
-      console.log('⚠️  Sync already in progress, rejecting concurrent request');
+      // console.log('⚠️  Sync already in progress, rejecting concurrent request');
       return false;
     }
     syncInProgress = true;
-    console.log('🔒 Sync lock acquired');
+    // console.log('🔒 Sync lock acquired');
     return true;
   }
 
@@ -44,13 +44,13 @@ class GitHelper {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        if (!isTestEnv) {
-          console.log(`🔄 Attempting ${operationName} (attempt ${attempt}/${maxRetries})...`);
-        }
+        // if (!isTestEnv) {
+        //   console.log(`🔄 Attempting ${operationName} (attempt ${attempt}/${maxRetries})...`);
+        // }
         const result = await operation();
-        if (!isTestEnv && attempt > 1) {
-          console.log(`✅ ${operationName} succeeded on attempt ${attempt}`);
-        }
+        // if (!isTestEnv && attempt > 1) {
+        //   console.log(`✅ ${operationName} succeeded on attempt ${attempt}`);
+        // }
         return result;
       } catch (error) {
         lastError = error;
@@ -75,15 +75,15 @@ class GitHelper {
         
         if (attempt < maxRetries) {
           const delay = initialDelay * Math.pow(2, attempt - 1); // Exponential backoff
-          if (!isTestEnv) {
-            console.log(`⏳ ${operationName} failed (attempt ${attempt}/${maxRetries}): ${error.message}`);
-            console.log(`   Retrying in ${delay}ms...`);
-          }
+          // if (!isTestEnv) {
+          //   console.log(`⏳ ${operationName} failed (attempt ${attempt}/${maxRetries}): ${error.message}`);
+          //   console.log(`   Retrying in ${delay}ms...`);
+          // }
           await new Promise(resolve => setTimeout(resolve, delay));
         } else {
-          if (!isTestEnv) {
-            console.log(`❌ ${operationName} failed after ${maxRetries} attempts`);
-          }
+          // if (!isTestEnv) {
+          //   console.log(`❌ ${operationName} failed after ${maxRetries} attempts`);
+          // }
         }
       }
     }
@@ -97,7 +97,7 @@ class GitHelper {
    */
   static releaseSyncLock() {
     syncInProgress = false;
-    console.log('🔓 Sync lock released');
+    // console.log('🔓 Sync lock released');
   }
 
   /**
@@ -203,9 +203,9 @@ class GitHelper {
       }
       
       // CRITICAL: Fetch from remote to get latest commit info (with retries)
-      if (process.env.NODE_ENV !== 'test') {
-        console.log('Fetching from remote to check for updates...');
-      }
+      // if (process.env.NODE_ENV !== 'test') {
+      //   console.log('Fetching from remote to check for updates...');
+      // }
       await GitHelper.retryWithBackoff(
         () => this.git.fetch('origin', 'main'),
         3,
@@ -219,9 +219,9 @@ class GitHelper {
       
       if (behind > 0) {
         // We're behind, attempt to pull
-        if (process.env.NODE_ENV !== 'test') {
-          console.log(`Behind remote by ${behind} commit${behind !== 1 ? 's' : ''}, pulling...`);
-        }
+        // if (process.env.NODE_ENV !== 'test') {
+        //   console.log(`Behind remote by ${behind} commit${behind !== 1 ? 's' : ''}, pulling...`);
+        // }
         const pullResult = await this.pullLatest();
         
         if (pullResult.success) {
