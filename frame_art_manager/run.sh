@@ -56,10 +56,6 @@ else
     bashio::log.warning "Git sync will not work without an SSH key"
 fi
 
-# Create directories if they don't exist
-mkdir -p "${FRAME_ART_PATH}/library"
-mkdir -p "${FRAME_ART_PATH}/thumbs"
-
 # Export environment variables for Node.js app
 export FRAME_ART_PATH="${FRAME_ART_PATH}"
 export PORT="${PORT}"
@@ -67,15 +63,6 @@ export NODE_ENV="production"
 
 # Change to app directory
 cd /app || bashio::exit.nok "Could not change to app directory"
-
-# Initialize git if not already initialized
-if [ ! -d "${FRAME_ART_PATH}/.git" ]; then
-    bashio::log.info "Initializing git repository..."
-    cd "${FRAME_ART_PATH}" || bashio::exit.nok "Could not change to frame art directory"
-    git init
-    git lfs install
-    cd /app || bashio::exit.nok "Could not change back to app directory"
-fi
 
 # Start the application
 bashio::log.info "Starting Node.js server..."
