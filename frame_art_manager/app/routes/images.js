@@ -46,8 +46,11 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    // Only accept image files
-    if (file.mimetype.startsWith('image/')) {
+    // Accept image files including HEIC/HEIF (which will be converted to JPEG)
+    if (file.mimetype.startsWith('image/') || 
+        file.mimetype === 'application/octet-stream' && 
+        (file.originalname.toLowerCase().endsWith('.heic') || 
+         file.originalname.toLowerCase().endsWith('.heif'))) {
       cb(null, true);
     } else {
       cb(new Error('Only image files are allowed'));
@@ -93,9 +96,46 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     const { matte = 'none', filter = 'none', tags = '' } = req.body;
     const tagArray = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [];
 
+    let finalFilename = req.file.filename;
+    
+    // Convert HEIC files to JPEG for browser compatibility
+    const fileExt = path.extname(req.file.filename).toLowerCase();
+    if (fileExt === '.heic' || fileExt === '.heif') {
+      console.log(`Converting HEIC file to JPEG: ${req.file.filename}`);
+      
+      const sharp = require('sharp');
+      const originalPath = req.file.path;
+      const jpegFilename = req.file.filename.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg');
+      const jpegPath = path.join(req.frameArtPath, 'library', jpegFilename);
+      
+      try {
+        // Convert HEIC to JPEG with high quality
+        await sharp(originalPath)
+          .jpeg({ quality: 95, mozjpeg: true })
+          .toFile(jpegPath);
+        
+        // Delete the original HEIC file
+        await fs.unlink(originalPath);
+        
+        finalFilename = jpegFilename;
+        console.log(`Successfully converted to: ${finalFilename}`);
+      } catch (conversionError) {
+        console.error('Error converting HEIC to JPEG:', conversionError);
+        // Clean up if conversion failed
+        try {
+          await fs.unlink(originalPath);
+        } catch (cleanupError) {
+          // Ignore cleanup errors
+        }
+        return res.status(500).json({ 
+          error: 'Failed to convert HEIC image. Please try uploading as JPEG or PNG.' 
+        });
+      }
+    }
+
     // Add to metadata
     const imageData = await helper.addImage(
-      req.file.filename,
+      finalFilename,
       matte,
       filter,
       tagArray
@@ -103,7 +143,7 @@ router.post('/upload', upload.single('image'), async (req, res) => {
 
     // Generate thumbnail
     try {
-      await helper.generateThumbnail(req.file.filename);
+      await helper.generateThumbnail(finalFilename);
     } catch (thumbError) {
       console.error('Error generating thumbnail:', thumbError);
       // Continue even if thumbnail generation fails
@@ -111,7 +151,7 @@ router.post('/upload', upload.single('image'), async (req, res) => {
 
     res.json({
       success: true,
-      filename: req.file.filename,
+      filename: finalFilename,
       data: imageData
     });
   } catch (error) {
