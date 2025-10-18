@@ -10,6 +10,7 @@ RUN apk add --no-cache \
     npm \
     git \
     git-lfs \
+    openssh-client \
     python3 \
     make \
     g++ \
