@@ -45,6 +45,16 @@ if bashio::config.has_value 'ssh_private_key'; then
         SANITIZED_LINES=$(wc -l < "${KEY_PATH}" | tr -d ' ')
         bashio::log.info "Sanitized SSH key size: ${SANITIZED_BYTES} bytes across ${SANITIZED_LINES} line(s)"
 
+        # If there are no newline characters but we see literal \n, decode them
+        if [ "${SANITIZED_LINES}" -eq 0 ] && grep -q '\\n' "${KEY_PATH}"; then
+            bashio::log.info "Detected literal \\n sequences in SSH key; converting to real newlines"
+            ESCAPED_CONTENT=$(cat "${KEY_PATH}")
+            printf '%b' "${ESCAPED_CONTENT}" > "${KEY_PATH}.decoded"
+            mv "${KEY_PATH}.decoded" "${KEY_PATH}"
+            SANITIZED_LINES=$(wc -l < "${KEY_PATH}" | tr -d ' ')
+            bashio::log.info "After decoding, SSH key has ${SANITIZED_LINES} line(s)"
+        fi
+
         if ssh-keygen -y -f "${KEY_PATH}" >/dev/null 2>&1; then
             VALID_KEY=true
             FINGERPRINT=$(ssh-keygen -lf "${KEY_PATH}" 2>/dev/null | awk '{print $2}')
