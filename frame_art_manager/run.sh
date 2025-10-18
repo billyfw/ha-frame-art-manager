@@ -16,22 +16,11 @@ if bashio::config.has_value 'ssh_private_key'; then
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
     
-    # The SSH private key is provided as a list of strings (one per line)
-    # bashio::config returns it as JSON, use jq to extract each line
-    bashio::log.info "Reading SSH private key from list format..."
-    
     KEY_PATH=/root/.ssh/id_ed25519
     rm -f "${KEY_PATH}"
     
-    # Debug: Check if jq is available
-    if ! command -v jq >/dev/null 2>&1; then
-        bashio::log.error "jq is not installed!"
-        bashio::exit.nok "jq is required but not found"
-    fi
-    bashio::log.info "✓ jq is available: $(jq --version 2>&1)"
-    
-    # Debug: Get the raw config output
-    bashio::log.info "Getting raw SSH key config..."
+    # Get the raw config - it appears bashio is already joining the array for us
+    bashio::log.info "Reading SSH private key configuration..."
     RAW_CONFIG=$(bashio::config 'ssh_private_key' 2>&1)
     CONFIG_EXIT_CODE=$?
     
@@ -41,25 +30,28 @@ if bashio::config.has_value 'ssh_private_key'; then
         bashio::exit.nok "Cannot read SSH key configuration"
     fi
     
-    bashio::log.info "Raw config output (first 200 chars): ${RAW_CONFIG:0:200}"
+    bashio::log.info "Config retrieved. Length: ${#RAW_CONFIG} characters"
+    bashio::log.info "First 50 chars: ${RAW_CONFIG:0:50}"
     
-    # Try to parse with jq
-    bashio::log.info "Parsing SSH key array with jq..."
-    echo "${RAW_CONFIG}" | jq -r '.[]' > "${KEY_PATH}" 2>/tmp/jq_error.log
-    JQ_EXIT_CODE=$?
-    
-    if [ $JQ_EXIT_CODE -ne 0 ]; then
-        bashio::log.error "Failed to parse SSH key with jq. Exit code: ${JQ_EXIT_CODE}"
-        if [ -f /tmp/jq_error.log ]; then
-            bashio::log.error "jq error output:"
-            cat /tmp/jq_error.log | while IFS= read -r line; do
-                bashio::log.error "  ${line}"
-            done
+    # Check if it's JSON (starts with [ or {) or plain text
+    if [[ "${RAW_CONFIG}" =~ ^[[:space:]]*[\[\{] ]]; then
+        bashio::log.info "Detected JSON format, parsing with jq..."
+        echo "${RAW_CONFIG}" | jq -r 'if type == "array" then .[] else . end' > "${KEY_PATH}" 2>/tmp/jq_error.log
+        JQ_EXIT_CODE=$?
+        
+        if [ $JQ_EXIT_CODE -ne 0 ]; then
+            bashio::log.error "jq parsing failed. Exit code: ${JQ_EXIT_CODE}"
+            if [ -f /tmp/jq_error.log ]; then
+                cat /tmp/jq_error.log | while IFS= read -r line; do
+                    bashio::log.error "  ${line}"
+                done
+            fi
+            bashio::exit.nok "Failed to parse JSON SSH key"
         fi
-        bashio::exit.nok "Failed to parse SSH key configuration with jq"
+    else
+        bashio::log.info "Detected plain text format, writing directly..."
+        echo "${RAW_CONFIG}" > "${KEY_PATH}"
     fi
-    
-    bashio::log.info "✓ jq parsing succeeded"
     
     if [ -s "${KEY_PATH}" ]; then
         KEY_LINES=$(wc -l < "${KEY_PATH}" | tr -d ' ')
