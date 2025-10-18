@@ -12,77 +12,46 @@ bashio::log.info "Port: ${PORT}"
 # Set up SSH keys for Git if provided
 if bashio::config.has_value 'ssh_private_key'; then
     bashio::log.info "Setting up SSH key for Git..."
-    RAW_KEY_TEMP=$(mktemp)
-
-    if bashio::config 'ssh_private_key' > "${RAW_KEY_TEMP}" 2>/dev/null; then
-        RAW_KEY_BYTES=$(wc -c < "${RAW_KEY_TEMP}" | tr -d ' ')
-        RAW_KEY_LINES=$(wc -l < "${RAW_KEY_TEMP}" | tr -d ' ')
-        bashio::log.info "SSH key option retrieved: ${RAW_KEY_BYTES} bytes across ${RAW_KEY_LINES} line(s)"
-        
-        # Log first and last lines for verification (redact middle for security)
-        FIRST_LINE=$(head -n 1 "${RAW_KEY_TEMP}")
-        LAST_LINE=$(tail -n 1 "${RAW_KEY_TEMP}")
-        bashio::log.info "SSH key first line: ${FIRST_LINE}"
-        bashio::log.info "SSH key last line: ${LAST_LINE}"
-    else
-        bashio::log.warning "Unable to read ssh_private_key option"
-    fi
     
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
     
-    # Read SSH key from list format and join with newlines
-    # Each line of the SSH key should be a separate list item in the config
+    # The SSH private key is provided as a list of strings (one per line)
+    # Join them back together with newlines to reconstruct the key
+    bashio::log.info "Reading SSH private key from list format..."
     bashio::config 'ssh_private_key' | jq -r '.[]' > /root/.ssh/id_ed25519
-    rm -f "${RAW_KEY_TEMP}" 2>/dev/null || true
-
+    
     KEY_PATH=/root/.ssh/id_ed25519
-    VALID_KEY=false
-
+    
     if [ -s "${KEY_PATH}" ]; then
-        SANITIZED_BYTES=$(wc -c < "${KEY_PATH}" | tr -d ' ')
-        SANITIZED_LINES=$(wc -l < "${KEY_PATH}" | tr -d ' ')
-        bashio::log.info "Sanitized SSH key size: ${SANITIZED_BYTES} bytes across ${SANITIZED_LINES} line(s)"
-
-        # If there are no newline characters but we see literal \n, decode them
-        if [ "${SANITIZED_LINES}" -eq 0 ] && grep -q '\\n' "${KEY_PATH}"; then
-            bashio::log.info "Detected literal \\n sequences in SSH key; converting to real newlines"
-            ESCAPED_CONTENT=$(cat "${KEY_PATH}")
-            printf '%b' "${ESCAPED_CONTENT}" > "${KEY_PATH}.decoded"
-            mv "${KEY_PATH}.decoded" "${KEY_PATH}"
-            SANITIZED_LINES=$(wc -l < "${KEY_PATH}" | tr -d ' ')
-            bashio::log.info "After decoding, SSH key has ${SANITIZED_LINES} line(s)"
-        fi
-
-        if ssh-keygen -y -f "${KEY_PATH}" >/dev/null 2>&1; then
-            VALID_KEY=true
-            FINGERPRINT=$(ssh-keygen -lf "${KEY_PATH}" 2>/dev/null | awk '{print $2}')
-            if bashio::var.has_value "${FINGERPRINT}"; then
-                bashio::log.info "SSH key fingerprint detected: ${FINGERPRINT}"
-            fi
-        else
-            bashio::log.warning "SSH private key failed validation (ssh-keygen). Attempting to use it anyway."
-            VALID_KEY=true
-        fi
-    fi
-
-    if [ "${VALID_KEY}" = true ]; then
+        KEY_LINES=$(wc -l < "${KEY_PATH}" | tr -d ' ')
+        KEY_BYTES=$(wc -c < "${KEY_PATH}" | tr -d ' ')
+        bashio::log.info "SSH key reconstructed: ${KEY_BYTES} bytes across ${KEY_LINES} line(s)"
+        
+        # Verify it looks like a valid key format
+        FIRST_LINE=$(head -n 1 "${KEY_PATH}")
+        LAST_LINE=$(tail -n 1 "${KEY_PATH}")
+        bashio::log.info "Key starts with: ${FIRST_LINE}"
+        bashio::log.info "Key ends with: ${LAST_LINE}"
+        
         chmod 600 "${KEY_PATH}"
         
-        # Log detailed key information for debugging
-        bashio::log.info "SSH key file permissions: $(ls -l ${KEY_PATH})"
-        bashio::log.info "SSH key file size: $(wc -c < ${KEY_PATH}) bytes"
-        bashio::log.info "SSH key BEGIN line: $(head -n 1 ${KEY_PATH})"
-        bashio::log.info "SSH key END line: $(tail -n 1 ${KEY_PATH})"
-        
         # Test if we can extract the public key
-        bashio::log.info "Testing SSH key with ssh-keygen -y..."
+        bashio::log.info "Validating SSH key with ssh-keygen..."
         if ssh-keygen -y -f "${KEY_PATH}" > /tmp/test_pubkey 2>/tmp/ssh-keygen-error.log; then
-            bashio::log.info "✓ Successfully extracted public key from private key"
-            bashio::log.info "Public key: $(cat /tmp/test_pubkey)"
+            bashio::log.info "✓ SSH key is valid"
+            FINGERPRINT=$(ssh-keygen -lf "${KEY_PATH}" 2>/dev/null | awk '{print $2}')
+            if bashio::var.has_value "${FINGERPRINT}"; then
+                bashio::log.info "SSH key fingerprint: ${FINGERPRINT}"
+            fi
         else
-            bashio::log.error "✗ Failed to extract public key. Error:"
-            bashio::log.error "$(cat /tmp/ssh-keygen-error.log)"
+            bashio::log.error "✗ SSH key validation failed. Error:"
+            cat /tmp/ssh-keygen-error.log | while IFS= read -r line; do
+                bashio::log.error "  ${line}"
+            done
+            bashio::log.error "Please verify your SSH key is entered correctly (one line per entry)"
+            rm -f "${KEY_PATH}"
+            bashio::exit.nok "Invalid SSH key"
         fi
         
         # Get the git remote host alias (default: github-billy)
