@@ -136,7 +136,7 @@ MIT License - See [LICENSE](LICENSE) file for details.
 
 ## Credits
 
-Created by billyfw
+Created by the owner
 
 Special thanks to the Home Assistant community.
 
