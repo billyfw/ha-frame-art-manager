@@ -40,7 +40,7 @@ if bashio::config.has_value 'ssh_key_path'; then
         
         # Create SSH config to use this key
         cat > /root/.ssh/config <<EOF
-Host github.com
+Host github.com github-billy
     HostName github.com
     User git
     IdentityFile /root/.ssh/${KEY_NAME}
