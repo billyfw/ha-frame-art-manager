@@ -19,9 +19,14 @@ if bashio::config.has_value 'ssh_private_key'; then
     # The SSH private key is provided as a list of strings (one per line)
     # Join them back together with newlines to reconstruct the key
     bashio::log.info "Reading SSH private key from list format..."
-    bashio::config 'ssh_private_key' | jq -r '.[]' > /root/.ssh/id_ed25519
     
     KEY_PATH=/root/.ssh/id_ed25519
+    rm -f "${KEY_PATH}"
+    
+    # Read each line from the config array and write to file
+    for line in $(bashio::config 'ssh_private_key'); do
+        echo "$line" >> "${KEY_PATH}"
+    done
     
     if [ -s "${KEY_PATH}" ]; then
         KEY_LINES=$(wc -l < "${KEY_PATH}" | tr -d ' ')
