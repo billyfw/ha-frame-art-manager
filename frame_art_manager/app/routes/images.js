@@ -103,16 +103,24 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     if (fileExt === '.heic' || fileExt === '.heif') {
       console.log(`Converting HEIC file to JPEG: ${req.file.filename}`);
       
-      const sharp = require('sharp');
+      const convert = require('heic-convert');
       const originalPath = req.file.path;
       const jpegFilename = req.file.filename.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg');
       const jpegPath = path.join(req.frameArtPath, 'library', jpegFilename);
       
       try {
-        // Convert HEIC to JPEG with high quality
-        await sharp(originalPath)
-          .jpeg({ quality: 95, mozjpeg: true })
-          .toFile(jpegPath);
+        // Read the HEIC file
+        const inputBuffer = await fs.readFile(originalPath);
+        
+        // Convert HEIC to JPEG with high quality (0-1 scale, 0.95 = 95%)
+        const outputBuffer = await convert({
+          buffer: inputBuffer,
+          format: 'JPEG',
+          quality: 0.95
+        });
+        
+        // Write the JPEG file
+        await fs.writeFile(jpegPath, outputBuffer);
         
         // Delete the original HEIC file
         await fs.unlink(originalPath);
@@ -128,7 +136,8 @@ router.post('/upload', upload.single('image'), async (req, res) => {
           // Ignore cleanup errors
         }
         return res.status(500).json({ 
-          error: 'Failed to convert HEIC image. Please try uploading as JPEG or PNG.' 
+          error: 'Failed to convert HEIC image. Please try uploading as JPEG or PNG.',
+          details: conversionError.message
         });
       }
     }

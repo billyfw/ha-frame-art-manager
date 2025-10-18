@@ -25,8 +25,9 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
+    "heic-convert": "^2.1.0",
     "multer": "^1.4.5-lts.1",
-    "sharp": "^0.33.0",
+    "sharp": "^0.34.4",
     "simple-git": "^3.28.0",
     "uuid": "^9.0.1"
   },
