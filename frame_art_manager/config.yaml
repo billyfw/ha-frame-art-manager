@@ -22,7 +22,7 @@ schema:
   frame_art_path: str
   port: int
   git_remote_host_alias: str?
-  ssh_private_key: str?
+  ssh_private_key: str(100,)?
 map:
   - config:rw
 ports:
