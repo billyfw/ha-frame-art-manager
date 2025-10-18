@@ -24,9 +24,20 @@ if bashio::config.has_value 'ssh_private_key'; then
     fi
     rm -f "${TEMP_KEY}"
 
-    # Validate the private key file before proceeding
-    if [ -s /root/.ssh/id_ed25519 ] && ssh-keygen -y -f /root/.ssh/id_ed25519 >/dev/null 2>&1; then
-        chmod 600 /root/.ssh/id_ed25519
+    KEY_PATH=/root/.ssh/id_ed25519
+    VALID_KEY=false
+
+    if [ -s "${KEY_PATH}" ]; then
+        if ssh-keygen -y -f "${KEY_PATH}" >/dev/null 2>&1; then
+            VALID_KEY=true
+        else
+            bashio::log.warning "SSH private key failed validation (ssh-keygen). Attempting to use it anyway."
+            VALID_KEY=true
+        fi
+    fi
+
+    if [ "${VALID_KEY}" = true ]; then
+        chmod 600 "${KEY_PATH}"
             
             # Get the git remote host alias (default: github-billy)
             GIT_HOST_ALIAS=$(bashio::config 'git_remote_host_alias')
@@ -50,7 +61,7 @@ EOF
             
             bashio::log.info "SSH key configured for ${GIT_HOST_ALIAS}"
     else
-        rm -f /root/.ssh/id_ed25519
+        rm -f "${KEY_PATH}"
         bashio::log.error "SSH private key provided is invalid or empty"
         bashio::log.warning "Git sync will not work without a valid SSH key"
     fi
