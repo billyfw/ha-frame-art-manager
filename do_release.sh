@@ -71,18 +71,46 @@ git tag -a "v$NEW_VERSION" -m "Release version $NEW_VERSION"
 echo "Pushing to GitHub..."
 git push origin main --tags
 
-echo "Waiting 5 seconds for GitHub to process..."
-sleep 5
+echo "Waiting for GitHub to process..."
+sleep 3
 
 # Update Home Assistant add-on
-echo "Updating Home Assistant add-on..."
-ssh root@homeassistant.local << 'ENDSSH'
+echo "Reinstalling Home Assistant add-on..."
+ssh root@homeassistant.local << ENDSSH
+# Force supervisor to refresh repositories
+ha supervisor reload
+sleep 2
+
+# Find the current slug (it may have changed)
+ADDON_SLUG=\$(ha addons --raw-json | grep -o '"slug":"[^"]*frame_art_manager"' | head -1 | cut -d'"' -f4)
+
+if [ -z "\$ADDON_SLUG" ]; then
+    echo "❌ Could not find Frame Art Manager add-on"
+    exit 1
+fi
+
+echo "Found add-on with slug: \$ADDON_SLUG"
+
+# Uninstall the old version
+echo "Uninstalling old version..."
+ha addons uninstall "\$ADDON_SLUG"
+sleep 2
+
+# Reload to see the new version
 ha addons reload
 sleep 2
-ha addons update e2a3b0cb_frame_art_manager
+
+# Install fresh (slug should be the same for the same repo)
+echo "Installing new version..."
+ha addons install "\$ADDON_SLUG"
+sleep 5
+
+# Start it
+echo "Starting add-on..."
+ha addons start "\$ADDON_SLUG"
 sleep 2
-ha addons restart e2a3b0cb_frame_art_manager
-echo "Add-on updated and restarted!"
+
+echo "✅ Add-on reinstalled with version $NEW_VERSION"
 ENDSSH
 
 echo ""
