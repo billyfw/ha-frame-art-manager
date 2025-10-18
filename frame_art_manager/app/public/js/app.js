@@ -1,5 +1,5 @@
 // API Base URL
-const API_BASE = '/api';
+const API_BASE = 'api';
 
 // Global state
 let libraryPath = null; // Store library path for tooltips
@@ -1350,8 +1350,8 @@ function renderGallery(filter = '') {
          data-filename="${filename}" 
          data-index="${index}">
       <div class="image-wrapper">
-        <img src="/thumbs/thumb_${filename}" 
-             onerror="this.src='/library/${filename}'" 
+        <img src="thumbs/thumb_${filename}" 
+             onerror="this.src='library/${filename}'" 
              alt="${getDisplayName(filename)}" />
         <button class="select-badge" data-filename="${filename}" data-index="${index}" title="Select image">
           <span class="select-icon">☑</span>
@@ -2408,7 +2408,7 @@ function showFullScreenImage(filename) {
   
   // Create image element
   const img = document.createElement('img');
-  img.src = `/library/${filename}`;
+  img.src = `library/${filename}`;
   img.style.cssText = `
     max-width: 100%;
     max-height: 100%;
@@ -2448,7 +2448,7 @@ function openImageModal(filename) {
   }
 
   // Set image
-  document.getElementById('modal-image').src = `/library/${filename}`;
+  document.getElementById('modal-image').src = `library/${filename}`;
   document.getElementById('modal-filename').textContent = getDisplayName(filename);
   document.getElementById('modal-actual-filename').textContent = filename;
   
@@ -2550,7 +2550,7 @@ async function saveFilenameChange() {
       // Update modal display
       document.getElementById('modal-filename').textContent = getDisplayName(result.newFilename);
       document.getElementById('modal-actual-filename').textContent = result.newFilename;
-      document.getElementById('modal-image').src = `/library/${result.newFilename}`;
+      document.getElementById('modal-image').src = `library/${result.newFilename}`;
       
       hideEditFilenameForm();
       
