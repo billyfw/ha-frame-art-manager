@@ -1,6 +1,6 @@
 # Frame Art Manager Add-on Configuration
 name: Frame Art Manager
-version: "0.5.14"
+version: "0.5.15"
 slug: frame_art_manager
 description: Manage Frame TV artwork library
 url: https://github.com/billyfw/ha-frame-art-manager
@@ -16,17 +16,16 @@ boot: auto
 options:
   frame_art_path: /config/www/frame_art
   port: 8099
-  ssh_key_path: /ssh/id_ed25519_billyfw
+  ssh_private_key: ""
+  git_remote_host_alias: "github-billy"
 schema:
   frame_art_path: str
   port: int
-  ssh_key_path: str?
+  ssh_private_key: password?
+  git_remote_host_alias: str?
 map:
   - type: homeassistant_config
     read_only: false
-  - type: ssl
-    read_only: true
-    path: /ssh
 ports:
   8099/tcp: 8099
 ports_description:

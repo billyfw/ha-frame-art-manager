@@ -11,43 +11,39 @@ bashio::log.info "Frame Art Path: ${FRAME_ART_PATH}"
 bashio::log.info "Port: ${PORT}"
 
 # Set up SSH keys for Git if provided
-if bashio::config.has_value 'ssh_key_path'; then
-    bashio::log.info "Setting up SSH keys..."
+if bashio::config.has_value 'ssh_private_key'; then
+    bashio::log.info "Setting up SSH key for Git..."
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
     
-    KEY_SOURCE="${SSH_KEY_PATH}"
+    # Write the private key to file
+    bashio::config 'ssh_private_key' > /root/.ssh/id_ed25519
+    chmod 600 /root/.ssh/id_ed25519
     
-    if [ -f "${KEY_SOURCE}" ]; then
-        KEY_NAME=$(basename "${KEY_SOURCE}")
-        bashio::log.info "Found SSH key: ${KEY_NAME}"
-        
-        # Copy key to container's /root/.ssh/
-        cp "${KEY_SOURCE}" /root/.ssh/"${KEY_NAME}"
-        chmod 600 /root/.ssh/"${KEY_NAME}"
-        
-        # Also copy public key if it exists
-        if [ -f "${KEY_SOURCE}.pub" ]; then
-            cp "${KEY_SOURCE}.pub" /root/.ssh/"${KEY_NAME}.pub"
-        fi
-        
-        # Create SSH config to use this key for both github.com and github-billy alias
-        cat > /root/.ssh/config <<EOF
-Host github.com github-billy
+    # Get the git remote host alias (default: github-billy)
+    GIT_HOST_ALIAS=$(bashio::config 'git_remote_host_alias')
+    if bashio::var.is_empty "${GIT_HOST_ALIAS}"; then
+        GIT_HOST_ALIAS="github-billy"
+    fi
+    
+    # Create SSH config for the git remote host
+    cat > /root/.ssh/config <<EOF
+Host ${GIT_HOST_ALIAS}
     HostName github.com
     User git
-    IdentityFile /root/.ssh/${KEY_NAME}
+    IdentityFile /root/.ssh/id_ed25519
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
 EOF
-        chmod 600 /root/.ssh/config
-        
-        # Add GitHub to known hosts
-        ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null
-        bashio::log.info "SSH keys configured successfully"
-    else
-        bashio::log.warning "SSH key not found at ${KEY_SOURCE}"
-    fi
+    chmod 600 /root/.ssh/config
+    
+    # Add GitHub to known_hosts
+    ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null
+    
+    bashio::log.info "SSH key configured for ${GIT_HOST_ALIAS}"
+else
+    bashio::log.warning "No SSH private key provided in configuration"
+    bashio::log.warning "Git sync will not work without an SSH key"
 fi
 
 # Create directories if they don't exist

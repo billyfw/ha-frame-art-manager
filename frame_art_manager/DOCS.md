@@ -36,6 +36,23 @@ The web interface has 5 main tabs:
 - **Tags**: Manage your tag library
 - **Advanced**: System information and settings
 
+## Configuration
+
+### Git Sync (Optional)
+
+To enable Git synchronization of your frame art library:
+
+1. Go to **Settings** → **Add-ons** → **Frame Art Manager** → **Configuration**
+2. Paste your SSH private key in the `ssh_private_key` field
+3. Set `git_remote_host_alias` to match your Git remote host (default: `github-billy`)
+4. Save and restart the add-on
+
+**To get your SSH private key:**
+- From Terminal & SSH add-on: `cat ~/.ssh/id_ed25519`
+- Copy the entire output including `-----BEGIN` and `-----END` lines
+
+**Note**: The private key is stored securely in the add-on's configuration and is never exposed in logs.
+
 ## Storage Location
 
 - Images are stored in: `/config/www/frame_art/library/`
