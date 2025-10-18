@@ -1,6 +1,6 @@
 # Frame Art Manager Add-on Configuration
 name: Frame Art Manager
-version: "0.5.1"
+version: "0.5.2"
 slug: frame_art_manager
 description: Manage Frame TV artwork library
 url: https://github.com/billyfw/ha-frame-art-manager
@@ -16,9 +16,14 @@ boot: auto
 options:
   frame_art_path: /config/www/frame_art
   port: 8099
+  ssh_key_path: /root/.ssh/id_ed25519_billyfw
 schema:
   frame_art_path: str
   port: int
+  ssh_key_path: str?
+map:
+  - config:rw
+  - ssh:ro
 ports:
   8099/tcp: 8099
 ports_description:
