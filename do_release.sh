@@ -91,15 +91,10 @@ sleep 3
 # Update Home Assistant add-on
 echo "Updating Home Assistant add-on..."
 ssh root@homeassistant.local << ENDSSH
-# Force check for updates from GitHub (this is the key!)
-echo "Checking for repository updates..."
-ha supervisor refresh
-sleep 5
-
 # The GitHub repo slug should be e2a3b0cb_frame_art_manager
 GITHUB_SLUG="e2a3b0cb_frame_art_manager"
 
-# Check if GitHub version is installed
+# Check if GitHub version is installed and uninstall it
 INSTALLED=\$(ha addons --raw-json | jq -r '.data.addons[] | select(.slug == "'\$GITHUB_SLUG'") | .slug')
 
 if [ -n "\$INSTALLED" ]; then
@@ -118,10 +113,15 @@ if [ -n "\$LOCAL_SLUG" ]; then
     sleep 3
 fi
 
-# Force supervisor to clear cache and refresh
-echo "Refreshing supervisor..."
+# Force supervisor to reload and clear all caches
+echo "Reloading supervisor to clear caches..."
+ha supervisor reload
+sleep 10
+
+# Force check for updates from GitHub (equivalent to "Check for updates" button)
+echo "Checking for repository updates..."
 ha supervisor refresh
-sleep 3
+sleep 10
 
 # Install fresh from GitHub
 echo "Installing fresh from GitHub repository..."
@@ -134,6 +134,9 @@ ha addons start "\$GITHUB_SLUG"
 sleep 2
 
 echo "✅ Add-on rebuilt with version $NEW_VERSION"
+echo ""
+echo "Note: If version still shows old number in HA UI, manually click"
+echo "'Check for updates' in Settings > Add-ons > Repositories"
 ENDSSH
 
 echo ""
