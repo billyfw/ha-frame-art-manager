@@ -96,20 +96,27 @@ echo "Checking for repository updates..."
 ha supervisor refresh
 sleep 5
 
-# Find the current slug
-ADDON_SLUG=\$(ha addons --raw-json | grep -o '"slug":"[^"]*frame_art_manager"' | head -1 | cut -d'"' -f4)
+# The GitHub repo slug should be e2a3b0cb_frame_art_manager
+GITHUB_SLUG="e2a3b0cb_frame_art_manager"
 
-if [ -z "\$ADDON_SLUG" ]; then
-    echo "❌ Could not find Frame Art Manager add-on"
-    exit 1
+# Check if GitHub version is installed
+INSTALLED=\$(ha addons --raw-json | jq -r '.data.addons[] | select(.slug == "'\$GITHUB_SLUG'") | .slug')
+
+if [ -n "\$INSTALLED" ]; then
+    echo "Found installed GitHub version: \$GITHUB_SLUG"
+    echo "Uninstalling to rebuild..."
+    ha addons uninstall "\$GITHUB_SLUG"
+    sleep 3
 fi
 
-echo "Found add-on with slug: \$ADDON_SLUG"
+# Check for local version and remove it
+LOCAL_SLUG=\$(ha addons --raw-json | jq -r '.data.addons[] | select(.name == "Frame Art Helper" or .name == "Frame Art Manager") | select(.repository == "local") | .slug')
 
-# Uninstall to ensure fresh build
-echo "Uninstalling old version..."
-ha addons uninstall "\$ADDON_SLUG"
-sleep 3
+if [ -n "\$LOCAL_SLUG" ]; then
+    echo "Found local version: \$LOCAL_SLUG - removing it..."
+    ha addons uninstall "\$LOCAL_SLUG"
+    sleep 3
+fi
 
 # Force supervisor to clear cache and refresh
 echo "Refreshing supervisor..."
@@ -117,13 +124,13 @@ ha supervisor refresh
 sleep 3
 
 # Install fresh from GitHub
-echo "Installing fresh from GitHub..."
-ha addons install "\$ADDON_SLUG"
+echo "Installing fresh from GitHub repository..."
+ha addons install "\$GITHUB_SLUG"
 sleep 5
 
 # Start it
 echo "Starting add-on..."
-ha addons start "\$ADDON_SLUG"
+ha addons start "\$GITHUB_SLUG"
 sleep 2
 
 echo "✅ Add-on rebuilt with version $NEW_VERSION"
