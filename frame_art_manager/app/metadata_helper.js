@@ -197,6 +197,7 @@ class MetadataHelper {
 
     try {
       await sharp(imagePath)
+        .rotate() // Auto-rotate based on EXIF orientation
         .resize(thumbSize.width, thumbSize.height, {
           fit: 'inside',
           withoutEnlargement: true

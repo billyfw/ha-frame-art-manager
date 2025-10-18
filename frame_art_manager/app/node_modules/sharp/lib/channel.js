@@ -16,7 +16,7 @@ const bool = {
 };
 
 /**
- * Remove alpha channel, if any. This is a no-op if the image does not have an alpha channel.
+ * Remove alpha channels, if any. This is a no-op if the image does not have an alpha channel.
  *
  * See also {@link /api-operation#flatten|flatten}.
  *
@@ -73,6 +73,8 @@ function ensureAlpha (alpha) {
 
 /**
  * Extract a single channel from a multi-channel image.
+ *
+ * The output colourspace will be either `b-w` (8-bit) or `grey16` (16-bit).
  *
  * @example
  * // green.jpg is a greyscale image containing the green channel of the input
@@ -158,6 +160,7 @@ function bandbool (boolOp) {
 
 /**
  * Decorate the Sharp prototype with channel-related functions.
+ * @module Sharp
  * @private
  */
 module.exports = function (Sharp) {

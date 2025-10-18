@@ -386,8 +386,9 @@ Shows all tags with:
 ## Troubleshooting
 
 **Image won't upload:**
-- Check file is image format (JPEG, PNG, etc.)
+- Check file is image format (JPEG, PNG, HEIC, etc.)
 - Verify file size < 50MB
+- HEIC files are automatically converted to JPEG
 - Check disk space
 
 **Can't rename image:**

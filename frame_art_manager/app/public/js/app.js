@@ -1562,17 +1562,27 @@ function initUploadForm() {
       const result = await response.json();
 
       if (result.success) {
-        // Close upload modal immediately and return to gallery
-        switchToTab('gallery');
+        // Set sort to Date Added, descending (newest first) BEFORE navigation
+        const sortOrderSelect = document.getElementById('sort-order');
+        if (sortOrderSelect) {
+          sortOrderSelect.value = 'date';
+          // Trigger resize to accommodate "Date Added" text width
+          const event = new Event('change', { bubbles: true });
+          sortOrderSelect.dispatchEvent(event);
+        }
+        sortAscending = false; // descending
+        updateSortDirectionIcon();
         
         // Reset form for next use
         form.reset();
         statusDiv.innerHTML = '';
         submitButton.disabled = false;
         
-        // Reload gallery and tags
-        loadGallery();
-        loadTags(); // Reload tags in case new ones were added
+        // Reload tags in case new ones were added
+        await loadTags();
+        
+        // Close upload modal and return to gallery (this will call loadGallery automatically)
+        navigateTo('/');
         
         // Trigger auto-sync (has built-in guards for sync-in-progress)
         await manualSync();
