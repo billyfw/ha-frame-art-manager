@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
 const MetadataHelper = require('../metadata_helper');
+const { MATTE_TYPES, FILTER_TYPES } = require('../constants');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -71,6 +72,14 @@ router.get('/', async (req, res) => {
     console.error('Error getting images:', error);
     res.status(500).json({ error: 'Failed to retrieve images' });
   }
+});
+
+// GET display options
+router.get('/options', (req, res) => {
+  res.json({
+    matteTypes: MATTE_TYPES,
+    filterTypes: FILTER_TYPES
+  });
 });
 
 // GET images by tag
