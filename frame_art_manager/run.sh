@@ -16,20 +16,13 @@ if bashio::config.has_value 'ssh_key_path'; then
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
     
-    # Check if key exists (could be in /ssh/ mounted directory or at specified path)
     KEY_SOURCE="${SSH_KEY_PATH}"
-    
-    # If path starts with /root/.ssh/, try to find it in /ssh/ mount instead
-    if [[ "${SSH_KEY_PATH}" == /root/.ssh/* ]]; then
-        KEY_NAME=$(basename "${SSH_KEY_PATH}")
-        if [ -f "/ssh/${KEY_NAME}" ]; then
-            KEY_SOURCE="/ssh/${KEY_NAME}"
-            bashio::log.info "Found SSH key in /ssh/ mount: ${KEY_NAME}"
-        fi
-    fi
     
     if [ -f "${KEY_SOURCE}" ]; then
         KEY_NAME=$(basename "${KEY_SOURCE}")
+        bashio::log.info "Found SSH key: ${KEY_NAME}"
+        
+        # Copy key to container's /root/.ssh/
         cp "${KEY_SOURCE}" /root/.ssh/"${KEY_NAME}"
         chmod 600 /root/.ssh/"${KEY_NAME}"
         
@@ -38,7 +31,7 @@ if bashio::config.has_value 'ssh_key_path'; then
             cp "${KEY_SOURCE}.pub" /root/.ssh/"${KEY_NAME}.pub"
         fi
         
-        # Create SSH config to use this key
+        # Create SSH config to use this key for both github.com and github-billy alias
         cat > /root/.ssh/config <<EOF
 Host github.com github-billy
     HostName github.com
@@ -51,7 +44,7 @@ EOF
         
         # Add GitHub to known hosts
         ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null
-        bashio::log.info "SSH keys configured successfully with ${KEY_NAME}"
+        bashio::log.info "SSH keys configured successfully"
     else
         bashio::log.warning "SSH key not found at ${KEY_SOURCE}"
     fi
