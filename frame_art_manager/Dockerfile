@@ -14,6 +14,7 @@ RUN apk add --no-cache \
     python3 \
     make \
     g++ \
+    jq \
     && git lfs install
 
 # Set working directory

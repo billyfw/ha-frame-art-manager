@@ -17,16 +17,23 @@ if bashio::config.has_value 'ssh_private_key'; then
     chmod 700 /root/.ssh
     
     # The SSH private key is provided as a list of strings (one per line)
-    # Join them back together with newlines to reconstruct the key
+    # bashio::config returns it as JSON, use jq to extract each line
     bashio::log.info "Reading SSH private key from list format..."
     
     KEY_PATH=/root/.ssh/id_ed25519
     rm -f "${KEY_PATH}"
     
-    # Read each line from the config array and write to file
-    for line in $(bashio::config 'ssh_private_key'); do
-        echo "$line" >> "${KEY_PATH}"
-    done
+    # Use jq to extract each array element and write to file
+    # bashio::config outputs JSON, jq -r '.[]' extracts each string from the array
+    bashio::config 'ssh_private_key' | jq -r '.[]' > "${KEY_PATH}" 2>/tmp/jq_error.log
+    
+    if [ $? -ne 0 ]; then
+        bashio::log.error "Failed to parse SSH key with jq:"
+        cat /tmp/jq_error.log | while IFS= read -r line; do
+            bashio::log.error "  ${line}"
+        done
+        bashio::exit.nok "Failed to parse SSH key configuration"
+    fi
     
     if [ -s "${KEY_PATH}" ]; then
         KEY_LINES=$(wc -l < "${KEY_PATH}" | tr -d ' ')
