@@ -18,6 +18,12 @@ if bashio::config.has_value 'ssh_private_key'; then
         RAW_KEY_BYTES=$(wc -c < "${RAW_KEY_TEMP}" | tr -d ' ')
         RAW_KEY_LINES=$(wc -l < "${RAW_KEY_TEMP}" | tr -d ' ')
         bashio::log.info "SSH key option retrieved: ${RAW_KEY_BYTES} bytes across ${RAW_KEY_LINES} line(s)"
+        
+        # Log first and last lines for verification (redact middle for security)
+        FIRST_LINE=$(head -n 1 "${RAW_KEY_TEMP}")
+        LAST_LINE=$(tail -n 1 "${RAW_KEY_TEMP}")
+        bashio::log.info "SSH key first line: ${FIRST_LINE}"
+        bashio::log.info "SSH key last line: ${LAST_LINE}"
     else
         bashio::log.warning "Unable to read ssh_private_key option"
     fi
