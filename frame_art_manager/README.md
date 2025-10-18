@@ -26,6 +26,9 @@ Billy's Art Manager home built web interface for managing artwork that can be di
 
 ## Configuration
 
+Configuration options are available in the **Configuration** tab of the add-on.
+
+**Default values:**
 ```yaml
 frame_art_path: /config/www/frame_art
 port: 8099
