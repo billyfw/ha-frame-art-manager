@@ -12,24 +12,45 @@ bashio::log.info "Port: ${PORT}"
 # Set up SSH keys for Git if provided
 if bashio::config.has_value 'ssh_private_key'; then
     bashio::log.info "Setting up SSH key for Git..."
+    RAW_KEY_TEMP=$(mktemp)
+
+    if bashio::config 'ssh_private_key' > "${RAW_KEY_TEMP}" 2>/dev/null; then
+        RAW_KEY_BYTES=$(wc -c < "${RAW_KEY_TEMP}" | tr -d ' ')
+        RAW_KEY_LINES=$(wc -l < "${RAW_KEY_TEMP}" | tr -d ' ')
+        bashio::log.info "SSH key option retrieved: ${RAW_KEY_BYTES} bytes across ${RAW_KEY_LINES} line(s)"
+    else
+        bashio::log.warning "Unable to read ssh_private_key option"
+    fi
     
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
     
     # Write the private key to file using bashio (handles multi-line properly)
     TEMP_KEY=$(mktemp)
-    if bashio::config 'ssh_private_key' > "${TEMP_KEY}" 2>/dev/null; then
-        # Normalize Windows line endings and write sanitized key
-        tr -d '\r' < "${TEMP_KEY}" > /root/.ssh/id_ed25519
+    if [ -f "${RAW_KEY_TEMP}" ]; then
+        tr -d '\r' < "${RAW_KEY_TEMP}" > "${TEMP_KEY}"
+    elif bashio::config 'ssh_private_key' > "${TEMP_KEY}" 2>/dev/null; then
+        tr -d '\r' < "${TEMP_KEY}" > "${TEMP_KEY}.sanitized"
+        mv "${TEMP_KEY}.sanitized" "${TEMP_KEY}"
     fi
-    rm -f "${TEMP_KEY}"
+
+    mv "${TEMP_KEY}" /root/.ssh/id_ed25519
+    rm -f "${RAW_KEY_TEMP}" 2>/dev/null || true
 
     KEY_PATH=/root/.ssh/id_ed25519
     VALID_KEY=false
 
     if [ -s "${KEY_PATH}" ]; then
+        SANITIZED_BYTES=$(wc -c < "${KEY_PATH}" | tr -d ' ')
+        SANITIZED_LINES=$(wc -l < "${KEY_PATH}" | tr -d ' ')
+        bashio::log.info "Sanitized SSH key size: ${SANITIZED_BYTES} bytes across ${SANITIZED_LINES} line(s)"
+
         if ssh-keygen -y -f "${KEY_PATH}" >/dev/null 2>&1; then
             VALID_KEY=true
+            FINGERPRINT=$(ssh-keygen -lf "${KEY_PATH}" 2>/dev/null | awk '{print $2}')
+            if bashio::var.has_value "${FINGERPRINT}"; then
+                bashio::log.info "SSH key fingerprint detected: ${FINGERPRINT}"
+            fi
         else
             bashio::log.warning "SSH private key failed validation (ssh-keygen). Attempting to use it anyway."
             VALID_KEY=true
