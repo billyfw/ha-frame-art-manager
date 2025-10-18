@@ -17,10 +17,16 @@ if bashio::config.has_value 'ssh_private_key'; then
     chmod 700 /root/.ssh
     
     # Write the private key to file using bashio (handles multi-line properly)
-    if bashio::config 'ssh_private_key' > /root/.ssh/id_ed25519 2>/dev/null; then
-        # Check if key was written successfully and is not empty
-        if [ -s /root/.ssh/id_ed25519 ]; then
-            chmod 600 /root/.ssh/id_ed25519
+    TEMP_KEY=$(mktemp)
+    if bashio::config 'ssh_private_key' > "${TEMP_KEY}" 2>/dev/null; then
+        # Normalize Windows line endings and write sanitized key
+        tr -d '\r' < "${TEMP_KEY}" > /root/.ssh/id_ed25519
+    fi
+    rm -f "${TEMP_KEY}"
+
+    # Validate the private key file before proceeding
+    if [ -s /root/.ssh/id_ed25519 ] && ssh-keygen -y -f /root/.ssh/id_ed25519 >/dev/null 2>&1; then
+        chmod 600 /root/.ssh/id_ed25519
             
             # Get the git remote host alias (default: github-billy)
             GIT_HOST_ALIAS=$(bashio::config 'git_remote_host_alias')
@@ -43,13 +49,10 @@ EOF
             ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null
             
             bashio::log.info "SSH key configured for ${GIT_HOST_ALIAS}"
-        else
-            bashio::log.info "SSH private key is empty, skipping SSH setup"
-            bashio::log.warning "Git sync will not work without an SSH key"
-        fi
     else
-        bashio::log.warning "Failed to write SSH key, skipping SSH setup"
-        bashio::log.warning "Git sync will not work without an SSH key"
+        rm -f /root/.ssh/id_ed25519
+        bashio::log.error "SSH private key provided is invalid or empty"
+        bashio::log.warning "Git sync will not work without a valid SSH key"
     fi
 else
     bashio::log.info "No SSH private key configured"
