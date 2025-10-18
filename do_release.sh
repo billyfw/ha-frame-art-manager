@@ -1,19 +1,33 @@
 #!/bin/bash
 
 # Frame Art Manager Release Script
-# Usage: ./release.sh [major|minor|patch]
+# Usage: ./do_release.sh [major|minor|patch]
 
 set -e
 
 # Check if argument provided
 if [ $# -eq 0 ]; then
     echo "Error: Version bump type required"
-    echo "Usage: ./release.sh [major|minor|patch]"
+    echo "Usage: ./do_release.sh [major|minor|patch]"
     echo ""
     echo "Examples:"
-    echo "  ./release.sh patch  # 0.5.2 -> 0.5.3"
-    echo "  ./release.sh minor  # 0.5.2 -> 0.6.0"
-    echo "  ./release.sh major  # 0.5.2 -> 1.0.0"
+    echo "  ./do_release.sh patch  # 0.5.5 -> 0.5.6"
+    echo "  ./do_release.sh minor  # 0.5.5 -> 0.6.0"
+    echo "  ./do_release.sh major  # 0.5.5 -> 1.0.0"
+    echo ""
+    echo "What this script does:"
+    echo "  • Reads current version from config.yaml"
+    echo "  • Bumps version number based on type (major/minor/patch)"
+    echo "  • Updates config.yaml with new version"
+    echo "  • Commits all changes to git"
+    echo "  • Creates a git tag (e.g., v0.5.6)"
+    echo "  • Pushes code and tags to GitHub"
+    echo "  • SSHs into Home Assistant"
+    echo "  • Auto-detects add-on slug"
+    echo "  • Uninstalls old version of add-on"
+    echo "  • Reinstalls fresh from GitHub with new version"
+    echo "  • Starts the add-on"
+    echo ""
     exit 1
 fi
 
@@ -75,13 +89,14 @@ echo "Waiting for GitHub to process..."
 sleep 3
 
 # Update Home Assistant add-on
-echo "Reinstalling Home Assistant add-on..."
+echo "Updating Home Assistant add-on..."
 ssh root@homeassistant.local << ENDSSH
-# Force supervisor to refresh repositories
-ha supervisor reload
-sleep 2
+# Force check for updates from GitHub (this is the key!)
+echo "Checking for repository updates..."
+ha supervisor refresh
+sleep 5
 
-# Find the current slug (it may have changed)
+# Find the current slug
 ADDON_SLUG=\$(ha addons --raw-json | grep -o '"slug":"[^"]*frame_art_manager"' | head -1 | cut -d'"' -f4)
 
 if [ -z "\$ADDON_SLUG" ]; then
@@ -91,17 +106,18 @@ fi
 
 echo "Found add-on with slug: \$ADDON_SLUG"
 
-# Uninstall the old version
+# Uninstall to ensure fresh build
 echo "Uninstalling old version..."
 ha addons uninstall "\$ADDON_SLUG"
-sleep 2
+sleep 3
 
-# Reload to see the new version
-ha addons reload
-sleep 2
+# Force supervisor to clear cache and refresh
+echo "Refreshing supervisor..."
+ha supervisor refresh
+sleep 3
 
-# Install fresh (slug should be the same for the same repo)
-echo "Installing new version..."
+# Install fresh from GitHub
+echo "Installing fresh from GitHub..."
 ha addons install "\$ADDON_SLUG"
 sleep 5
 
@@ -110,7 +126,7 @@ echo "Starting add-on..."
 ha addons start "\$ADDON_SLUG"
 sleep 2
 
-echo "✅ Add-on reinstalled with version $NEW_VERSION"
+echo "✅ Add-on rebuilt with version $NEW_VERSION"
 ENDSSH
 
 echo ""
