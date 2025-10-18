@@ -1,19 +1,41 @@
 #!/bin/bash
 
 # Frame Art Manager Release Script
-# Usage: ./do_release.sh [major|minor|patch]
+# Usage: ./do_release.sh [major|minor|patch] [-m "commit message"]
 
 set -e
 
+# Parse arguments
+BUMP_TYPE=""
+COMMIT_MESSAGE=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -m)
+            COMMIT_MESSAGE="$2"
+            shift 2
+            ;;
+        major|minor|patch)
+            BUMP_TYPE="$1"
+            shift
+            ;;
+        *)
+            echo "Error: Unknown option $1"
+            exit 1
+            ;;
+    esac
+done
+
 # Check if argument provided
-if [ $# -eq 0 ]; then
+if [ -z "$BUMP_TYPE" ]; then
     echo "Error: Version bump type required"
-    echo "Usage: ./do_release.sh [major|minor|patch]"
+    echo "Usage: ./do_release.sh [major|minor|patch] [-m \"commit message\"]"
     echo ""
     echo "Examples:"
     echo "  ./do_release.sh patch  # 0.5.5 -> 0.5.6"
     echo "  ./do_release.sh minor  # 0.5.5 -> 0.6.0"
     echo "  ./do_release.sh major  # 0.5.5 -> 1.0.0"
+    echo "  ./do_release.sh patch -m \"Fix SSH key handling\"  # With custom message"
     echo ""
     echo "What this script does:"
     echo "  • Reads current version from config.yaml"
@@ -30,8 +52,6 @@ if [ $# -eq 0 ]; then
     echo ""
     exit 1
 fi
-
-BUMP_TYPE=$1
 
 # Validate bump type
 if [[ ! "$BUMP_TYPE" =~ ^(major|minor|patch)$ ]]; then
@@ -77,7 +97,16 @@ echo "Updated $CONFIG_FILE to version $NEW_VERSION"
 # Git operations
 echo "Committing changes..."
 git add .
-git commit -m "Release v$NEW_VERSION"
+
+# Build commit message
+if [ -n "$COMMIT_MESSAGE" ]; then
+    FULL_COMMIT_MESSAGE="Release v$NEW_VERSION
+
+$COMMIT_MESSAGE"
+    git commit -m "$FULL_COMMIT_MESSAGE"
+else
+    git commit -m "Release v$NEW_VERSION"
+fi
 
 echo "Creating tag v$NEW_VERSION..."
 git tag -a "v$NEW_VERSION" -m "Release version $NEW_VERSION"
