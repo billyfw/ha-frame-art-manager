@@ -100,10 +100,7 @@ git add .
 
 # Build commit message
 if [ -n "$COMMIT_MESSAGE" ]; then
-    FULL_COMMIT_MESSAGE="Release v$NEW_VERSION
-
-$COMMIT_MESSAGE"
-    git commit -m "$FULL_COMMIT_MESSAGE"
+    git commit -m "Release v$NEW_VERSION - $COMMIT_MESSAGE"
 else
     git commit -m "Release v$NEW_VERSION"
 fi
