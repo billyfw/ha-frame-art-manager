@@ -79,9 +79,9 @@ echo "Updating Home Assistant add-on..."
 ssh root@homeassistant.local << 'ENDSSH'
 ha addons reload
 sleep 2
-ha addons update frame_art_manager
+ha addons update e2a3b0cb_frame_art_manager
 sleep 2
-ha addons restart frame_art_manager
+ha addons restart e2a3b0cb_frame_art_manager
 echo "Add-on updated and restarted!"
 ENDSSH
 
