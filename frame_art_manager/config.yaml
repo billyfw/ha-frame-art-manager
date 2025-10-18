@@ -2,7 +2,7 @@
 name: Frame Art Manager
 version: "0.2.0"
 slug: frame_art_manager
-description: Manage your Samsung Frame TV artwork library with a beautiful web interface
+description: Manage Frame TV artwork library
 url: https://github.com/billyfw/ha-frame-art-manager
 arch:
   - aarch64
@@ -33,4 +33,3 @@ homeassistant_api: false
 auth_api: false
 hassio_api: true
 hassio_role: default
-image: ghcr.io/billyfw/ha-frame-art-manager-{arch}
