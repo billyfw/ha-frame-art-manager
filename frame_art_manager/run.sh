@@ -31,8 +31,9 @@ if bashio::config.has_value 'ssh_private_key'; then
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
     
-    # Write the private key to file using bashio and handle newlines properly
-    bashio::config 'ssh_private_key' | sed 's/\\n/\n/g' > /root/.ssh/id_ed25519
+    # Read SSH key from list format and join with newlines
+    # Each line of the SSH key should be a separate list item in the config
+    bashio::config 'ssh_private_key' | jq -r '.[]' > /root/.ssh/id_ed25519
     rm -f "${RAW_KEY_TEMP}" 2>/dev/null || true
 
     KEY_PATH=/root/.ssh/id_ed25519
