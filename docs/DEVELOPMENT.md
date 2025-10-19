@@ -47,6 +47,30 @@ npm run dev        # Start without tests (faster)
 npm test           # Run all tests
 ```
 
+### Git & LFS configuration (SSH-only)
+
+Frame Art Manager relies on Git LFS over SSH. Both the Home Assistant add-on (`run.sh`) and the server-side helper (`git_helper.js`) normalize any SSH remote into the same base configuration:
+
+- `remote.origin.lfsurl` → `ssh://git@github.com/billyfw/frame_art`
+- `lfs.url` → `ssh://git@github.com/billyfw/frame_art`
+- `lfs.ssh.endpoint` → `git@github.com:billyfw/frame_art.git`
+- Legacy HTTPS access tokens (`lfs.https://github.com/.../info/lfs.access`) are removed automatically
+
+This matches a working macOS setup and ensures the add-on never falls back to HTTPS (which requires credentials the container cannot provide).
+
+To verify the configuration on either environment:
+
+```bash
+git remote get-url origin                               # should be git@github.com:billyfw/frame_art.git
+git config --get remote.origin.lfsurl                   # ssh://git@github.com/billyfw/frame_art
+git config --get lfs.url                                # ssh://git@github.com/billyfw/frame_art
+git config --get lfs.ssh.endpoint                       # git@github.com:billyfw/frame_art.git
+git config --get lfs.https://github.com/billyfw/frame_art/info/lfs.access || echo "(cleared)"
+git config --get lfs.https://github.com/billyfw/frame_art.git/info/lfs.access || echo "(cleared)"
+```
+
+If the add-on picked up an older configuration, simply restart it—`run.sh` now rewrites the values on boot before the Node server starts.
+
 ---
 
 ## Architecture
@@ -434,11 +458,12 @@ We use a **minimal test framework** built on Node.js `assert` module:
 
 ### Test Suites
 
-**1. Git Sync (15 tests)**
+**1. Git Sync (27 tests)**
 - Location: `tests/git-sync.test.js`
 - Tests Git/LFS operations
 - Uses isolated repo in `/tmp/frame-art-test-{timestamp}`
 - Clones from GitHub with `--depth 5`
+- Verifies SSH remote normalization, LFS URL cleanup, and removal of stale HTTPS credentials
 
 **2. Metadata Helper (16 tests)**
 - Location: `tests/metadata-helper.test.js`
@@ -477,7 +502,7 @@ npm run test:verbose
 ✓ verifyConfiguration returns valid structure
 ✓ INTEGRATION: pull when 1 commit behind
 ...
-15 passed, 0 failed
+27 passed, 0 failed
 
 🧪 Running Metadata Helper Tests...
 ✓ MetadataHelper can be instantiated
