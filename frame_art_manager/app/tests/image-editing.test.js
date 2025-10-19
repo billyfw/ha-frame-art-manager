@@ -126,7 +126,7 @@ test('INTEGRATION: applyEdits creates backup and updates metadata', async () => 
   const result = await service.applyEdits(filename, {
     crop: { top: 5, right: 5, bottom: 5, left: 5 },
     adjustments: { brightness: 15, contrast: 10 },
-    filter: 'warm'
+    filter: 'gallery-soft'
   });
 
   assert.strictEqual(result.backupCreated, true, 'First edit should create a backup');
@@ -157,7 +157,7 @@ test('INTEGRATION: applyEdits reuses backup on subsequent edits', async () => {
   const secondResult = await service.applyEdits(filename, {
     crop: { top: 0, right: 0, bottom: 0, left: 0 },
     adjustments: { brightness: -10, contrast: 20 },
-    filter: 'punch'
+    filter: 'vivid-sky'
   });
 
   assert.strictEqual(secondResult.backupCreated, false, 'Backup should not be recreated on subsequent edits');
@@ -177,7 +177,7 @@ test('INTEGRATION: revert restores original file and metadata', async () => {
   await service.applyEdits(filename, {
     crop: { top: 10, right: 5, bottom: 10, left: 5 },
     adjustments: { brightness: 20, contrast: -10 },
-    filter: 'cool'
+    filter: 'dusk-haze'
   });
 
   const backupPath = path.join(testPath, 'originals', 'edit-subject-cccccccc_original.jpg');
@@ -211,7 +211,7 @@ test('INTEGRATION: revert removes backup and subsequent edit recreates it', asyn
   await service.applyEdits(filename, {
     crop: { top: 2, right: 2, bottom: 2, left: 2 },
     adjustments: { brightness: 10, contrast: 5 },
-    filter: 'warm'
+    filter: 'gallery-soft'
   });
 
   const backupPath = path.join(testPath, 'originals', 'edit-subject-eeeeeeee_original.jpg');

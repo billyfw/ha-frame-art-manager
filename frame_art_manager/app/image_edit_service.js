@@ -155,16 +155,57 @@ class ImageEditService {
 
   applyFilter(instance, filterName) {
     switch (filterName) {
+      case 'gallery-soft':
       case 'warm':
-        return instance.modulate({ saturation: 1.08 }).tint('#ffe0c7');
+        return instance
+          .modulate({ saturation: 1.08, brightness: 1.03 })
+          .linear(1.02, -4)
+          .tint('#f5e4d3');
+      case 'vivid-sky':
+      case 'punch':
+        return instance
+          .modulate({ saturation: 1.2, brightness: 1.03 })
+          .linear(1.04, -2)
+          .tint('#e2f1ff');
+      case 'dusk-haze':
       case 'cool':
-        return instance.modulate({ saturation: 1.05 }).tint('#c7e0ff');
+        return instance
+          .modulate({ saturation: 1.08, brightness: 0.98 })
+          .tint('#d9c6ff')
+          .linear(1.03, -6);
+      case 'impressionist':
+        return instance
+          .modulate({ saturation: 1.22, brightness: 1.05 })
+          .linear(0.93, 14);
+      case 'deco-gold':
+        return instance
+          .recomb([
+            [1.06, 0.02, 0],
+            [0.02, 1.04, 0.01],
+            [0.02, 0.06, 0.94]
+          ])
+          .modulate({ saturation: 1.12, brightness: 1.02 })
+          .tint('#fbe4c6');
+      case 'charcoal':
+        return instance
+          .greyscale()
+          .linear(1.32, -34)
+          .modulate({ brightness: 0.92 });
+      case 'silver-tone':
       case 'mono':
       case 'monochrome':
       case 'grayscale':
-        return instance.greyscale();
-      case 'punch':
-        return instance.modulate({ saturation: 1.25 });
+        return instance
+          .greyscale()
+          .modulate({ brightness: 1.06 })
+          .gamma(1.12)
+          .linear(1, -2);
+      case 'ink-sketch':
+        return instance
+          .greyscale()
+          .median(1)
+          .threshold(150)
+          .linear(1.05, -10);
       default:
         return instance;
     }

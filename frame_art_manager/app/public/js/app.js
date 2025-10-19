@@ -3314,19 +3314,35 @@ function applyPreviewFilters() {
   const parts = [`brightness(${brightness})`, `contrast(${contrast})`];
 
   switch (editState.filter) {
+    case 'gallery-soft':
     case 'warm':
-      parts.push('sepia(0.18)', 'saturate(1.15)');
+      parts.push('sepia(0.12)', 'saturate(1.12)', 'brightness(1.05)');
       break;
+    case 'vivid-sky':
+    case 'punch':
+      parts.push('saturate(1.24)', 'hue-rotate(350deg)', 'brightness(1.04)');
+      break;
+    case 'dusk-haze':
     case 'cool':
-      parts.push('hue-rotate(180deg)', 'saturate(1.05)');
+      parts.push('saturate(1.08)', 'hue-rotate(315deg)', 'brightness(0.98)', 'contrast(1.05)');
       break;
+    case 'impressionist':
+      parts.push('saturate(1.22)', 'contrast(0.94)', 'brightness(1.06)');
+      break;
+    case 'deco-gold':
+      parts.push('sepia(0.35)', 'saturate(1.08)', 'hue-rotate(10deg)', 'brightness(1.02)');
+      break;
+    case 'charcoal':
+      parts.push('grayscale(1)', 'contrast(1.25)');
+      break;
+    case 'silver-tone':
     case 'mono':
     case 'monochrome':
     case 'grayscale':
-      parts.push('grayscale(1)');
+      parts.push('grayscale(1)', 'brightness(1.05)', 'contrast(0.92)');
       break;
-    case 'punch':
-      parts.push('saturate(1.25)', 'contrast(1.1)');
+    case 'ink-sketch':
+      parts.push('grayscale(1)', 'contrast(1.45)', 'brightness(1.05)');
       break;
     default:
       break;
