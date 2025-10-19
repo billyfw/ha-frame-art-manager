@@ -90,12 +90,14 @@ app.get('/', (req, res) => {
 async function initializeDirectories() {
   try {
     const libraryPath = path.join(FRAME_ART_PATH, 'library');
-    const thumbsPath = path.join(FRAME_ART_PATH, 'thumbs');
+  const thumbsPath = path.join(FRAME_ART_PATH, 'thumbs');
+  const originalsPath = path.join(FRAME_ART_PATH, 'originals');
     const metadataPath = path.join(FRAME_ART_PATH, 'metadata.json');
 
     // Create directories if they don't exist
     await fs.mkdir(libraryPath, { recursive: true });
-    await fs.mkdir(thumbsPath, { recursive: true });
+  await fs.mkdir(thumbsPath, { recursive: true });
+  await fs.mkdir(originalsPath, { recursive: true });
 
     // Create metadata.json if it doesn't exist
     try {
