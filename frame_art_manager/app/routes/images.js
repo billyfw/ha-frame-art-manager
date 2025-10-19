@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
 const MetadataHelper = require('../metadata_helper');
+const ImageEditService = require('../image_edit_service');
 const { MATTE_TYPES, FILTER_TYPES } = require('../constants');
 
 async function removeFileIfExists(filePath) {
@@ -231,6 +232,70 @@ router.put('/:filename', async (req, res) => {
   }
 });
 
+// POST apply image edits (crop, adjustments, filters)
+router.post('/:filename/edit', async (req, res) => {
+  const filename = req.params.filename;
+
+  try {
+    const service = new ImageEditService(req.frameArtPath);
+    const operations = req.body && typeof req.body === 'object'
+      ? {
+          crop: req.body.crop,
+          adjustments: req.body.adjustments,
+          filter: req.body.filter
+        }
+      : {};
+
+    const result = await service.applyEdits(filename, operations);
+
+    res.json({
+      success: true,
+      backupCreated: result.backupCreated,
+      hasBackup: true,
+      dimensions: result.dimensions,
+      aspectRatio: result.aspectRatio,
+      operations: result.operations
+    });
+  } catch (error) {
+    console.error('Error applying edits:', error);
+    res.status(400).json({ error: error.message || 'Failed to apply edits' });
+  }
+});
+
+// POST revert image to original backup
+router.post('/:filename/revert', async (req, res) => {
+  const filename = req.params.filename;
+
+  try {
+    const service = new ImageEditService(req.frameArtPath);
+    const result = await service.revertToOriginal(filename);
+
+    res.json({
+      success: true,
+      hasBackup: !!result.hasBackup,
+      dimensions: result.dimensions,
+      aspectRatio: result.aspectRatio
+    });
+  } catch (error) {
+    console.error('Error reverting to original:', error);
+    res.status(400).json({ error: error.message || 'Failed to revert image' });
+  }
+});
+
+// GET edit state (e.g., backup availability)
+router.get('/:filename/edit-state', async (req, res) => {
+  const filename = req.params.filename;
+
+  try {
+    const service = new ImageEditService(req.frameArtPath);
+    const state = await service.getEditState(filename);
+    res.json({ success: true, ...state });
+  } catch (error) {
+    console.error('Error loading edit state:', error);
+    res.status(500).json({ error: 'Failed to load edit state' });
+  }
+});
+
 // POST rename image (change base name, keep UUID)
 router.post('/:filename/rename', async (req, res) => {
   try {
@@ -326,6 +391,7 @@ router.delete('/:filename', async (req, res) => {
   try {
     const helper = new MetadataHelper(req.frameArtPath);
     const filename = req.params.filename;
+    const service = new ImageEditService(req.frameArtPath);
 
     // Delete from metadata
     await helper.deleteImage(filename);
@@ -341,6 +407,8 @@ router.delete('/:filename', async (req, res) => {
     } catch {
       // Thumbnail might not exist, that's ok
     }
+
+    await service.removeOriginalBackup(filename);
 
     res.json({ success: true, message: 'Image deleted successfully' });
   } catch (error) {

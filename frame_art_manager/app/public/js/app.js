@@ -14,6 +14,23 @@ let selectedImages = new Set();
 let lastClickedIndex = null;
 let sortAscending = true; // true = ascending (A-Z, oldest first), false = descending
 
+const createDefaultEditState = () => ({
+  active: false,
+  hasBackup: false,
+  crop: { top: 0, right: 0, bottom: 0, left: 0 },
+  adjustments: { brightness: 0, contrast: 0 },
+  filter: 'none',
+  naturalWidth: 0,
+  naturalHeight: 0,
+  cropPreset: 'free',
+  activeTool: null,
+  isDirty: false
+});
+
+let editState = createDefaultEditState();
+let editControls = null;
+let cropInteraction = null;
+
 // Hash-based routing
 function handleRoute() {
   const hash = window.location.hash.slice(1) || '/'; // Remove '#' and default to '/'
@@ -2437,6 +2454,1045 @@ async function removeTag(tagName) {
   }
 }
 
+// Image Editing Helpers
+const MIN_CROP_PERCENT = 4;
+const CROP_RATIO_TOLERANCE = 0.001;
+const CROP_PRESET_MATCH_TOLERANCE = 0.02;
+const CROP_PRESET_RATIOS = {
+  '1:1': 1,
+  '4:3': 4 / 3,
+  '16:9': 16 / 9,
+  '3:2': 3 / 2
+};
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+function initImageEditor() {
+  if (editControls) return;
+
+  const modalImage = document.getElementById('modal-image');
+  const toolbar = document.getElementById('image-edit-toolbar');
+  const stage = document.getElementById('modal-image-stage');
+  if (!modalImage || !toolbar || !stage) return;
+
+  editControls = {
+    modalImage,
+    stage,
+    toolbar: {
+      root: toolbar,
+      editBtn: document.getElementById('toolbar-edit-btn'),
+      applyBtn: document.getElementById('toolbar-apply-btn'),
+      cancelBtn: document.getElementById('toolbar-cancel-btn'),
+      toolButtons: Array.from(toolbar.querySelectorAll('.toolbar-icon-btn')),
+      toolGroup: toolbar.querySelector('.toolbar-group-tools'),
+      divider: toolbar.querySelector('.toolbar-divider')
+    },
+    revertBtn: document.getElementById('revert-original-btn'),
+    popovers: {
+      container: document.getElementById('edit-popover-container'),
+      adjustments: document.getElementById('adjustments-popover'),
+      filters: document.getElementById('filters-popover'),
+      crop: document.getElementById('crop-popover')
+    },
+    adjustments: {
+      brightnessInput: document.getElementById('adjust-brightness'),
+      contrastInput: document.getElementById('adjust-contrast'),
+      brightnessValue: document.getElementById('adjust-brightness-value'),
+      contrastValue: document.getElementById('adjust-contrast-value')
+    },
+    filters: {
+      chips: Array.from(document.querySelectorAll('#filter-chip-row .filter-chip'))
+    },
+    crop: {
+      overlay: document.getElementById('crop-overlay'),
+      box: document.getElementById('crop-box'),
+      handles: Array.from(document.querySelectorAll('#crop-box .crop-handle')),
+      presetButtons: Array.from(document.querySelectorAll('#crop-popover .crop-preset'))
+    }
+  };
+
+  // Hide legacy edit panel elements
+  document.getElementById('modal-edit-panel')?.classList.add('hidden');
+  document.getElementById('open-edit-panel-btn')?.classList.add('hidden');
+  document.querySelector('.image-edit-entry')?.classList.add('hidden');
+
+  editControls.toolbar.editBtn?.addEventListener('click', () => {
+    if (!currentImage) {
+      setToolbarStatus('Open an image to start editing.', 'error');
+      return;
+    }
+    if (editState.active) {
+      return;
+    }
+    enterEditMode();
+  });
+
+  editControls.toolbar.applyBtn?.addEventListener('click', submitImageEdits);
+  editControls.toolbar.cancelBtn?.addEventListener('click', cancelEdits);
+  editControls.revertBtn?.addEventListener('click', revertImageToOriginal);
+  editControls.revertBtn?.classList.add('hidden');
+
+  editControls.toolbar.toolButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!editState.active) return;
+      setActiveTool(btn.dataset.tool);
+    });
+  });
+
+  editControls.adjustments.brightnessInput?.addEventListener('input', handleAdjustmentInput);
+  editControls.adjustments.contrastInput?.addEventListener('input', handleAdjustmentInput);
+
+  editControls.filters.chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      if (!editState.active) return;
+      selectFilter(chip.dataset.filter || 'none');
+    });
+  });
+
+  editControls.crop.presetButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!editState.active) return;
+      selectCropPreset(btn.dataset.crop || 'free');
+    });
+  });
+
+  editControls.crop.box?.addEventListener('pointerdown', (event) => {
+    if (!editState.active || editState.activeTool !== 'crop') return;
+    startCropInteraction('move', 'move', event);
+  });
+
+  editControls.crop.handles.forEach(handle => {
+    handle.addEventListener('pointerdown', (event) => {
+      if (!editState.active || editState.activeTool !== 'crop') return;
+      startCropInteraction('resize', handle.dataset.handle, event);
+    });
+  });
+
+  modalImage.addEventListener('load', handleModalImageLoad);
+  window.addEventListener('resize', () => {
+    if (editState.active) {
+      updateCropOverlay();
+    }
+  });
+
+  updateAdjustmentUI();
+  updateFilterButtons(editState.filter);
+  updateCropPresetButtons(editState.cropPreset);
+  updateToolbarState();
+  applyPreviewFilters();
+}
+
+function handleModalImageLoad() {
+  if (!editControls?.modalImage) return;
+  const img = editControls.modalImage;
+  if (img.naturalWidth && img.naturalHeight) {
+    editState.naturalWidth = img.naturalWidth;
+    editState.naturalHeight = img.naturalHeight;
+  }
+  updateCropOverlay();
+  if (editState.active && editState.activeTool === 'crop') {
+    setActiveTool('crop', { force: true, silent: true });
+  }
+  applyPreviewFilters();
+}
+
+function resetEditState(options = {}) {
+  const {
+    hasBackup = false,
+    keepActive = false,
+    keepPreset = false,
+    keepDimensions = true,
+    restoreTool = false,
+    silent = false,
+    initialPreset = null
+  } = options;
+
+  const previousTool = editState.activeTool;
+  const previousPreset = editState.cropPreset;
+  const preservedWidth = keepDimensions ? editState.naturalWidth : 0;
+  const preservedHeight = keepDimensions ? editState.naturalHeight : 0;
+
+  editState = createDefaultEditState();
+  editState.hasBackup = hasBackup;
+  if (keepDimensions) {
+    editState.naturalWidth = preservedWidth;
+    editState.naturalHeight = preservedHeight;
+  }
+  if (keepActive) {
+    editState.active = true;
+    if (restoreTool && previousTool) {
+      editState.activeTool = previousTool;
+    }
+  }
+  let targetPreset = null;
+  if (keepPreset && previousPreset) {
+    targetPreset = previousPreset;
+  } else if (initialPreset) {
+    targetPreset = initialPreset;
+  }
+  if (targetPreset) {
+    editState.cropPreset = targetPreset;
+  }
+
+  editState.isDirty = false;
+
+  updateAdjustmentUI();
+  updateFilterButtons(editState.filter);
+  updateCropPresetButtons(editState.cropPreset);
+  updateCropOverlay();
+  updateToolbarState();
+  if (!silent) {
+    clearToolbarStatus();
+  }
+  if (editState.active && editState.activeTool) {
+    setActiveTool(editState.activeTool, { force: true, silent: true });
+  }
+  applyPreviewFilters();
+}
+
+function updateToolbarState() {
+  if (!editControls?.toolbar) return;
+  const { editBtn, applyBtn, cancelBtn, toolButtons } = editControls.toolbar;
+  const isActive = editState.active;
+
+  if (editBtn) {
+    const shouldDisable = !currentImage || isActive;
+    editBtn.disabled = shouldDisable;
+    editBtn.textContent = 'Edit';
+    if (shouldDisable) {
+      editBtn.setAttribute('aria-disabled', 'true');
+    } else {
+      editBtn.removeAttribute('aria-disabled');
+    }
+  }
+
+  if (editControls.toolbar.toolGroup) {
+    editControls.toolbar.toolGroup.classList.toggle('hidden', !isActive);
+  }
+
+  if (editControls.toolbar.divider) {
+    editControls.toolbar.divider.classList.toggle('hidden', !isActive);
+  }
+
+  toolButtons?.forEach(btn => {
+    const isCurrent = editState.activeTool === btn.dataset.tool;
+    btn.disabled = !isActive;
+    btn.classList.toggle('active', isActive && isCurrent);
+  });
+
+  if (cancelBtn) {
+    cancelBtn.disabled = !isActive;
+    cancelBtn.classList.toggle('hidden', !isActive);
+  }
+  if (applyBtn) {
+    applyBtn.disabled = !isActive || !editState.isDirty;
+    applyBtn.classList.toggle('hidden', !isActive);
+  }
+  if (editControls.revertBtn) {
+    const hasBackup = !!editState.hasBackup;
+    const showRevert = hasBackup && !isActive;
+    editControls.revertBtn.disabled = !hasBackup;
+    editControls.revertBtn.classList.toggle('hidden', !showRevert);
+  }
+
+  if (editControls.popovers?.container) {
+    editControls.popovers.container.classList.toggle('hidden', !isActive);
+  }
+
+  if (!isActive) {
+    hidePopovers();
+  }
+}
+
+function setToolbarStatus(message, type = 'info') {
+  if (!editControls?.toolbar?.status) return;
+  const el = editControls.toolbar.status;
+  el.textContent = message || '';
+  el.classList.remove('error', 'success');
+  if (!message) return;
+  if (type === 'error') {
+    el.classList.add('error');
+  } else if (type === 'success') {
+    el.classList.add('success');
+  }
+}
+
+function clearToolbarStatus() {
+  setToolbarStatus('');
+}
+
+function enterEditMode() {
+  if (!editControls) return;
+  editState.active = true;
+  document.body.classList.add('editing-active');
+  if (!editState.naturalWidth || !editState.naturalHeight) {
+    const img = editControls.modalImage;
+    if (img?.naturalWidth && img.naturalHeight) {
+      editState.naturalWidth = img.naturalWidth;
+      editState.naturalHeight = img.naturalHeight;
+    }
+  }
+  updateToolbarState();
+  if (editState.activeTool) {
+    setActiveTool(editState.activeTool, { force: true, silent: true });
+  } else {
+    hidePopovers();
+    editControls.toolbar.toolButtons?.forEach(btn => btn.classList.remove('active'));
+  }
+  updateCropOverlay();
+  applyPreviewFilters();
+}
+
+function exitEditMode(options = {}) {
+  const { resetState = false } = options;
+  if (!editControls) return;
+  editState.active = false;
+  document.body.classList.remove('editing-active');
+  editState.activeTool = null;
+  hidePopovers();
+  updateToolbarState();
+  updateCropOverlay();
+  applyPreviewFilters();
+  if (resetState) {
+    const refreshedPreset = detectInitialCropPreset(allImages[currentImage]);
+    resetEditState({ hasBackup: editState.hasBackup, keepDimensions: true, silent: true, initialPreset: refreshedPreset });
+  }
+}
+
+function cancelEdits() {
+  const hasBackup = editState.hasBackup;
+  resetEditState({ hasBackup, keepDimensions: true });
+  exitEditMode();
+}
+
+function setActiveTool(tool, options = {}) {
+  if (!editControls?.toolbar) return;
+  const { force = false, silent = false } = options;
+  if (!editState.active) return;
+
+  if (!tool) {
+    editState.activeTool = null;
+    editControls.toolbar.toolButtons.forEach(btn => btn.classList.remove('active'));
+    hidePopovers();
+    updateCropOverlay();
+    return;
+  }
+
+  if (!force && editState.activeTool === tool) {
+    editState.activeTool = null;
+    hidePopovers();
+    updateToolbarState();
+    updateCropOverlay();
+    return;
+  }
+
+  editState.activeTool = tool;
+  editControls.toolbar.toolButtons.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tool === tool);
+  });
+  showPopover(tool);
+  updateCropOverlay();
+
+  if (!silent) {
+    if (tool === 'crop') {
+      setToolbarStatus('Drag the handles or choose a preset to crop.');
+    } else if (tool === 'adjust') {
+      setToolbarStatus('Adjust brightness or contrast.');
+    } else if (tool === 'filter') {
+      setToolbarStatus('Pick a filter to preview.');
+    }
+  }
+}
+
+function showPopover(tool) {
+  if (!editControls?.popovers) return;
+  const { adjustments, filters, crop } = editControls.popovers;
+  adjustments?.classList.add('hidden');
+  filters?.classList.add('hidden');
+  crop?.classList.add('hidden');
+
+  if (tool === 'adjust') {
+    adjustments?.classList.remove('hidden');
+  } else if (tool === 'filter') {
+    filters?.classList.remove('hidden');
+  } else if (tool === 'crop') {
+    crop?.classList.remove('hidden');
+  }
+}
+
+function hidePopovers() {
+  if (!editControls?.popovers) return;
+  editControls.popovers.adjustments?.classList.add('hidden');
+  editControls.popovers.filters?.classList.add('hidden');
+  editControls.popovers.crop?.classList.add('hidden');
+}
+
+function handleAdjustmentInput(event) {
+  const input = event.target;
+  const value = Number(input.value) || 0;
+  if (input.id === 'adjust-brightness') {
+    editState.adjustments.brightness = value;
+  } else if (input.id === 'adjust-contrast') {
+    editState.adjustments.contrast = value;
+  }
+  updateAdjustmentUI();
+  markEditsDirty();
+  applyPreviewFilters();
+}
+
+function updateAdjustmentUI() {
+  if (!editControls?.adjustments) return;
+  const { brightnessInput, contrastInput, brightnessValue, contrastValue } = editControls.adjustments;
+  if (brightnessInput) {
+    brightnessInput.value = editState.adjustments.brightness;
+  }
+  if (contrastInput) {
+    contrastInput.value = editState.adjustments.contrast;
+  }
+  if (brightnessValue) {
+    brightnessValue.textContent = editState.adjustments.brightness;
+  }
+  if (contrastValue) {
+    contrastValue.textContent = editState.adjustments.contrast;
+  }
+}
+
+function selectFilter(name, options = {}) {
+  const filterName = (name || 'none').toLowerCase();
+  editState.filter = filterName;
+  updateFilterButtons(filterName);
+  if (!options.silent) {
+    markEditsDirty();
+  }
+  applyPreviewFilters();
+}
+
+function updateFilterButtons(activeFilter) {
+  if (!editControls?.filters?.chips) return;
+  editControls.filters.chips.forEach(chip => {
+    chip.classList.toggle('active', (chip.dataset.filter || 'none') === activeFilter);
+  });
+}
+
+function selectCropPreset(preset, options = {}) {
+  const { silent = false } = options;
+  editState.cropPreset = preset;
+  updateCropPresetButtons(preset);
+  applyCropPreset(preset, { silent });
+  if (!silent) {
+    markEditsDirty();
+  }
+}
+
+function updateCropPresetButtons(activePreset) {
+  if (!editControls?.crop?.presetButtons) return;
+  editControls.crop.presetButtons.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.crop === activePreset);
+  });
+}
+
+function getPresetRatio(preset) {
+  if (preset === 'original') {
+    if (editState.naturalWidth && editState.naturalHeight) {
+      return editState.naturalWidth / editState.naturalHeight;
+    }
+    return null;
+  }
+  return CROP_PRESET_RATIOS[preset] || null;
+}
+
+function applyCropPreset(preset, options = {}) {
+  const { silent = false } = options;
+  if (preset === 'free') {
+    updateCropOverlay();
+    if (!silent) {
+      markEditsDirty();
+    }
+    return;
+  }
+
+  const ratio = getPresetRatio(preset);
+  if (!ratio) {
+    updateCropOverlay();
+    return;
+  }
+
+  const insets = computeInsetsForRatio(ratio);
+  setCropInsets(insets, { silent: true });
+  if (!silent) {
+    markEditsDirty();
+  }
+}
+
+function computeInsetsForRatio(ratio) {
+  const naturalWidth = editState.naturalWidth || 1;
+  const naturalHeight = editState.naturalHeight || 1;
+  const naturalRatio = naturalWidth / naturalHeight || 1;
+
+  let widthPercent = 100;
+  let heightPercent = 100;
+
+  if (naturalRatio >= ratio) {
+    heightPercent = 100;
+    widthPercent = clamp((ratio / naturalRatio) * 100, MIN_CROP_PERCENT, 100);
+  } else {
+    widthPercent = 100;
+    heightPercent = clamp((naturalRatio / ratio) * 100, MIN_CROP_PERCENT, 100);
+  }
+
+  const horizontalInset = (100 - widthPercent) / 2;
+  const verticalInset = (100 - heightPercent) / 2;
+
+  return clampInsets({
+    top: verticalInset,
+    bottom: verticalInset,
+    left: horizontalInset,
+    right: horizontalInset
+  });
+}
+
+function setCropInsets(insets, options = {}) {
+  const { silent = false } = options;
+  let next = clampInsets(insets);
+  const ratio = getPresetRatio(editState.cropPreset);
+  if (ratio) {
+    next = normalizeInsetsForRatio(next, ratio);
+  }
+  editState.crop = next;
+  updateCropOverlay();
+  if (!silent) {
+    markEditsDirty();
+  }
+}
+
+function clampInsets(insets) {
+  let { top, right, bottom, left } = insets;
+
+  top = clamp(top, 0, 100);
+  bottom = clamp(bottom, 0, 100);
+  left = clamp(left, 0, 100);
+  right = clamp(right, 0, 100);
+
+  let width = 100 - left - right;
+  if (width < MIN_CROP_PERCENT) {
+    const shortfall = MIN_CROP_PERCENT - width;
+    if (left >= right) {
+      left = clamp(left - shortfall, 0, 100 - right - MIN_CROP_PERCENT);
+    } else {
+      right = clamp(right - shortfall, 0, 100 - left - MIN_CROP_PERCENT);
+    }
+    width = 100 - left - right;
+  }
+
+  let height = 100 - top - bottom;
+  if (height < MIN_CROP_PERCENT) {
+    const shortfall = MIN_CROP_PERCENT - height;
+    if (top >= bottom) {
+      top = clamp(top - shortfall, 0, 100 - bottom - MIN_CROP_PERCENT);
+    } else {
+      bottom = clamp(bottom - shortfall, 0, 100 - top - MIN_CROP_PERCENT);
+    }
+    height = 100 - top - bottom;
+  }
+
+  return { top, right, bottom, left };
+}
+
+function normalizeInsetsForRatio(insets, ratio) {
+  if (!ratio || ratio <= 0) {
+    return clampInsets(insets);
+  }
+
+  const naturalWidth = editState.naturalWidth || 1;
+  const naturalHeight = editState.naturalHeight || 1;
+  const naturalRatio = naturalWidth / naturalHeight || 1;
+
+  const clamped = clampInsets(insets);
+  let { top, right, bottom, left } = clamped;
+
+  let widthPercent = Math.max(MIN_CROP_PERCENT, 100 - left - right);
+  let heightPercent = Math.max(MIN_CROP_PERCENT, 100 - top - bottom);
+
+  const actualRatio = (widthPercent / heightPercent) * naturalRatio;
+  if (Math.abs(actualRatio - ratio) <= CROP_RATIO_TOLERANCE) {
+    return { top, right, bottom, left };
+  }
+
+  const widthActual = (widthPercent / 100) * naturalWidth;
+  const heightActual = (heightPercent / 100) * naturalHeight;
+
+  const minWidthActual = (MIN_CROP_PERCENT / 100) * naturalWidth;
+  const minHeightActual = (MIN_CROP_PERCENT / 100) * naturalHeight;
+
+  const minHeightAllowed = Math.max(minHeightActual, minWidthActual / ratio);
+  const maxHeightAllowed = Math.min(naturalHeight, naturalWidth / ratio);
+  const minWidthAllowed = Math.max(minWidthActual, minHeightActual * ratio);
+  const maxWidthAllowed = Math.min(naturalWidth, naturalHeight * ratio);
+
+  if (minHeightAllowed >= maxHeightAllowed || minWidthAllowed >= maxWidthAllowed) {
+    return clamped;
+  }
+
+  let targetWidthActual;
+  let targetHeightActual;
+
+  if (actualRatio > ratio) {
+    const candidateHeight = clamp(widthActual / ratio, minHeightAllowed, maxHeightAllowed);
+    targetHeightActual = candidateHeight;
+    targetWidthActual = ratio * candidateHeight;
+  } else {
+    const candidateWidth = clamp(heightActual * ratio, minWidthAllowed, maxWidthAllowed);
+    targetWidthActual = candidateWidth;
+    targetHeightActual = candidateWidth / ratio;
+  }
+
+  targetWidthActual = clamp(targetWidthActual, minWidthAllowed, maxWidthAllowed);
+  targetHeightActual = targetWidthActual / ratio;
+
+  if (targetHeightActual < minHeightAllowed) {
+    targetHeightActual = minHeightAllowed;
+    targetWidthActual = ratio * targetHeightActual;
+  } else if (targetHeightActual > maxHeightAllowed) {
+    targetHeightActual = maxHeightAllowed;
+    targetWidthActual = ratio * targetHeightActual;
+  }
+
+  const targetWidthPercent = clamp((targetWidthActual / naturalWidth) * 100, MIN_CROP_PERCENT, 100);
+  const targetHeightPercent = clamp((targetHeightActual / naturalHeight) * 100, MIN_CROP_PERCENT, 100);
+
+  const centerXPercent = left + widthPercent / 2;
+  const centerYPercent = top + heightPercent / 2;
+
+  const nextLeft = clamp(centerXPercent - targetWidthPercent / 2, 0, 100 - targetWidthPercent);
+  const nextTop = clamp(centerYPercent - targetHeightPercent / 2, 0, 100 - targetHeightPercent);
+  const nextRight = 100 - targetWidthPercent - nextLeft;
+  const nextBottom = 100 - targetHeightPercent - nextTop;
+
+  return {
+    top: nextTop,
+    right: nextRight,
+    bottom: nextBottom,
+    left: nextLeft
+  };
+}
+
+function findPresetForAspectRatio(aspect) {
+  if (!Number.isFinite(aspect) || aspect <= 0) {
+    return null;
+  }
+
+  let bestPreset = null;
+  let bestDiff = Infinity;
+
+  for (const [preset, presetRatio] of Object.entries(CROP_PRESET_RATIOS)) {
+    const diff = Math.abs(aspect - presetRatio);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestPreset = preset;
+    }
+  }
+
+  if (bestPreset && bestDiff <= CROP_PRESET_MATCH_TOLERANCE) {
+    return bestPreset;
+  }
+
+  return null;
+}
+
+function detectInitialCropPreset(imageData) {
+  if (!imageData) {
+    return 'free';
+  }
+
+  const toNumeric = (value) => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = parseFloat(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+    return null;
+  };
+
+  let ratio = toNumeric(imageData.aspectRatio);
+
+  if (!Number.isFinite(ratio) && imageData.dimensions?.width && imageData.dimensions?.height) {
+    ratio = imageData.dimensions.width / imageData.dimensions.height;
+  }
+
+  if (!Number.isFinite(ratio) && imageData.crop?.width && imageData.crop?.height) {
+    ratio = imageData.crop.width / imageData.crop.height;
+  }
+
+  if (!Number.isFinite(ratio) && imageData.crop?.aspectRatio) {
+    ratio = toNumeric(imageData.crop.aspectRatio);
+  }
+
+  if (!Number.isFinite(ratio) || ratio <= 0) {
+    return 'free';
+  }
+
+  const matchedPreset = findPresetForAspectRatio(ratio);
+  if (matchedPreset) {
+    return matchedPreset;
+  }
+
+  return 'free';
+}
+
+function updateCropOverlay() {
+  if (!editControls?.crop?.overlay || !editControls.crop.box) return;
+  const overlay = editControls.crop.overlay;
+  const box = editControls.crop.box;
+
+  if (!editState.active) {
+    overlay.classList.add('hidden');
+  } else {
+    overlay.classList.remove('hidden');
+  }
+
+  overlay.classList.toggle('active', editState.active && editState.activeTool === 'crop');
+
+  const { top, right, bottom, left } = editState.crop;
+  const widthPercent = Math.max(MIN_CROP_PERCENT, 100 - left - right);
+  const heightPercent = Math.max(MIN_CROP_PERCENT, 100 - top - bottom);
+
+  box.style.top = `${top}%`;
+  box.style.left = `${left}%`;
+  box.style.width = `${widthPercent}%`;
+  box.style.height = `${heightPercent}%`;
+}
+
+function startCropInteraction(type, handle, event) {
+  if (!editControls?.modalImage) return;
+  event.preventDefault();
+  event.stopPropagation();
+
+  const rect = editControls.modalImage.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+
+  cropInteraction = {
+    type,
+    handle,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    startInsets: { ...editState.crop },
+    startWidth: 100 - editState.crop.left - editState.crop.right,
+    startHeight: 100 - editState.crop.top - editState.crop.bottom,
+    aspectRatio: getPresetRatio(editState.cropPreset),
+    bounds: rect,
+    pendingInsets: { ...editState.crop }
+  };
+
+  editControls.crop.box.classList.add('dragging');
+  document.addEventListener('pointermove', handleCropPointerMove);
+  document.addEventListener('pointerup', handleCropPointerUp, { once: false });
+  document.addEventListener('pointercancel', handleCropPointerUp, { once: false });
+}
+
+function handleCropPointerMove(event) {
+  if (!cropInteraction) return;
+  const { type, handle, startX, startY, startInsets, bounds, aspectRatio } = cropInteraction;
+  const dx = ((event.clientX - startX) / bounds.width) * 100;
+  const dy = ((event.clientY - startY) / bounds.height) * 100;
+
+  let nextInsets = { ...startInsets };
+
+  if (type === 'move') {
+    const width = 100 - startInsets.left - startInsets.right;
+    const height = 100 - startInsets.top - startInsets.bottom;
+
+    let newLeft = clamp(startInsets.left + dx, 0, 100 - width);
+    let newTop = clamp(startInsets.top + dy, 0, 100 - height);
+    const newRight = 100 - width - newLeft;
+    const newBottom = 100 - height - newTop;
+
+    nextInsets = clampInsets({ top: newTop, right: newRight, bottom: newBottom, left: newLeft });
+  } else {
+    let { top, right, bottom, left } = startInsets;
+
+    if (handle.includes('w')) {
+      left = clamp(startInsets.left + dx, 0, 100 - startInsets.right - MIN_CROP_PERCENT);
+    }
+    if (handle.includes('e')) {
+      right = clamp(startInsets.right - dx, 0, 100 - left - MIN_CROP_PERCENT);
+    }
+    if (handle.includes('n')) {
+      top = clamp(startInsets.top + dy, 0, 100 - startInsets.bottom - MIN_CROP_PERCENT);
+    }
+    if (handle.includes('s')) {
+      bottom = clamp(startInsets.bottom - dy, 0, 100 - top - MIN_CROP_PERCENT);
+    }
+
+    nextInsets = clampInsets({ top, right, bottom, left });
+
+    if (aspectRatio) {
+      nextInsets = enforceAspectRatio(nextInsets, handle, aspectRatio);
+    }
+  }
+
+  cropInteraction.pendingInsets = nextInsets;
+  setCropInsets(nextInsets, { silent: true });
+}
+
+function handleCropPointerUp() {
+  if (!cropInteraction) return;
+  editControls?.crop?.box?.classList.remove('dragging');
+  document.removeEventListener('pointermove', handleCropPointerMove);
+  document.removeEventListener('pointerup', handleCropPointerUp, { once: false });
+  document.removeEventListener('pointercancel', handleCropPointerUp, { once: false });
+
+  const finalInsets = cropInteraction.pendingInsets || editState.crop;
+  setCropInsets(finalInsets, { silent: false });
+
+  cropInteraction = null;
+}
+
+function enforceAspectRatio(insets, handle, aspectRatio) {
+  let { top, right, bottom, left } = insets;
+  let width = 100 - left - right;
+  let height = 100 - top - bottom;
+
+  if (width <= 0 || height <= 0) {
+    return clampInsets(insets);
+  }
+
+  const startWidth = cropInteraction?.startWidth || width;
+  const startHeight = cropInteraction?.startHeight || height;
+  const widthDelta = Math.abs(width - startWidth);
+  const heightDelta = Math.abs(height - startHeight);
+
+  if (widthDelta > heightDelta) {
+    const targetHeight = width / aspectRatio;
+    const diff = targetHeight - height;
+    if (handle.includes('n') && !handle.includes('s')) {
+      top = clamp(top - diff, 0, 100 - bottom - MIN_CROP_PERCENT);
+    } else if (handle.includes('s') && !handle.includes('n')) {
+      bottom = clamp(bottom - diff, 0, 100 - top - MIN_CROP_PERCENT);
+    } else {
+      const half = diff / 2;
+      top = clamp(top - half, 0, 100 - bottom - MIN_CROP_PERCENT);
+      bottom = clamp(bottom - half, 0, 100 - top - MIN_CROP_PERCENT);
+    }
+  } else {
+    const targetWidth = height * aspectRatio;
+    const diff = targetWidth - width;
+    if (handle.includes('w') && !handle.includes('e')) {
+      left = clamp(left - diff, 0, 100 - right - MIN_CROP_PERCENT);
+    } else if (handle.includes('e') && !handle.includes('w')) {
+      right = clamp(right - diff, 0, 100 - left - MIN_CROP_PERCENT);
+    } else {
+      const half = diff / 2;
+      left = clamp(left - half, 0, 100 - right - MIN_CROP_PERCENT);
+      right = clamp(right - half, 0, 100 - left - MIN_CROP_PERCENT);
+    }
+  }
+
+  return clampInsets({ top, right, bottom, left });
+}
+
+function markEditsDirty() {
+  editState.isDirty = true;
+  updateToolbarState();
+  clearToolbarStatus();
+}
+
+function applyPreviewFilters() {
+  if (!editControls?.modalImage) return;
+  const img = editControls.modalImage;
+  if (!editState.active) {
+    img.style.filter = '';
+    return;
+  }
+
+  const brightness = clamp(1 + editState.adjustments.brightness / 100, 0.1, 3).toFixed(3);
+  const contrast = clamp(1 + editState.adjustments.contrast / 100, 0.1, 3).toFixed(3);
+  const parts = [`brightness(${brightness})`, `contrast(${contrast})`];
+
+  switch (editState.filter) {
+    case 'warm':
+      parts.push('sepia(0.18)', 'saturate(1.15)');
+      break;
+    case 'cool':
+      parts.push('hue-rotate(180deg)', 'saturate(1.05)');
+      break;
+    case 'mono':
+    case 'monochrome':
+    case 'grayscale':
+      parts.push('grayscale(1)');
+      break;
+    case 'punch':
+      parts.push('saturate(1.25)', 'contrast(1.1)');
+      break;
+    default:
+      break;
+  }
+
+  img.style.filter = parts.join(' ');
+}
+
+function buildEditPayload() {
+  return {
+    crop: { ...editState.crop },
+    adjustments: { ...editState.adjustments },
+    filter: editState.filter
+  };
+}
+
+async function submitImageEdits() {
+  if (!currentImage || !editState.isDirty) {
+    setToolbarStatus('Adjust settings before applying edits.', 'info');
+    return;
+  }
+
+  const applyBtn = editControls?.toolbar?.applyBtn;
+  if (applyBtn) {
+    applyBtn.disabled = true;
+  }
+  setToolbarStatus('Applying edits...', 'info');
+
+  try {
+    const payload = buildEditPayload();
+    const response = await fetch(`${API_BASE}/images/${encodeURIComponent(currentImage)}/edit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || 'Failed to apply edits');
+    }
+
+  editState.hasBackup = true;
+  editState.isDirty = false;
+
+    if (allImages[currentImage]) {
+      if (data.dimensions) {
+        allImages[currentImage].dimensions = data.dimensions;
+      }
+      if (typeof data.aspectRatio === 'number') {
+        allImages[currentImage].aspectRatio = data.aspectRatio;
+      }
+    }
+
+    setToolbarStatus('Edits applied. Sync when ready.', 'success');
+    exitEditMode({ resetState: true });
+    refreshModalImageAfterEdit();
+  } catch (error) {
+    console.error('Error applying edits:', error);
+    setToolbarStatus(error.message || 'Failed to apply edits', 'error');
+  } finally {
+    if (applyBtn) {
+      applyBtn.disabled = !editState.active || !editState.isDirty;
+    }
+    await updateSyncStatus();
+  }
+}
+
+function refreshModalImageAfterEdit() {
+  if (!currentImage) return;
+  const bust = Date.now();
+  reloadModalImage(bust);
+
+  if (allImages[currentImage]) {
+    renderModalResolutionFromMetadata(allImages[currentImage]);
+  }
+
+  loadGallery().catch(error => {
+    console.error('Error refreshing gallery after edit:', error);
+  });
+}
+
+function reloadModalImage(cacheBuster = Date.now()) {
+  if (!editControls?.modalImage || !currentImage) return;
+  editControls.modalImage.src = `library/${currentImage}?v=${cacheBuster}`;
+}
+
+async function loadEditStateForImage(filename) {
+  if (!filename) return;
+  try {
+    const response = await fetch(`${API_BASE}/images/${encodeURIComponent(filename)}/edit-state`);
+    const data = await response.json();
+    if (data.success) {
+      editState.hasBackup = !!data.hasBackup;
+      updateToolbarState();
+    }
+  } catch (error) {
+    console.error('Error loading edit state:', error);
+  }
+}
+
+async function revertImageToOriginal() {
+  if (!currentImage) return;
+  if (!confirm('Revert this image to the original version? This will discard current edits.')) {
+    return;
+  }
+
+  if (editState.active) {
+    cancelEdits();
+  }
+
+  setToolbarStatus('Reverting to original...', 'info');
+  try {
+    const response = await fetch(`${API_BASE}/images/${encodeURIComponent(currentImage)}/revert`, {
+      method: 'POST'
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || 'Failed to revert image');
+    }
+
+    editState.hasBackup = !!data.hasBackup;
+
+    if (allImages[currentImage]) {
+      if (data.dimensions) {
+        allImages[currentImage].dimensions = data.dimensions;
+      }
+      if (typeof data.aspectRatio === 'number') {
+        allImages[currentImage].aspectRatio = data.aspectRatio;
+      }
+    }
+
+    resetEditState({ hasBackup: editState.hasBackup, keepDimensions: true, silent: true });
+    updateToolbarState();
+    refreshModalImageAfterEdit();
+    setToolbarStatus('Reverted to original image.', 'success');
+
+    await updateSyncStatus();
+  } catch (error) {
+    console.error('Error reverting image:', error);
+    setToolbarStatus(error.message || 'Failed to revert image', 'error');
+  }
+}
+
+function renderModalResolutionFromMetadata(imageData) {
+  const resolutionEl = document.getElementById('modal-resolution');
+  const aspectBadgeEl = document.getElementById('modal-aspect-badge');
+
+  if (!resolutionEl || !aspectBadgeEl) return;
+
+  if (imageData?.dimensions?.width && imageData?.dimensions?.height) {
+    const { width, height } = imageData.dimensions;
+    const aspectRatio = imageData.aspectRatio || (width / height);
+    const is16x9 = Math.abs(aspectRatio - 1.78) < 0.05;
+    resolutionEl.textContent = `${width} × ${height}`;
+    if (is16x9) {
+      aspectBadgeEl.innerHTML = '<span class="aspect-badge-inline">16:9</span>';
+    } else {
+      aspectBadgeEl.innerHTML = '';
+    }
+  } else {
+    resolutionEl.textContent = 'Unknown';
+    aspectBadgeEl.innerHTML = '';
+  }
+}
+
 // Modal Functions
 function initModal() {
   const modal = document.getElementById('image-modal');
@@ -2454,7 +3510,12 @@ function initModal() {
 
   // Helper function to close modal and auto-sync
   const closeModalAndSync = async () => {
+    if (editState.active) {
+      cancelEdits();
+    }
     modal.classList.remove('active');
+    resetEditState({ hasBackup: false, keepDimensions: false, silent: true });
+    clearToolbarStatus();
     // Check if there are changes to sync and auto-sync
     const status = await fetch(`${API_BASE}/sync/status`).then(r => r.json());
     if (status.success && status.status.hasChanges) {
@@ -2499,6 +3560,8 @@ function initModal() {
       }
     });
   }
+
+  initImageEditor();
 }
 
 function showFullScreenImage(filename) {
@@ -2561,29 +3624,15 @@ function openImageModal(filename) {
   }
 
   // Set image
-  document.getElementById('modal-image').src = `library/${filename}`;
+  const cacheBuster = Date.now();
+  const modalImageEl = document.getElementById('modal-image');
+  if (modalImageEl) {
+    modalImageEl.src = `library/${filename}?v=${cacheBuster}`;
+  }
   document.getElementById('modal-filename').textContent = getDisplayName(filename);
   document.getElementById('modal-actual-filename').textContent = filename;
   
-  // Set resolution
-  const resolutionEl = document.getElementById('modal-resolution');
-  const aspectBadgeEl = document.getElementById('modal-aspect-badge');
-  if (imageData.dimensions) {
-    const { width, height } = imageData.dimensions;
-    const aspectRatio = imageData.aspectRatio || (width / height).toFixed(2);
-    const is16x9 = Math.abs(aspectRatio - 1.78) < 0.05;
-    resolutionEl.textContent = `${width} × ${height}`;
-    
-    // Add 16:9 badge if applicable
-    if (is16x9) {
-      aspectBadgeEl.innerHTML = '<span class="aspect-badge-inline">16:9</span>';
-    } else {
-      aspectBadgeEl.innerHTML = '';
-    }
-  } else {
-    resolutionEl.textContent = 'Unknown';
-    aspectBadgeEl.innerHTML = '';
-  }
+  renderModalResolutionFromMetadata(imageData);
 
   // Set form values
   document.getElementById('modal-matte').value = imageData.matte || 'none';
@@ -2591,6 +3640,16 @@ function openImageModal(filename) {
   
   // Render tag badges
   renderImageTagBadges(imageData.tags || []);
+
+  exitEditMode();
+  const initialPreset = detectInitialCropPreset(imageData);
+  resetEditState({ hasBackup: false, keepDimensions: false, silent: true, initialPreset });
+  clearToolbarStatus();
+  updateToolbarState();
+  updateCropOverlay();
+  applyPreviewFilters();
+
+  loadEditStateForImage(filename);
 
   modal.classList.add('active');
 }
@@ -2713,6 +3772,10 @@ async function saveImageChanges() {
 async function deleteImage() {
   if (!currentImage) return;
   if (!confirm(`Delete "${currentImage}"? This cannot be undone.`)) return;
+
+  if (editState.active) {
+    cancelEdits();
+  }
 
   try {
     const response = await fetch(`${API_BASE}/images/${encodeURIComponent(currentImage)}`, {

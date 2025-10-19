@@ -236,11 +236,85 @@
 
   <!-- Image Detail Modal -->
   <div id="image-modal" class="modal">
-    <div class="modal-content">
-      <button class="close close-simple" id="image-modal-close">✕</button>
+      <div class="modal-content">
+        <button class="close close-simple" id="image-modal-close">✕</button>
       <div class="modal-image-container">
         <button class="expand-image-btn" id="expand-image-btn" title="View full size">⤢</button>
-        <img id="modal-image" src="" alt="" />
+        <div class="modal-image-stage" id="modal-image-stage">
+          <img id="modal-image" src="" alt="" />
+          <div id="crop-overlay" class="crop-overlay hidden">
+            <div class="crop-box" id="crop-box">
+              <div class="crop-handle handle-nw" data-handle="nw"></div>
+              <div class="crop-handle handle-n" data-handle="n"></div>
+              <div class="crop-handle handle-ne" data-handle="ne"></div>
+              <div class="crop-handle handle-e" data-handle="e"></div>
+              <div class="crop-handle handle-se" data-handle="se"></div>
+              <div class="crop-handle handle-s" data-handle="s"></div>
+              <div class="crop-handle handle-sw" data-handle="sw"></div>
+              <div class="crop-handle handle-w" data-handle="w"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="image-edit-toolbar" class="image-edit-toolbar">
+        <div class="toolbar-group toolbar-group-primary">
+          <button id="toolbar-edit-btn" class="toolbar-btn">Edit</button>
+        </div>
+        <div class="toolbar-divider"></div>
+        <div class="toolbar-group toolbar-group-tools">
+          <button class="toolbar-icon-btn" data-tool="crop" title="Crop" disabled>
+            <span class="toolbar-icon">✂️</span>
+          </button>
+          <button class="toolbar-icon-btn" data-tool="adjust" title="Brightness / Contrast" disabled>
+            <span class="toolbar-icon">☀️</span>
+          </button>
+          <button class="toolbar-icon-btn" data-tool="filter" title="Filters" disabled>
+            <span class="toolbar-icon">🎨</span>
+          </button>
+        </div>
+        <div class="toolbar-flex"></div>
+        <div class="toolbar-group toolbar-group-secondary">
+          <button id="revert-original-btn" class="toolbar-btn" disabled>Revert to Original Unedited</button>
+          <button id="toolbar-cancel-btn" class="toolbar-btn" disabled>Cancel</button>
+          <button id="toolbar-apply-btn" class="btn-primary toolbar-apply" disabled>Apply</button>
+        </div>
+      </div>
+      <div id="edit-popover-container" class="edit-popover-container">
+        <div id="adjustments-popover" class="edit-popover hidden">
+          <div class="popover-header">Brightness & Contrast</div>
+          <label class="popover-slider">
+            <span>Brightness</span>
+            <input type="range" id="adjust-brightness" min="-100" max="100" value="0" step="1">
+            <span class="slider-value" id="adjust-brightness-value">0</span>
+          </label>
+          <label class="popover-slider">
+            <span>Contrast</span>
+            <input type="range" id="adjust-contrast" min="-100" max="100" value="0" step="1">
+            <span class="slider-value" id="adjust-contrast-value">0</span>
+          </label>
+        </div>
+        <div id="filters-popover" class="edit-popover hidden">
+          <div class="popover-header">Filters</div>
+          <div class="filter-chip-row" id="filter-chip-row">
+            <button class="filter-chip active" data-filter="none">None</button>
+            <button class="filter-chip" data-filter="warm">Warm</button>
+            <button class="filter-chip" data-filter="cool">Cool</button>
+            <button class="filter-chip" data-filter="mono">Monochrome</button>
+            <button class="filter-chip" data-filter="punch">Punch</button>
+          </div>
+        </div>
+        <div id="crop-popover" class="edit-popover hidden">
+          <div class="popover-header">Crop Presets</div>
+          <div class="crop-preset-row">
+            <button class="crop-preset" data-crop="free">Free</button>
+            <button class="crop-preset" data-crop="original">Original</button>
+            <button class="crop-preset" data-crop="1:1">1:1</button>
+            <button class="crop-preset" data-crop="4:3">4:3</button>
+            <button class="crop-preset" data-crop="16:9">16:9</button>
+            <button class="crop-preset" data-crop="3:2">3:2</button>
+          </div>
+          <div class="crop-hint">Drag the selection or handles to fine tune.</div>
+        </div>
       </div>
       <div class="modal-details">
         <div class="modal-header-section">
@@ -287,6 +361,9 @@
                 <option value="Feuve">Feuve</option>
               </select>
             </div>
+            <div class="image-edit-entry">
+              <button id="open-edit-panel-btn" class="btn-secondary">Edit Image</button>
+            </div>
           </div>
           <div class="modal-info-center">
             <div class="image-tag-section">
@@ -308,11 +385,70 @@
             </div>
           </div>
         </div>
-        <div class="modal-actions">
-          <button id="modal-delete-btn" class="btn-danger">Delete Image</button>
-          <div class="modal-actions-right">
-            <button id="modal-cancel-btn" class="btn-done">Done</button>
+        <div id="modal-edit-panel" class="modal-edit-panel hidden">
+          <div class="edit-preview-wrapper">
+            <canvas id="edit-preview-canvas" width="640" height="360"></canvas>
           </div>
+          <div class="edit-controls-grid">
+            <div class="edit-control-group">
+              <h4>Crop</h4>
+              <div class="crop-slider">
+                <label>Top <span id="crop-top-value" class="edit-value">0%</span></label>
+                <input type="range" id="crop-top" min="0" max="40" step="1" value="0">
+              </div>
+              <div class="crop-slider">
+                <label>Right <span id="crop-right-value" class="edit-value">0%</span></label>
+                <input type="range" id="crop-right" min="0" max="40" step="1" value="0">
+              </div>
+              <div class="crop-slider">
+                <label>Bottom <span id="crop-bottom-value" class="edit-value">0%</span></label>
+                <input type="range" id="crop-bottom" min="0" max="40" step="1" value="0">
+              </div>
+              <div class="crop-slider">
+                <label>Left <span id="crop-left-value" class="edit-value">0%</span></label>
+                <input type="range" id="crop-left" min="0" max="40" step="1" value="0">
+              </div>
+            </div>
+            <div class="edit-control-group">
+              <h4>Adjustments</h4>
+              <div class="adjustment-slider">
+                <label>Brightness <span id="brightness-value" class="edit-value">0</span></label>
+                <input type="range" id="brightness-slider" min="-100" max="100" step="1" value="0">
+              </div>
+              <div class="adjustment-slider">
+                <label>Contrast <span id="contrast-value" class="edit-value">0</span></label>
+                <input type="range" id="contrast-slider" min="-100" max="100" step="1" value="0">
+              </div>
+            </div>
+            <div class="edit-control-group">
+              <h4>Filter</h4>
+              <div class="edit-filter-options" role="radiogroup">
+                <button type="button" class="filter-chip active" data-filter="none">None</button>
+                <button type="button" class="filter-chip" data-filter="warm">Warm</button>
+                <button type="button" class="filter-chip" data-filter="cool">Cool</button>
+                <button type="button" class="filter-chip" data-filter="mono">Monochrome</button>
+                <button type="button" class="filter-chip" data-filter="punch">Punch</button>
+              </div>
+            </div>
+          </div>
+          <div id="edit-status-message" class="edit-status"></div>
+          <div class="edit-actions">
+            <div class="edit-actions-left">
+              <button id="edit-reset-btn" class="btn-secondary">Reset</button>
+            </div>
+            <div class="edit-actions-right">
+              <button id="edit-cancel-btn" class="btn-secondary">Cancel</button>
+              <button id="edit-apply-btn" class="btn-primary">Apply Edits</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+            <div class="modal-actions-left">
+              <button id="modal-delete-btn" class="btn-danger">Delete Image</button>
+            </div>
+            <div class="modal-actions-right">
+              <button id="modal-cancel-btn" class="btn-done">Done</button>
+            </div>
         </div>
       </div>
     </div>
