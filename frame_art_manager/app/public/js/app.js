@@ -387,7 +387,17 @@ async function autoPushLocalChanges() {
       await updateSyncStatus();
       await loadSyncLogs();
     } else {
-      console.error(`❌ [FE-${callId}] Auto-sync failed:`, syncData.error);
+      const validationDetails = formatValidationErrors(syncData.validationErrors);
+
+      if (validationDetails) {
+        const message = `Uploaded files failed validation and were removed.\n\n${validationDetails}`;
+        console.error(`❌ [FE-${callId}] Auto-sync validation failure:`, syncData.validationErrors);
+        alert(message);
+        updateSyncButtonState('error', 'Error', null, null, message);
+      } else {
+        console.error(`❌ [FE-${callId}] Auto-sync failed:`, syncData.error);
+        updateSyncButtonState('error', 'Error', null, null, syncData.error);
+      }
       // Fetch the current sync status to show proper badge/tooltip
       await updateSyncStatus();
       await loadSyncLogs();
@@ -592,6 +602,20 @@ function alertLostLocalChanges(lostChangesSummary) {
   alert(message);
 }
 
+function formatValidationErrors(validationErrors) {
+  if (!Array.isArray(validationErrors) || validationErrors.length === 0) {
+    return null;
+  }
+
+  return validationErrors
+    .map(err => {
+      const file = err?.file || 'Unknown file';
+      const reason = err?.reason || 'Unknown reason';
+      return `• ${file}: ${reason}`;
+    })
+    .join('\n');
+}
+
 // Manual sync (commit, pull, then push)
 async function manualSync() {
   const callId = Math.random().toString(36).substring(7);
@@ -632,8 +656,16 @@ async function manualSync() {
         return;
       }
       
+      const validationDetails = formatValidationErrors(syncData.validationErrors);
+
+      if (validationDetails) {
+        const message = `Uploaded files failed validation and were removed.\n\n${validationDetails}`;
+        console.error(`❌ [FE-${callId}] Validation failure:`, syncData.validationErrors);
+        alert(message);
+        updateSyncButtonState('error', 'Error', null, null, message);
+      }
       // Check for conflicts
-      if (syncData.hasConflicts) {
+      else if (syncData.hasConflicts) {
         console.error(`❌ [FE-${callId}] Sync conflict detected:`, syncData.error);
         alert('Git sync conflict detected!\n\nThis requires manual resolution. Please check the Sync Detail tab in Advanced settings.');
         updateSyncButtonState('error', 'Conflict', null, null, syncData.error);

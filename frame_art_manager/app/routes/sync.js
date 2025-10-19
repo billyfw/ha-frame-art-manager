@@ -3,6 +3,124 @@ const fs = require('fs').promises;
 const path = require('path');
 const router = express.Router();
 const GitHelper = require('../git_helper');
+const MetadataHelper = require('../metadata_helper');
+
+const LFS_POINTER_SIGNATURE = 'version https://git-lfs.github.com/spec/v1';
+
+function isNewFileStatus(file) {
+  const indexStatus = file.index || '';
+  const workingStatus = file.working_dir || '';
+  return indexStatus === 'A' || workingStatus === 'A' || indexStatus === '?' || workingStatus === '?';
+}
+
+async function isGitLFSPointer(filePath) {
+  let handle;
+  try {
+    handle = await fs.open(filePath, 'r');
+    const buffer = Buffer.alloc(256);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    if (!bytesRead) {
+      return false;
+    }
+    const header = buffer.slice(0, bytesRead).toString('utf8');
+    return header.startsWith(LFS_POINTER_SIGNATURE);
+  } catch (error) {
+    return false;
+  } finally {
+    if (handle) {
+      await handle.close();
+    }
+  }
+}
+
+async function validateNewUploads(frameArtPath, statusFiles) {
+  const errors = [];
+  const imagesToCleanup = new Set();
+  let checkedFiles = 0;
+
+  for (const file of statusFiles) {
+    const filePath = file.path || file;
+    if (!filePath || (!filePath.startsWith('library/') && !filePath.startsWith('thumbs/'))) {
+      continue;
+    }
+
+    if (!isNewFileStatus(file)) {
+      continue;
+    }
+
+    checkedFiles++;
+    const absolutePath = path.join(frameArtPath, filePath);
+    try {
+      const stats = await fs.stat(absolutePath);
+      if (stats.size === 0) {
+        errors.push({
+          file: filePath,
+          reason: 'File is empty after upload.'
+        });
+        if (filePath.startsWith('library/')) {
+          imagesToCleanup.add(path.basename(filePath));
+        }
+        continue;
+      }
+
+      if (filePath.startsWith('library/')) {
+        const pointer = await isGitLFSPointer(absolutePath);
+        if (pointer) {
+          errors.push({
+            file: filePath,
+            reason: 'File appears to be a Git LFS pointer and was not hydrated.'
+          });
+          imagesToCleanup.add(path.basename(filePath));
+        }
+      }
+    } catch (error) {
+      errors.push({
+        file: filePath,
+        reason: `File could not be accessed: ${error.message}`
+      });
+      if (filePath.startsWith('library/')) {
+        imagesToCleanup.add(path.basename(filePath));
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    imagesToCleanup: Array.from(imagesToCleanup),
+    checkedFiles
+  };
+}
+
+async function removeFileIfExists(filePath) {
+  try {
+    await fs.unlink(filePath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.warn(`Failed to remove file ${filePath}:`, error.message);
+    }
+  }
+}
+
+async function cleanupFailedUploads(frameArtPath, imageFilenames) {
+  if (!imageFilenames || imageFilenames.length === 0) {
+    return;
+  }
+
+  const helper = new MetadataHelper(frameArtPath);
+
+  for (const filename of imageFilenames) {
+    await removeFileIfExists(path.join(frameArtPath, 'library', filename));
+    await removeFileIfExists(path.join(frameArtPath, 'thumbs', `thumb_${filename}`));
+    try {
+      await helper.deleteImage(filename);
+    } catch (error) {
+      if (!error.message.includes('not found')) {
+        console.warn(`Failed to remove metadata for ${filename}:`, error.message);
+      }
+    }
+  }
+}
 
 /**
  * GET /api/sync/status
@@ -109,6 +227,32 @@ router.post('/full', async (req, res) => {
     // Capture what changes we're about to commit (in case they get lost in a conflict)
     let preCommitChangesSummary = [];
     if (hasUncommittedChanges) {
+      const validationResult = await validateNewUploads(req.frameArtPath, status.files);
+
+      if (!validationResult.valid && validationResult.checkedFiles > 0) {
+        await cleanupFailedUploads(req.frameArtPath, validationResult.imagesToCleanup);
+
+        const validationMessages = validationResult.errors.map(err => `${err.file}: ${err.reason}`);
+        const validationSummary = validationMessages.join(' | ');
+        const headCommit = await resolveHeadCommit();
+        await logSyncOperation(req.frameArtPath, {
+          operation: 'full-sync',
+          status: 'failure',
+          message: `Sync aborted - uploaded files failed validation: ${validationSummary}`,
+          error: 'Upload validation failed',
+          lostChanges: validationMessages,
+          branch: branchName,
+          remoteCommit: headCommit
+        });
+
+        return res.status(400).json({
+          success: false,
+          error: `Uploaded files failed validation and were removed: ${validationSummary}`,
+          validationErrors: validationResult.errors,
+          cleanedUpImages: validationResult.imagesToCleanup
+        });
+      }
+
       preCommitChangesSummary = await git.describeUncommittedChanges();
       // console.log(`   [${requestId}] Pre-commit changes captured:`, preCommitChangesSummary);
       // console.log(`   [${requestId}] Committing ${status.files.length} uncommitted file(s)...`);

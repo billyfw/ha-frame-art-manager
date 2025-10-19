@@ -4,7 +4,7 @@ FROM $BUILD_FROM
 # Set shell
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install Node.js and git
+# Install Node.js, git, and git-lfs
 RUN apk add --no-cache \
     nodejs \
     npm \
