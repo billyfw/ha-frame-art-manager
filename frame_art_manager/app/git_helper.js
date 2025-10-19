@@ -26,15 +26,9 @@ class GitHelper {
     let host = '';
     let port = '';
     let repoPathRaw = '';
-    let endpoint = trimmed;
+    let sshEndpoint = trimmed;
 
-    const scpMatch = trimmed.match(/^([^@]+@)?([^:]+):(.+)$/);
-    if (scpMatch) {
-      username = (scpMatch[1] || '').replace(/@$/, '');
-      host = scpMatch[2];
-      repoPathRaw = scpMatch[3];
-      endpoint = `${username ? `${username}@` : ''}${host}:${repoPathRaw}`;
-    } else if (trimmed.startsWith('ssh://')) {
+    if (trimmed.startsWith('ssh://')) {
       try {
         const parsed = new URL(trimmed);
         username = parsed.username || '';
@@ -43,14 +37,23 @@ class GitHelper {
         repoPathRaw = parsed.pathname.replace(/^\/+/, '');
         const userInfo = username ? `${username}@` : '';
         const portInfo = port ? `:${port}` : '';
-        endpoint = `${userInfo}${host}${portInfo}:${repoPathRaw}`;
+        sshEndpoint = `${userInfo}${host}${portInfo}:${repoPathRaw}`;
       } catch (error) {
         console.warn('Unable to parse SSH remote URL:', error.message);
         return null;
       }
     } else {
-      return null;
+      const scpMatch = trimmed.match(/^(?:([^@]+)@)?([^:]+):(.+)$/);
+      if (!scpMatch) {
+        return null;
+      }
+      username = scpMatch[1] || '';
+      host = scpMatch[2];
+      repoPathRaw = scpMatch[3];
+      sshEndpoint = `${username ? `${username}@` : ''}${host}:${repoPathRaw}`;
     }
+
+    repoPathRaw = repoPathRaw.replace(/^\/+/, '');
 
     if (!repoPathRaw) {
       return null;
@@ -70,7 +73,7 @@ class GitHelper {
 
     return {
       sshBaseUrl,
-      sshEndpoint: endpoint,
+      sshEndpoint,
       httpsAccessKeys,
       repoPath
     };

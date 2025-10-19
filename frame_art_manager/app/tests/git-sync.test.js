@@ -165,6 +165,34 @@ test('getStatus returns status structure', async () => {
   assert.ok(Array.isArray(status.deleted), 'Should have deleted array');
 });
 
+test('convertRemoteToSsh normalizes SCP-style remotes', () => {
+  const mapping = GitHelper.convertRemoteToSsh('git@github.com:billyfw/frame_art.git');
+
+  assert.ok(mapping, 'Should return a mapping');
+  assert.strictEqual(mapping.sshBaseUrl, 'ssh://git@github.com/billyfw/frame_art');
+  assert.strictEqual(mapping.sshEndpoint, 'git@github.com:billyfw/frame_art.git');
+  assert.deepStrictEqual(mapping.httpsAccessKeys.sort(), [
+    'lfs.https://github.com/billyfw/frame_art.git/info/lfs.access',
+    'lfs.https://github.com/billyfw/frame_art/info/lfs.access'
+  ].sort());
+  assert.strictEqual(mapping.repoPath, 'billyfw/frame_art');
+});
+
+test('convertRemoteToSsh preserves ports and usernames for ssh:// remotes', () => {
+  const mapping = GitHelper.convertRemoteToSsh('ssh://builder@github.example.com:2222/billyfw/frame_art.git');
+
+  assert.ok(mapping, 'Should return a mapping');
+  assert.strictEqual(mapping.sshBaseUrl, 'ssh://builder@github.example.com:2222/billyfw/frame_art');
+  assert.strictEqual(mapping.sshEndpoint, 'builder@github.example.com:2222:billyfw/frame_art.git');
+  assert.strictEqual(mapping.repoPath, 'billyfw/frame_art');
+  assert.ok(mapping.httpsAccessKeys.includes('lfs.https://github.com/billyfw/frame_art/info/lfs.access'));
+});
+
+test('convertRemoteToSsh returns null for HTTP remotes', () => {
+  const result = GitHelper.convertRemoteToSsh('https://github.com/billyfw/frame_art.git');
+  assert.strictEqual(result, null, 'HTTP remotes should not be converted');
+});
+
 test('checkAndPullIfBehind returns proper structure', async () => {
   const git = new GitHelper(FRAME_ART_PATH);
   const result = await git.checkAndPullIfBehind();
@@ -238,6 +266,39 @@ test('INTEGRATION: pull when 2 commits behind', async () => {
   assert.ok(result.success, 'Should succeed');
   assert.ok(result.pulledChanges, 'Should have pulled changes');
   assert.strictEqual(result.commitsReceived, 2, 'Should have pulled 2 commits');
+});
+
+test('INTEGRATION: ensureLfsUsesSsh normalizes config to SSH base URL', async () => {
+  const git = new GitHelper(testRepoPath);
+
+  // Force old-style configuration that appends /info/lfs
+  await git.git.raw(['config', 'remote.origin.lfsurl', 'ssh://git@github.com/billyfw/frame_art.git/info/lfs']);
+  await git.git.raw(['config', 'lfs.url', 'ssh://git@github.com/billyfw/frame_art.git/info/lfs']);
+  await git.git.raw(['config', 'lfs.ssh.endpoint', 'ssh://git@github.com/billyfw/frame_art.git/info/lfs']);
+  await git.git.raw(['config', 'lfs.https://github.com/billyfw/frame_art.git/info/lfs.access', 'basic']);
+  await git.git.raw(['config', 'lfs.https://github.com/billyfw/frame_art/info/lfs.access', 'basic']);
+
+  await git.ensureLfsUsesSsh();
+
+  const getConfig = async key => {
+    try {
+      return (await git.git.raw(['config', '--get', key])).trim();
+    } catch {
+      return '';
+    }
+  };
+
+  const remoteLfs = await getConfig('remote.origin.lfsurl');
+  const globalLfs = await getConfig('lfs.url');
+  const endpoint = await getConfig('lfs.ssh.endpoint');
+  const httpsAccess1 = await getConfig('lfs.https://github.com/billyfw/frame_art.git/info/lfs.access');
+  const httpsAccess2 = await getConfig('lfs.https://github.com/billyfw/frame_art/info/lfs.access');
+
+  assert.strictEqual(remoteLfs, 'ssh://git@github.com/billyfw/frame_art');
+  assert.strictEqual(globalLfs, 'ssh://git@github.com/billyfw/frame_art');
+  assert.strictEqual(endpoint, 'git@github.com:billyfw/frame_art.git');
+  assert.strictEqual(httpsAccess1, '', 'Legacy HTTPS access config should be cleared');
+  assert.strictEqual(httpsAccess2, '', 'Legacy HTTPS access config should be cleared');
 });
 
 test('INTEGRATION: skip pull when uncommitted changes exist', async () => {

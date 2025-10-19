@@ -38,6 +38,48 @@ Frame Art Manager provides a beautiful web interface for organizing and managing
 3. Find **Frame Art Manager** in the **Local Add-ons** section
 4. Install, configure, and start
 
+### Preparing a fresh Home Assistant environment
+
+When provisioning a new Home Assistant box, set up the artwork repository before launching the add-on:
+
+1. **Install Git + Git LFS** on the host (Supervisor → Add-on → SSH & Web Terminal, then run):
+
+	```bash
+	apk add git git-lfs
+	git lfs install --system
+	```
+
+2. **Create the artwork directory** that the add-on will manage (defaults to `/config/www/frame_art`):
+
+	```bash
+	mkdir -p /config/www
+	cd /config/www
+	```
+
+3. **Clone the Frame Art library via SSH** so images and metadata stay under version control:
+
+	```bash
+	git clone git@github.com:billyfw/frame_art.git frame_art
+	cd frame_art
+	```
+
+	> 💡 Ensure the Home Assistant host has an SSH key registered with GitHub (`/root/.ssh/id_rsa`). The default add-on startup flow expects SSH access and will not prompt for HTTPS credentials.
+
+4. **Normalize Git LFS to the expected SSH endpoints.** Older clones (or the default `git lfs install` flow) sometimes record HTTPS URLs or append `/info/lfs` directly in your Git config. Inside Home Assistant the add-on can’t complete HTTPS auth, and Git LFS will refuse to download objects if it sees `billyfw/frame_art.git/info/lfs` as the repository. Running the commands below rewrites everything to the SSH base URL that our scripts expect and strips out any lingering HTTPS credentials. The add-on also performs this check each time it starts, so you’re mostly just confirming things look right before first launch:
+
+	```bash
+	git remote get-url origin                                 # git@github.com:billyfw/frame_art.git
+	git config remote.origin.lfsurl ssh://git@github.com/billyfw/frame_art
+	git config lfs.url ssh://git@github.com/billyfw/frame_art
+	git config lfs.ssh.endpoint git@github.com:billyfw/frame_art.git
+	git config --unset lfs.https://github.com/billyfw/frame_art/info/lfs.access 2>/dev/null || true
+	git config --unset lfs.https://github.com/billyfw/frame_art.git/info/lfs.access 2>/dev/null || true
+	```
+
+5. **Install the add-on** and set the configuration option `frame_art_path: /config/www/frame_art`.
+
+6. **Restart the add-on** after any manual Git/LFS changes so `run.sh` can re-sync configuration before the Node server starts.
+
 ## Configuration
 
 ```yaml
@@ -88,6 +130,12 @@ Access at: http://localhost:8099
 
 ```bash
 npm test
+```
+
+For Git/LFS-specific validation:
+
+```bash
+npm run test:git
 ```
 
 ## Documentation
