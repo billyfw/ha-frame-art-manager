@@ -16,6 +16,44 @@ class GitHelper {
     this.expectedRemote = 'billyfw/frame_art';
   }
 
+  async cleanupRebaseState() {
+    const gitDir = path.join(this.frameArtPath, '.git');
+    const rebaseDirs = ['rebase-merge', 'rebase-apply'];
+    let rebaseFound = false;
+
+    for (const dir of rebaseDirs) {
+      const target = path.join(gitDir, dir);
+      try {
+        await fs.access(target);
+        rebaseFound = true;
+      } catch {
+        continue;
+      }
+
+      try {
+        await this.git.raw(['rebase', '--abort']);
+      } catch (abortError) {
+        if (!abortError.message.includes('No rebase in progress')) {
+          console.warn(`Failed to abort rebase cleanly (${dir}):`, abortError.message);
+        }
+      }
+
+      try {
+        await fs.rm(target, { recursive: true, force: true });
+      } catch (rmError) {
+        console.warn(`Failed to remove leftover rebase directory (${dir}):`, rmError.message);
+      }
+    }
+
+    if (rebaseFound) {
+      try {
+        await this.git.clean('f');
+      } catch (cleanError) {
+        console.warn('Failed to clean working tree after rebase cleanup:', cleanError.message);
+      }
+    }
+  }
+
   /**
    * Acquire sync lock - prevents concurrent git operations
    * Returns true if lock acquired, false if sync already in progress
@@ -178,6 +216,7 @@ class GitHelper {
    */
   async checkAndPullIfBehind() {
     try {
+      await this.cleanupRebaseState();
       // First verify git configuration
       const verification = await this.verifyConfiguration();
       if (!verification.isValid) {
@@ -273,6 +312,7 @@ class GitHelper {
     let localChangesSummary = [];
     let remoteChangesSummary = [];
     try {
+      await this.cleanupRebaseState();
       // Ensure we have the latest remote state for comparisons and pulls (with retries)
       await GitHelper.retryWithBackoff(
         () => this.git.fetch('origin', 'main'),
