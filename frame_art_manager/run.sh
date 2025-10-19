@@ -76,6 +76,22 @@ if [ ! -d "${FRAME_ART_PATH}" ]; then
     mkdir -p "${FRAME_ART_PATH}"
 fi
 
+# Ensure Git LFS uses the SSH remote when available
+if git -C "${FRAME_ART_PATH}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    remote_url=$(git -C "${FRAME_ART_PATH}" remote get-url origin 2>/dev/null || true)
+
+    if [ -n "${remote_url}" ] && [[ ${remote_url} != http* ]]; then
+        desired_lfs_url="${remote_url%/}/info/lfs"
+        current_lfs_url=$(git -C "${FRAME_ART_PATH}" config --get remote.origin.lfsurl 2>/dev/null || true)
+
+        if [ "${current_lfs_url}" != "${desired_lfs_url}" ]; then
+            git -C "${FRAME_ART_PATH}" config remote.origin.lfsurl "${desired_lfs_url}"
+            git -C "${FRAME_ART_PATH}" config lfs.ssh.endpoint "${remote_url}"
+            bashio::log.info "Configured Git LFS to use SSH endpoint for origin remote"
+        fi
+    fi
+fi
+
 # Export environment variables for Node.js app
 export FRAME_ART_PATH="${FRAME_ART_PATH}"
 export PORT="${PORT}"

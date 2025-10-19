@@ -912,6 +912,23 @@ header h1 {
   font-style: italic;
 }
 
+.upload-preview {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+
+.upload-preview img {
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.upload-preview.hidden {
+  display: none;
+}
+
 .inline-form {
   display: flex;
   gap: 10px;

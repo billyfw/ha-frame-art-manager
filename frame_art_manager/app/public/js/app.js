@@ -1573,8 +1573,40 @@ function updateTagFilterCount() {
 }
 
 // Upload Functions
+function updateUploadPreview(file) {
+  const container = document.getElementById('upload-preview-container');
+  const previewImage = document.getElementById('upload-preview-image');
+
+  if (!container || !previewImage) return;
+
+  if (!file) {
+    previewImage.src = '';
+    container.classList.add('hidden');
+    return;
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  previewImage.src = objectUrl;
+  container.classList.remove('hidden');
+
+  previewImage.onload = () => URL.revokeObjectURL(objectUrl);
+}
+
 function initUploadForm() {
   const form = document.getElementById('upload-form');
+  if (!form) return;
+
+  const fileInput = document.getElementById('image-file');
+  if (fileInput) {
+    fileInput.addEventListener('change', (event) => {
+      const file = event.target.files && event.target.files[0] ? event.target.files[0] : null;
+      updateUploadPreview(file);
+    });
+  }
+
+  form.addEventListener('reset', () => updateUploadPreview(null));
+  updateUploadPreview(null);
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -1606,7 +1638,7 @@ function initUploadForm() {
         updateSortDirectionIcon();
         
         // Reset form for next use
-        form.reset();
+  form.reset();
         statusDiv.innerHTML = '';
         submitButton.disabled = false;
         
@@ -2691,9 +2723,9 @@ function initSyncDetail() {
   loadSyncLogs();
   
   // Set up conflict filter checkbox
-  const conflictCheckbox = document.getElementById('show-conflicts-only');
-  if (conflictCheckbox) {
-    conflictCheckbox.addEventListener('change', () => {
+  const problemsCheckbox = document.getElementById('show-problems-only');
+  if (problemsCheckbox) {
+    problemsCheckbox.addEventListener('change', () => {
       loadSyncLogs();
     });
   }
@@ -2719,16 +2751,19 @@ async function loadSyncLogs() {
     let logs = Array.isArray(data.logs) ? data.logs : [];
     
     // Apply conflict filter if checkbox is checked
-    const conflictCheckbox = document.getElementById('show-conflicts-only');
-    const showConflictsOnly = conflictCheckbox && conflictCheckbox.checked;
+    const problemsCheckbox = document.getElementById('show-problems-only');
+    const showProblemsOnly = problemsCheckbox && problemsCheckbox.checked;
     
-    if (showConflictsOnly) {
-      logs = logs.filter(entry => entry.hasConflicts === true);
+    if (showProblemsOnly) {
+      logs = logs.filter(entry => {
+        const status = (entry.status || '').toLowerCase();
+        return status !== 'success';
+      });
     }
 
     if (logs.length === 0) {
-      const emptyMessage = showConflictsOnly 
-        ? 'No conflicts found in sync history.' 
+      const emptyMessage = showProblemsOnly 
+        ? 'No sync problems found in history.' 
         : 'No sync history yet. Run a sync to see activity here.';
       container.innerHTML = `<div class="sync-log-empty">${emptyMessage}</div>`;
       container.dataset.loaded = 'true';

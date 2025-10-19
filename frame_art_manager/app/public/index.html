@@ -87,6 +87,10 @@
             <input type="file" id="image-file" name="image" accept="image/*" capture="environment" required />
           </div>
 
+          <div class="upload-preview hidden" id="upload-preview-container">
+            <img id="upload-preview-image" alt="Selected image preview" />
+          </div>
+
           <div class="form-group">
             <label for="image-name">Image Name (optional):</label>
             <input type="text" id="image-name" name="customName" placeholder="e.g. BillyAmandaWeddingTrees" />
@@ -217,8 +221,8 @@
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
               <h3 style="margin: 0;">Sync History (last 200)</h3>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer;">
-                <input type="checkbox" id="show-conflicts-only" checked>
-                <span>Show conflicts only</span>
+                <input type="checkbox" id="show-problems-only" checked>
+                <span>Show problems only</span>
               </label>
             </div>
             <div id="sync-log-container" class="sync-log-container">
