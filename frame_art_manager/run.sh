@@ -81,17 +81,49 @@ if git -C "${FRAME_ART_PATH}" rev-parse --is-inside-work-tree >/dev/null 2>&1; t
     remote_url=$(git -C "${FRAME_ART_PATH}" remote get-url origin 2>/dev/null || true)
 
     if [ -n "${remote_url}" ] && [[ ${remote_url} != http* ]]; then
-        remote_with_git="${remote_url}"
-        if [[ "${remote_with_git}" != *.git ]]; then
-            remote_with_git="${remote_with_git}.git"
+        user_part=""
+        host_part=""
+        path_part=""
+        authority=""
+
+        if [[ "${remote_url}" =~ ^([^@]+@)?([^:]+):(.+)$ ]]; then
+            user_part="${BASH_REMATCH[1]}"
+            host_part="${BASH_REMATCH[2]}"
+            path_part="${BASH_REMATCH[3]}"
+            authority="${user_part}${host_part}"
+        elif [[ "${remote_url}" == ssh://* ]]; then
+            trimmed="${remote_url#ssh://}"
+            authority="${trimmed%%/*}"
+            path_part="${trimmed#*/}"
         fi
 
-        desired_lfs_url="${remote_with_git}/info/lfs"
-        current_lfs_url=$(git -C "${FRAME_ART_PATH}" config --get remote.origin.lfsurl 2>/dev/null || true)
+        if [ -n "${authority}" ] && [ -n "${path_part}" ]; then
+            repo_path="${path_part%.git}"
+            if [ -z "${repo_path}" ]; then
+                repo_path="${path_part}"
+            fi
 
-        if [ "${current_lfs_url}" != "${desired_lfs_url}" ]; then
-            git -C "${FRAME_ART_PATH}" config remote.origin.lfsurl "${desired_lfs_url}"
-            git -C "${FRAME_ART_PATH}" config lfs.ssh.endpoint "${remote_with_git}"
+            ssh_base_url="ssh://${authority}/${repo_path}"
+            ssh_endpoint="${authority}:${repo_path}"
+
+            current_remote_lfs=$(git -C "${FRAME_ART_PATH}" config --get remote.origin.lfsurl 2>/dev/null || true)
+            if [ "${current_remote_lfs}" != "${ssh_base_url}" ]; then
+                git -C "${FRAME_ART_PATH}" config remote.origin.lfsurl "${ssh_base_url}"
+            fi
+
+            current_lfs_url=$(git -C "${FRAME_ART_PATH}" config --get lfs.url 2>/dev/null || true)
+            if [ "${current_lfs_url}" != "${ssh_base_url}" ]; then
+                git -C "${FRAME_ART_PATH}" config lfs.url "${ssh_base_url}"
+            fi
+
+            current_endpoint=$(git -C "${FRAME_ART_PATH}" config --get lfs.ssh.endpoint 2>/dev/null || true)
+            if [ "${current_endpoint}" != "${ssh_endpoint}" ]; then
+                git -C "${FRAME_ART_PATH}" config lfs.ssh.endpoint "${ssh_endpoint}"
+            fi
+
+            git -C "${FRAME_ART_PATH}" config --unset "lfs.https://github.com/${repo_path}.git/info/lfs.access" 2>/dev/null || true
+            git -C "${FRAME_ART_PATH}" config --unset "lfs.https://github.com/${repo_path}/info/lfs.access" 2>/dev/null || true
+
             bashio::log.info "Configured Git LFS to use SSH endpoint for origin remote"
         fi
     fi
