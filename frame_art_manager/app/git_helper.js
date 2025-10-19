@@ -16,6 +16,36 @@ class GitHelper {
     this.expectedRemote = 'billyfw/frame_art';
   }
 
+  async ensureLfsUsesSsh() {
+    try {
+      const remoteUrlRaw = await this.git.raw(['remote', 'get-url', 'origin']);
+      const remoteUrl = remoteUrlRaw.trim();
+
+      if (!remoteUrl || remoteUrl.startsWith('http')) {
+        return;
+      }
+
+      let sshRemote = remoteUrl;
+      if (!sshRemote.endsWith('.git')) {
+        sshRemote = `${sshRemote}.git`;
+      }
+
+      const desiredLfsUrl = `${sshRemote}/info/lfs`;
+      const currentLfsUrl = await this.git.raw(['config', '--get', 'remote.origin.lfsurl']).catch(() => '').then(out => out.trim());
+
+      if (currentLfsUrl !== desiredLfsUrl) {
+        await this.git.raw(['config', 'remote.origin.lfsurl', desiredLfsUrl]);
+      }
+
+      const currentEndpoint = await this.git.raw(['config', '--get', 'lfs.ssh.endpoint']).catch(() => '').then(out => out.trim());
+      if (currentEndpoint !== sshRemote) {
+        await this.git.raw(['config', 'lfs.ssh.endpoint', sshRemote]);
+      }
+    } catch (error) {
+      console.warn('Failed to ensure Git LFS SSH configuration:', error.message);
+    }
+  }
+
   async cleanupRebaseState() {
     const gitDir = path.join(this.frameArtPath, '.git');
     const rebaseDirs = ['rebase-merge', 'rebase-apply'];
@@ -216,6 +246,7 @@ class GitHelper {
    */
   async checkAndPullIfBehind() {
     try {
+      await this.ensureLfsUsesSsh();
       await this.cleanupRebaseState();
       // First verify git configuration
       const verification = await this.verifyConfiguration();
@@ -312,6 +343,7 @@ class GitHelper {
     let localChangesSummary = [];
     let remoteChangesSummary = [];
     try {
+      await this.ensureLfsUsesSsh();
       await this.cleanupRebaseState();
       // Ensure we have the latest remote state for comparisons and pulls (with retries)
       await GitHelper.retryWithBackoff(
