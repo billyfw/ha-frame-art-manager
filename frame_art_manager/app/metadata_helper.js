@@ -46,18 +46,28 @@ class MetadataHelper {
     const imagePath = path.join(this.libraryPath, filename);
     let dimensions = null;
     let aspectRatio = null;
-    
+
     try {
+      const stats = await fs.stat(imagePath);
+      if (!stats.size) {
+        throw new Error('File is empty');
+      }
+
       const imageMetadata = await sharp(imagePath).metadata();
+      if (!imageMetadata.width || !imageMetadata.height) {
+        throw new Error('Missing image dimensions');
+      }
+
       dimensions = {
         width: imageMetadata.width,
         height: imageMetadata.height
       };
-      
+
       // Calculate aspect ratio (rounded to 2 decimals)
       aspectRatio = Math.round((imageMetadata.width / imageMetadata.height) * 100) / 100;
     } catch (error) {
-      console.error(`Error reading image dimensions for ${filename}:`, error);
+      console.error(`Error reading image data for ${filename}:`, error);
+      throw new Error(`Invalid image file: ${filename}`);
     }
     
     metadata.images[filename] = {

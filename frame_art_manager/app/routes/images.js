@@ -7,6 +7,16 @@ const crypto = require('crypto');
 const MetadataHelper = require('../metadata_helper');
 const { MATTE_TYPES, FILTER_TYPES } = require('../constants');
 
+async function removeFileIfExists(filePath) {
+  try {
+    await fs.unlink(filePath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.warn(`Failed to remove file ${filePath}:`, error);
+    }
+  }
+}
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
@@ -106,6 +116,7 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     const tagArray = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [];
 
     let finalFilename = req.file.filename;
+    let finalFilePath = path.join(req.frameArtPath, 'library', finalFilename);
     
     // Convert HEIC files to JPEG for browser compatibility
     const fileExt = path.extname(req.file.filename).toLowerCase();
@@ -135,6 +146,7 @@ router.post('/upload', upload.single('image'), async (req, res) => {
         await fs.unlink(originalPath);
         
         finalFilename = jpegFilename;
+        finalFilePath = jpegPath;
         console.log(`Successfully converted to: ${finalFilename}`);
       } catch (conversionError) {
         console.error('Error converting HEIC to JPEG:', conversionError);
@@ -151,13 +163,35 @@ router.post('/upload', upload.single('image'), async (req, res) => {
       }
     }
 
+    // Ensure the uploaded file is not empty before proceeding
+    try {
+      const stats = await fs.stat(finalFilePath);
+      if (!stats.size) {
+        await removeFileIfExists(finalFilePath);
+        return res.status(400).json({ error: 'Uploaded file is empty.' });
+      }
+    } catch (statError) {
+      await removeFileIfExists(finalFilePath);
+      return res.status(400).json({ error: 'Uploaded file could not be accessed.' });
+    }
+
     // Add to metadata
-    const imageData = await helper.addImage(
-      finalFilename,
-      matte,
-      filter,
-      tagArray
-    );
+    let imageData;
+    try {
+      imageData = await helper.addImage(
+        finalFilename,
+        matte,
+        filter,
+        tagArray
+      );
+    } catch (validationError) {
+      await removeFileIfExists(finalFilePath);
+      console.error('Error validating uploaded image:', validationError);
+      return res.status(400).json({
+        error: 'Uploaded file is not a valid image.',
+        details: validationError.message
+      });
+    }
 
     // Generate thumbnail
     try {
