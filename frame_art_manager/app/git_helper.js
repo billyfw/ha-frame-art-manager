@@ -706,26 +706,19 @@ class GitHelper {
       // Use -U10 to get 10 lines of context so we can see the image filename
       const workingDiff = await this.git.diff(['-U10', 'metadata.json']);
       
-      console.log('Working diff length:', workingDiff ? workingDiff.length : 0);
-      
       if (workingDiff) {
         const changes = this.parseMetadataDiff(workingDiff);
-        console.log('Parsed changes from working diff:', changes);
         return changes;
       }
       
       // If no unstaged changes, check staged changes
       const cachedDiff = await this.git.diff(['-U10', '--cached', 'metadata.json']);
       
-      console.log('Cached diff length:', cachedDiff ? cachedDiff.length : 0);
-      
       if (cachedDiff) {
         const changes = this.parseMetadataDiff(cachedDiff);
-        console.log('Parsed changes from cached diff:', changes);
         return changes;
       }
       
-      console.log('No diff found for metadata.json');
       return [];
     } catch (error) {
       console.warn('Could not get metadata changes:', error.message);
@@ -976,7 +969,6 @@ class GitHelper {
     const lines = [];
     try {
       const status = await this.git.status();
-      console.log('🔍 describeUncommittedChanges - status.files:', JSON.stringify(status.files, null, 2));
       
       // Check for uncommitted metadata changes
       const metadataModified = status.files.some(f => 
@@ -984,15 +976,11 @@ class GitHelper {
         (f.working_dir === 'M' || f.index === 'M')
       );
       
-      console.log('🔍 describeUncommittedChanges - metadataModified:', metadataModified);
-      
       if (metadataModified) {
         try {
           // Use -U10 for sufficient context to parse metadata changes
           const metadataDiff = await this.git.diff(['-U10', 'HEAD', '--', 'metadata.json']);
-          console.log('🔍 describeUncommittedChanges - metadataDiff length:', metadataDiff ? metadataDiff.length : 0);
           const metadataChanges = metadataDiff ? this.parseMetadataDiff(metadataDiff) : [];
-          console.log('🔍 describeUncommittedChanges - metadataChanges:', metadataChanges);
           if (metadataChanges.length > 0) {
             lines.push('Uncommitted metadata changes:');
             metadataChanges.forEach(change => {
@@ -1045,7 +1033,6 @@ class GitHelper {
         fileMessages.forEach(msg => lines.push(`• ${msg}`));
       }
       
-      console.log('🔍 describeUncommittedChanges - final lines:', lines);
       return lines;
     } catch (error) {
       console.warn('Could not describe uncommitted changes:', error.message);
