@@ -81,12 +81,17 @@ if git -C "${FRAME_ART_PATH}" rev-parse --is-inside-work-tree >/dev/null 2>&1; t
     remote_url=$(git -C "${FRAME_ART_PATH}" remote get-url origin 2>/dev/null || true)
 
     if [ -n "${remote_url}" ] && [[ ${remote_url} != http* ]]; then
-        desired_lfs_url="${remote_url%/}/info/lfs"
+        remote_with_git="${remote_url}"
+        if [[ "${remote_with_git}" != *.git ]]; then
+            remote_with_git="${remote_with_git}.git"
+        fi
+
+        desired_lfs_url="${remote_with_git}/info/lfs"
         current_lfs_url=$(git -C "${FRAME_ART_PATH}" config --get remote.origin.lfsurl 2>/dev/null || true)
 
         if [ "${current_lfs_url}" != "${desired_lfs_url}" ]; then
             git -C "${FRAME_ART_PATH}" config remote.origin.lfsurl "${desired_lfs_url}"
-            git -C "${FRAME_ART_PATH}" config lfs.ssh.endpoint "${remote_url}"
+            git -C "${FRAME_ART_PATH}" config lfs.ssh.endpoint "${remote_with_git}"
             bashio::log.info "Configured Git LFS to use SSH endpoint for origin remote"
         fi
     fi
