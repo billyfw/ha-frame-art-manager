@@ -16,30 +16,97 @@ class GitHelper {
     this.expectedRemote = 'billyfw/frame_art';
   }
 
+  static convertRemoteToSsh(remoteUrl) {
+    if (!remoteUrl || remoteUrl.startsWith('http')) {
+      return null;
+    }
+
+    const trimmed = remoteUrl.trim();
+    let username = '';
+    let host = '';
+    let port = '';
+    let repoPathRaw = '';
+    let endpoint = trimmed;
+
+    const scpMatch = trimmed.match(/^([^@]+@)?([^:]+):(.+)$/);
+    if (scpMatch) {
+      username = (scpMatch[1] || '').replace(/@$/, '');
+      host = scpMatch[2];
+      repoPathRaw = scpMatch[3];
+      endpoint = `${username ? `${username}@` : ''}${host}:${repoPathRaw}`;
+    } else if (trimmed.startsWith('ssh://')) {
+      try {
+        const parsed = new URL(trimmed);
+        username = parsed.username || '';
+        host = parsed.hostname;
+        port = parsed.port || '';
+        repoPathRaw = parsed.pathname.replace(/^\/+/, '');
+        const userInfo = username ? `${username}@` : '';
+        const portInfo = port ? `:${port}` : '';
+        endpoint = `${userInfo}${host}${portInfo}:${repoPathRaw}`;
+      } catch (error) {
+        console.warn('Unable to parse SSH remote URL:', error.message);
+        return null;
+      }
+    } else {
+      return null;
+    }
+
+    if (!repoPathRaw) {
+      return null;
+    }
+
+    const repoPath = repoPathRaw.replace(/\.git$/, '');
+    const repoPathWithGit = repoPath.endsWith('.git') ? repoPath : `${repoPath}.git`;
+    const userInfo = username ? `${username}@` : '';
+    const portInfo = port ? `:${port}` : '';
+    const authorityPart = `${userInfo}${host}${portInfo}`;
+    const sshBaseUrl = `ssh://${authorityPart}/${repoPath}`.replace(/\/+$/, '');
+
+    const httpsAccessKeys = [
+      `lfs.https://github.com/${repoPathWithGit}/info/lfs.access`,
+      `lfs.https://github.com/${repoPath}/info/lfs.access`
+    ];
+
+    return {
+      sshBaseUrl,
+      sshEndpoint: endpoint,
+      httpsAccessKeys,
+      repoPath
+    };
+  }
+
   async ensureLfsUsesSsh() {
     try {
       const remoteUrlRaw = await this.git.raw(['remote', 'get-url', 'origin']);
       const remoteUrl = remoteUrlRaw.trim();
 
-      if (!remoteUrl || remoteUrl.startsWith('http')) {
+      const sshMapping = GitHelper.convertRemoteToSsh(remoteUrl);
+      if (!sshMapping) {
         return;
       }
 
-      let sshRemote = remoteUrl;
-      if (!sshRemote.endsWith('.git')) {
-        sshRemote = `${sshRemote}.git`;
-      }
-
-      const desiredLfsUrl = `${sshRemote}/info/lfs`;
+      const { sshBaseUrl, sshEndpoint, httpsAccessKeys } = sshMapping;
       const currentLfsUrl = await this.git.raw(['config', '--get', 'remote.origin.lfsurl']).catch(() => '').then(out => out.trim());
 
-      if (currentLfsUrl !== desiredLfsUrl) {
-        await this.git.raw(['config', 'remote.origin.lfsurl', desiredLfsUrl]);
+      if (currentLfsUrl !== sshBaseUrl) {
+        await this.git.raw(['config', 'remote.origin.lfsurl', sshBaseUrl]);
+      }
+
+      const currentGlobalLfsUrl = await this.git.raw(['config', '--get', 'lfs.url']).catch(() => '').then(out => out.trim());
+      if (currentGlobalLfsUrl !== sshBaseUrl) {
+        await this.git.raw(['config', 'lfs.url', sshBaseUrl]);
       }
 
       const currentEndpoint = await this.git.raw(['config', '--get', 'lfs.ssh.endpoint']).catch(() => '').then(out => out.trim());
-      if (currentEndpoint !== sshRemote) {
-        await this.git.raw(['config', 'lfs.ssh.endpoint', sshRemote]);
+      if (currentEndpoint !== sshEndpoint) {
+        await this.git.raw(['config', 'lfs.ssh.endpoint', sshEndpoint]);
+      }
+
+      if (Array.isArray(httpsAccessKeys)) {
+        for (const key of httpsAccessKeys) {
+          await this.git.raw(['config', '--unset', key]).catch(() => {});
+        }
       }
     } catch (error) {
       console.warn('Failed to ensure Git LFS SSH configuration:', error.message);
