@@ -318,7 +318,7 @@ async function checkSyncOnLoad() {
       }
       // Release lock before fetching new data
       isSyncInProgress = false;
-      await loadGallery();
+      await refreshGalleryAfterSync(data);
       await loadTags();
       await updateSyncStatus();
       await loadSyncLogs();
@@ -381,7 +381,7 @@ async function autoPushLocalChanges() {
       if (syncData.autoResolvedConflict) {
         alertLostLocalChanges(syncData.lostChangesSummary);
       }
-      await loadGallery();
+      await refreshGalleryAfterSync(syncData);
       await loadTags();
       // Update status to show we're synced
       await updateSyncStatus();
@@ -616,6 +616,55 @@ function formatValidationErrors(validationErrors) {
     .join('\n');
 }
 
+function hasRemoteNewImages(syncData) {
+  if (!syncData) return false;
+  const summaries = [];
+
+  if (Array.isArray(syncData.remoteChangesSummary)) {
+    summaries.push(...syncData.remoteChangesSummary);
+  }
+
+  if (Array.isArray(syncData.remoteChanges)) {
+    summaries.push(...syncData.remoteChanges);
+  }
+
+  return summaries.some(entry => typeof entry === 'string' && /remote added image/i.test(entry));
+}
+
+function setGallerySortToNewestFirst() {
+  sortAscending = false;
+  const sortOrderSelect = document.getElementById('sort-order');
+  let changeDispatched = false;
+
+  if (sortOrderSelect) {
+    if (sortOrderSelect.value !== 'date') {
+      sortOrderSelect.value = 'date';
+      const changeEvent = new Event('change', { bubbles: true });
+      sortOrderSelect.dispatchEvent(changeEvent);
+      changeDispatched = true;
+    }
+  }
+
+  updateSortDirectionIcon();
+
+  if (!changeDispatched) {
+    renderGallery();
+  }
+}
+
+async function refreshGalleryAfterSync(syncData) {
+  const previousKeys = new Set(Object.keys(allImages || {}));
+  await loadGallery();
+  const currentKeys = Object.keys(allImages || {});
+  const addedKeys = currentKeys.filter(key => !previousKeys.has(key));
+
+  if (addedKeys.length > 0 || hasRemoteNewImages(syncData)) {
+    setGallerySortToNewestFirst();
+  }
+
+  return addedKeys;
+}
+
 // Manual sync (commit, pull, then push)
 async function manualSync() {
   const callId = Math.random().toString(36).substring(7);
@@ -686,7 +735,7 @@ async function manualSync() {
     }
     
     // Reload gallery to show any new images from pull
-    await loadGallery();
+    await refreshGalleryAfterSync(syncData);
     await loadTags();
     await loadSyncLogs();
     
