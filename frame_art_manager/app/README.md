@@ -14,6 +14,21 @@ This is the web application component of the Frame Art Manager Home Assistant ad
 - **Search & Filter** - Find images by name or tag
 - **Sync Verification** - Check consistency between files and metadata
 
+## 🎨 Curated Filter Set (October 2025)
+
+The editor now ships with a focused collection of filters tuned specifically for Samsung Frame art mode. Each recipe has a twin on the backend (Sharp) and frontend (CSS) so the preview matches the final render. Choose **None** to bypass any processing when you want the original image.
+
+| Filter | Style & Use Case | Tonal Highlights | Example Inspiration |
+| --- | --- | --- | --- |
+| None | Original artwork | No processing applied | — |
+| Sunlit Sienna | Earthy travel shots | Muted sienna midtones | [Earth tone palettes](https://www.design-seeds.com/palette/earth-tones/) |
+| Coastal Breeze | Airy coastal scenes | Cool cyan lift, crisp whites | [Cool tone editing](https://www.photoworkout.com/cool-tone-photography/) |
+| Pastel Wash | Illustrations and prints | Gentle saturation, blush tint | [Pastel color grading](https://helpx.adobe.com/lightroom/how-to/pastel-photo-effect.html) |
+| Film Classic | General purpose filmic | Slight saturation bump, rich blacks | [Classic film emulation](https://petapixel.com/film-vs-digital-color/) |
+| Noir Cinema | High drama B&W | Crisp highlights, inky blacks | [B&W contrast guide](https://photography.tutsplus.com/articles/creating-dramatic-black-and-white-landscapes--photo-14817) |
+| Silver Pearl | Soft monochrome | Bright whites, gentle contrast | [Soft monochrome looks](https://digital-photography-school.com/3-simple-steps-soft-black-white-portraits/) |
+| Graphite Ink | Sketch-inspired artwork | Linear edges, midtone depth | [Ink illustration styles](https://www.skillshare.com/en/blog/inking-techniques/) |
+
 ### 🔧 API Endpoints
 - `GET /api/images` - Get all images
 - `GET /api/images/tag/:tagName` - Get images by tag

@@ -182,8 +182,8 @@ FRAME_ART_PATH/
 {
   "images": {
     "landscape-a1b2c3d4.jpg": {
-      "matte": "square_white",
-      "filter": "none",
+  "matte": "squares",
+  "filter": "None",
       "tags": ["landscape", "nature"],
       "dimensions": {"width": 3840, "height": 2160},
       "aspectRatio": 1.78,
@@ -221,8 +221,8 @@ GET /api/images
 ```json
 {
   "landscape-a1b2.jpg": {
-    "matte": "square_white",
-    "filter": "none",
+    "matte": "squares",
+    "filter": "None",
     "tags": ["landscape"],
     "dimensions": {"width": 3840, "height": 2160},
     "added": "2025-10-15T10:30:00.000Z"
@@ -237,8 +237,8 @@ Content-Type: multipart/form-data
 
 Fields:
   image: <file>
-  matte: "square_white" | "square_black" | "none"
-  filter: "soft" | "none"
+  matte: "none" | "modernthin" | "modern" | "modernwide" | "flexible" | "shadowbox" | "panoramic" | "triptych" | "mix" | "squares"
+  filter: "None" | "Aqua" | "ArtDeco" | "Ink" | "Wash" | "Pastel" | "Feuve"
   tags: "landscape,nature" (comma-separated)
   customName: "my-photo" (optional)
 ```
@@ -258,8 +258,8 @@ PUT /api/images/:filename
 Content-Type: application/json
 
 {
-  "matte": "square_black",
-  "filter": "soft",
+  "matte": "mix",
+  "filter": "Aqua",
   "tags": ["landscape", "sunset"]
 }
 ```
@@ -590,7 +590,7 @@ const helper = new MetadataHelper(frameArtPath);
 await helper.addImage(filename, matte, filter, tags);
 
 // Update image
-await helper.updateImage(filename, { matte: 'square_black' });
+await helper.updateImage(filename, { matte: 'mix' });
 
 // Rename image
 await helper.renameImage(oldFilename, newFilename);

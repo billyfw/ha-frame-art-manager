@@ -31,6 +31,54 @@ const createDefaultEditState = () => ({
   isDirty: false
 });
 
+const FILTER_ALIASES = {
+  'gallery-soft': 'pastel-wash',
+  'vivid-sky': 'coastal-breeze',
+  'dusk-haze': 'silver-pearl',
+  'impressionist': 'film-classic',
+  'deco-gold': 'sunlit-sienna',
+  'charcoal': 'noir-cinema',
+  'silver-tone': 'silver-pearl',
+  'monochrome': 'silver-pearl',
+  'grayscale': 'silver-pearl',
+  'ink-sketch': 'graphite-ink',
+  'aqua': 'coastal-breeze',
+  'artdeco': 'sunlit-sienna',
+  'ink': 'graphite-ink',
+  'wash': 'pastel-wash',
+  'pastel': 'pastel-wash',
+  'feuve': 'film-classic',
+  'luminous-portrait': 'sunlit-sienna',
+  'golden-hour': 'sunlit-sienna',
+  'ember-glow': 'film-classic',
+  'arctic-mist': 'coastal-breeze',
+  'verdant-matte': 'pastel-wash',
+  'forest-depth': 'film-classic',
+  'retro-fade': 'pastel-wash',
+  'cobalt-pop': 'coastal-breeze'
+};
+
+const AVAILABLE_FILTERS = new Set([
+  'none',
+  'sunlit-sienna',
+  'coastal-breeze',
+  'pastel-wash',
+  'film-classic',
+  'noir-cinema',
+  'silver-pearl',
+  'graphite-ink'
+]);
+
+const METADATA_DEFAULT_MATTE = 'none';
+const METADATA_DEFAULT_FILTER = 'None';
+
+function normalizeEditingFilterName(name) {
+  if (!name) return 'none';
+  const key = String(name).toLowerCase();
+  const mapped = FILTER_ALIASES[key] || key;
+  return AVAILABLE_FILTERS.has(mapped) ? mapped : 'none';
+}
+
 let editState = createDefaultEditState();
 let editControls = null;
 let cropInteraction = null;
@@ -2936,7 +2984,7 @@ function updateAdjustmentUI() {
 }
 
 function selectFilter(name, options = {}) {
-  const filterName = (name || 'none').toLowerCase();
+  const filterName = normalizeEditingFilterName(name);
   editState.filter = filterName;
   updateFilterButtons(filterName);
   if (!options.silent) {
@@ -2948,7 +2996,8 @@ function selectFilter(name, options = {}) {
 function updateFilterButtons(activeFilter) {
   if (!editControls?.filters?.chips) return;
   editControls.filters.chips.forEach(chip => {
-    chip.classList.toggle('active', (chip.dataset.filter || 'none') === activeFilter);
+  const chipFilter = normalizeEditingFilterName(chip.dataset.filter || 'none');
+    chip.classList.toggle('active', chipFilter === activeFilter);
   });
 }
 
@@ -3391,32 +3440,29 @@ function applyPreviewFilters() {
   const contrast = clamp(1 + editState.adjustments.contrast / 100, 0.1, 3).toFixed(3);
   const parts = [`brightness(${brightness})`, `contrast(${contrast})`];
 
-  switch (editState.filter) {
-    case 'gallery-soft':
-      parts.push('sepia(0.12)', 'saturate(1.12)', 'brightness(1.05)');
+  const normalizedFilter = normalizeEditingFilterName(editState.filter);
+
+  switch (normalizedFilter) {
+    case 'sunlit-sienna':
+      parts.push('sepia(0.28)', 'saturate(1.12)', 'hue-rotate(8deg)', 'brightness(1.02)', 'contrast(1.05)');
       break;
-    case 'vivid-sky':
-      parts.push('saturate(1.24)', 'hue-rotate(350deg)', 'brightness(1.04)');
+    case 'coastal-breeze':
+      parts.push('saturate(0.95)', 'hue-rotate(185deg)', 'brightness(1.05)', 'contrast(1.02)');
       break;
-    case 'dusk-haze':
-      parts.push('saturate(1.08)', 'hue-rotate(315deg)', 'brightness(0.98)', 'contrast(1.05)');
+    case 'pastel-wash':
+      parts.push('saturate(0.75)', 'brightness(1.05)', 'contrast(0.9)');
       break;
-    case 'impressionist':
-      parts.push('saturate(1.22)', 'contrast(0.94)', 'brightness(1.06)');
+    case 'film-classic':
+      parts.push('saturate(1.05)', 'brightness(1.02)', 'contrast(1.08)');
       break;
-    case 'deco-gold':
-      parts.push('sepia(0.35)', 'saturate(1.08)', 'hue-rotate(10deg)', 'brightness(1.02)');
+    case 'noir-cinema':
+      parts.push('grayscale(1)', 'contrast(1.4)', 'brightness(0.95)');
       break;
-    case 'charcoal':
-      parts.push('grayscale(1)', 'contrast(1.25)');
+    case 'silver-pearl':
+      parts.push('grayscale(1)', 'brightness(1.08)', 'contrast(0.95)');
       break;
-    case 'silver-tone':
-    case 'monochrome':
-    case 'grayscale':
-      parts.push('grayscale(1)', 'brightness(1.05)', 'contrast(0.92)');
-      break;
-    case 'ink-sketch':
-      parts.push('grayscale(1)', 'contrast(1.45)', 'brightness(1.05)');
+    case 'graphite-ink':
+      parts.push('grayscale(1)', 'contrast(1.2)', 'brightness(1.02)');
       break;
     default:
       break;
@@ -3725,8 +3771,18 @@ function openImageModal(filename) {
   renderModalResolutionFromMetadata(imageData);
 
   // Set form values
-  document.getElementById('modal-matte').value = imageData.matte || 'none';
-  document.getElementById('modal-filter').value = imageData.filter || 'none';
+  const metadataMatte = imageData.matte || METADATA_DEFAULT_MATTE;
+  const metadataFilter = imageData.filter || METADATA_DEFAULT_FILTER;
+
+  document.getElementById('modal-matte').value = metadataMatte;
+  document.getElementById('modal-filter').value = metadataFilter;
+
+  if (allImages[currentImage]) {
+    allImages[currentImage].matte = metadataMatte;
+    allImages[currentImage].filter = metadataFilter;
+  }
+
+  selectFilter('none', { silent: true });
   
   // Render tag badges
   renderImageTagBadges(imageData.tags || []);
@@ -3830,8 +3886,8 @@ async function saveFilenameChange() {
 async function saveImageChanges() {
   if (!currentImage) return;
 
-  const matte = document.getElementById('modal-matte').value;
-  const filter = document.getElementById('modal-filter').value;
+  const matte = document.getElementById('modal-matte').value || METADATA_DEFAULT_MATTE;
+  const filter = document.getElementById('modal-filter').value || METADATA_DEFAULT_FILTER;
 
   try {
     const response = await fetch(`${API_BASE}/images/${encodeURIComponent(currentImage)}`, {
@@ -3844,8 +3900,8 @@ async function saveImageChanges() {
 
     if (result.success) {
       // Update local cache
-      allImages[currentImage].matte = matte;
-      allImages[currentImage].filter = filter;
+  allImages[currentImage].matte = matte;
+  allImages[currentImage].filter = filter;
       
       // Reload gallery in background
       loadGallery();

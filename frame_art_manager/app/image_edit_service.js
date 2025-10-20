@@ -34,6 +34,46 @@ async function fileExists(filePath) {
   }
 }
 
+const LEGACY_FILTER_MAP = {
+  'gallery-soft': 'pastel-wash',
+  'vivid-sky': 'coastal-breeze',
+  'dusk-haze': 'silver-pearl',
+  'impressionist': 'film-classic',
+  'deco-gold': 'sunlit-sienna',
+  'charcoal': 'noir-cinema',
+  'silver-tone': 'silver-pearl',
+  'monochrome': 'silver-pearl',
+  'grayscale': 'silver-pearl',
+  'ink-sketch': 'graphite-ink',
+  'aqua': 'coastal-breeze',
+  'artdeco': 'sunlit-sienna',
+  'ink': 'graphite-ink',
+  'wash': 'pastel-wash',
+  'pastel': 'pastel-wash',
+  'feuve': 'film-classic',
+  'luminous-portrait': 'sunlit-sienna',
+  'golden-hour': 'sunlit-sienna',
+  'ember-glow': 'film-classic',
+  'arctic-mist': 'coastal-breeze',
+  'verdant-matte': 'pastel-wash',
+  'forest-depth': 'film-classic',
+  'retro-fade': 'pastel-wash',
+  'cobalt-pop': 'coastal-breeze'
+};
+
+const EDITING_FILTERS = [
+  'none',
+  'sunlit-sienna',
+  'coastal-breeze',
+  'pastel-wash',
+  'film-classic',
+  'noir-cinema',
+  'silver-pearl',
+  'graphite-ink'
+];
+
+const AVAILABLE_FILTERS = new Set(EDITING_FILTERS);
+
 class ImageEditService {
   constructor(frameArtPath) {
     this.frameArtPath = frameArtPath;
@@ -103,10 +143,15 @@ class ImageEditService {
       contrast: Math.max(-100, Math.min(100, Number(adjustments.contrast) || 0))
     };
 
+    let normalizedFilter = LEGACY_FILTER_MAP[filter.toLowerCase()] || filter.toLowerCase();
+    if (!AVAILABLE_FILTERS.has(normalizedFilter)) {
+      normalizedFilter = 'none';
+    }
+
     return {
       crop: sanitizedCrop,
       adjustments: sanitizedAdjustments,
-      filter: filter.toLowerCase()
+      filter: normalizedFilter
     };
   }
 
@@ -154,54 +199,49 @@ class ImageEditService {
   }
 
   applyFilter(instance, filterName) {
-    switch (filterName) {
-      case 'gallery-soft':
+    const normalizedFilter = LEGACY_FILTER_MAP[filterName] || filterName;
+
+    switch (normalizedFilter) {
+      case 'none':
+        return instance;
+      case 'sunlit-sienna':
         return instance
-          .modulate({ saturation: 1.08, brightness: 1.03 })
+          .modulate({ saturation: 1.08, brightness: 1.02, hue: 8 })
+          .linear(1.05, -10)
+          .tint('#f3d4b8');
+      case 'coastal-breeze':
+        return instance
+          .modulate({ saturation: 0.94, brightness: 1.05, hue: 190 })
           .linear(1.02, -4)
-          .tint('#f5e4d3');
-      case 'vivid-sky':
+          .tint('#e3f0ff');
+      case 'pastel-wash':
         return instance
-          .modulate({ saturation: 1.2, brightness: 1.03 })
-          .linear(1.04, -2)
-          .tint('#e2f1ff');
-      case 'dusk-haze':
+          .modulate({ saturation: 0.82, brightness: 1.05, hue: 10 })
+          .linear(0.92, 18)
+          .tint('#f7e9f6');
+      case 'film-classic':
         return instance
-          .modulate({ saturation: 1.08, brightness: 0.98 })
-          .tint('#d9c6ff')
-          .linear(1.03, -6);
-      case 'impressionist':
-        return instance
-          .modulate({ saturation: 1.22, brightness: 1.05 })
-          .linear(0.93, 14);
-      case 'deco-gold':
-        return instance
-          .recomb([
-            [1.06, 0.02, 0],
-            [0.02, 1.04, 0.01],
-            [0.02, 0.06, 0.94]
-          ])
-          .modulate({ saturation: 1.12, brightness: 1.02 })
-          .tint('#fbe4c6');
-      case 'charcoal':
+          .modulate({ saturation: 1.05, brightness: 1.02 })
+          .linear(1.08, -10)
+          .gamma(1.02);
+      case 'noir-cinema':
         return instance
           .greyscale()
-          .linear(1.32, -34)
-          .modulate({ brightness: 0.92 });
-      case 'silver-tone':
-      case 'monochrome':
-      case 'grayscale':
+          .linear(1.4, -38)
+          .gamma(1.08)
+          .modulate({ brightness: 0.96 });
+      case 'silver-pearl':
         return instance
           .greyscale()
-          .modulate({ brightness: 1.06 })
+          .modulate({ brightness: 1.08 })
           .gamma(1.12)
-          .linear(1, -2);
-      case 'ink-sketch':
+          .linear(0.94, 12);
+      case 'graphite-ink':
         return instance
           .greyscale()
           .median(1)
-          .threshold(150)
-          .linear(1.05, -10);
+          .linear(1.18, -16)
+          .modulate({ brightness: 1.02 });
       default:
         return instance;
     }

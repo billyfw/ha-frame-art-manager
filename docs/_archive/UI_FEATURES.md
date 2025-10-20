@@ -88,13 +88,10 @@ The interface uses a tabbed navigation system with 6 main sections:
 - Resolution (width x height)
 
 **Editing Controls**
-- **Matte**: Dropdown with 7 options
-  - None (default)
-  - Square White/Black/Beige
-  - Modern White/Black/Beige
-- **Filter**: Dropdown with 5 options
-  - None (default)
-  - Sepia, Grayscale, Warm, Cool
+- **Matte**: Dropdown with Samsung Frame options
+  - none (default), modernthin, modern, modernwide, flexible, shadowbox, panoramic, triptych, mix, squares
+- **Filter**: Dropdown with Samsung art filters
+  - None (default), Aqua, ArtDeco, Ink, Wash, Pastel, Feuve
 - **Tags**: Comma-separated text input
   - Add/remove tags
   - Tags autocreate if they don't exist
