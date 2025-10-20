@@ -200,9 +200,14 @@ test('INTEGRATION: addTV and removeTV work correctly', async () => {
   assert.ok(tv.id, 'TV should have ID');
   assert.strictEqual(tv.name, name);
   assert.strictEqual(tv.ip, ip);
+  assert.deepStrictEqual(tv.tags, []);
+  assert.deepStrictEqual(tv.notTags, []);
   
   let tvs = await helper.getAllTVs();
   assert.strictEqual(tvs.length, 1);
+  const persistedTV = tvs[0];
+  assert.deepStrictEqual(persistedTV.tags, []);
+  assert.deepStrictEqual(persistedTV.notTags, []);
   
   // Remove TV
   await helper.removeTV(tv.id);
@@ -226,6 +231,8 @@ test('INTEGRATION: updateTV modifies TV metadata', async () => {
   
   assert.strictEqual(updatedTV.name, newName);
   assert.strictEqual(updatedTV.ip, newIp);
+  assert.deepStrictEqual(updatedTV.tags, []);
+  assert.deepStrictEqual(updatedTV.notTags, []);
 });
 
 test('INTEGRATION: updateTVTags assigns tags to TV', async () => {
@@ -233,12 +240,14 @@ test('INTEGRATION: updateTVTags assigns tags to TV', async () => {
   const tv = tvs[0];
   
   const tags = ['landscape', 'portrait'];
-  await helper.updateTVTags(tv.id, tags);
+  const notTags = ['sunset'];
+  await helper.updateTVTags(tv.id, tags, notTags);
   
   const updatedTVs = await helper.getAllTVs();
   const updatedTV = updatedTVs.find(t => t.id === tv.id);
   
   assert.deepStrictEqual(updatedTV.tags, tags);
+  assert.deepStrictEqual(updatedTV.notTags, notTags);
 });
 
 test('INTEGRATION: getImagesByTag filters correctly', async () => {

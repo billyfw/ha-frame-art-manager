@@ -534,6 +534,13 @@
           </div>
           <button type="button" id="tv-modal-add-tag-btn" class="btn-secondary btn-sm">+ Add Tag</button>
         </div>
+        <div class="form-group">
+          <label>Exclude Tags:</label>
+          <div id="tv-modal-not-tag-pills" class="tag-pills-container">
+            <!-- Not-tag pills will be populated here -->
+          </div>
+          <button type="button" id="tv-modal-add-not-tag-btn" class="btn-secondary btn-sm">+ Add Exclusion</button>
+        </div>
         <div class="modal-info">
           <p><small>Added: <span id="tv-modal-date"></span></small></p>
         </div>
@@ -553,7 +560,7 @@
     <div class="modal-content tv-tag-picker-modal">
       <span class="close" id="tv-tag-picker-close">&times;</span>
       <div class="modal-details">
-        <h3>Select Tags for TV</h3>
+  <h3 id="tv-tag-picker-title">Select Tags for TV</h3>
         <div class="tag-picker-search">
           <input type="text" id="tv-tag-picker-search" placeholder="Search tags..." />
         </div>
