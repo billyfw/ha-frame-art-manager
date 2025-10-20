@@ -315,6 +315,17 @@ class GitHelper {
    * @returns {Promise<{success: boolean, synced: boolean, pulledChanges?: boolean, skipped?: boolean, reason?: string, error?: string}>}
    */
   async checkAndPullIfBehind() {
+    const lockAcquired = await GitHelper.acquireSyncLock();
+    if (!lockAcquired) {
+      return {
+        success: true,
+        synced: false,
+        skipped: true,
+        reason: 'Another sync operation is already running',
+        syncInProgress: true
+      };
+    }
+
     try {
       await this.ensureLfsUsesSsh();
       await this.cleanupRebaseState();
@@ -400,6 +411,8 @@ class GitHelper {
         synced: false,
         error: error.message
       };
+    } finally {
+      GitHelper.releaseSyncLock();
     }
   }
 

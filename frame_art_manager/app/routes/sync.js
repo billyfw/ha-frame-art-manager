@@ -129,6 +129,7 @@ async function cleanupFailedUploads(frameArtPath, imageFilenames) {
 router.get('/status', async (req, res) => {
   try {
     const git = new GitHelper(req.frameArtPath);
+    let syncBusy = false;
     
     // Check for conflicts first
     const conflictCheck = await git.checkForConflicts();
@@ -136,12 +137,21 @@ router.get('/status', async (req, res) => {
     // Try to fetch from remote first to get latest commit info (with retries)
     // If this fails (network down), continue anyway with local status
     try {
-      await GitHelper.retryWithBackoff(
-        () => git.git.fetch('origin', 'main'),
-        3,
-        2000,
-        'git fetch'
-      );
+      const lockAcquired = await GitHelper.acquireSyncLock();
+      if (!lockAcquired) {
+        syncBusy = true;
+      } else {
+        try {
+          await GitHelper.retryWithBackoff(
+            () => git.git.fetch('origin', 'main'),
+            3,
+            2000,
+            'git fetch'
+          );
+        } finally {
+          GitHelper.releaseSyncLock();
+        }
+      }
     } catch (fetchError) {
       console.warn('Could not fetch from remote after retries (network may be down):', fetchError.message);
       // Continue with local status
@@ -163,7 +173,8 @@ router.get('/status', async (req, res) => {
         lastSync: lastSync,
         hasConflicts: conflictCheck.hasConflicts,
         conflictType: conflictCheck.conflictType,
-        conflictedFiles: conflictCheck.conflictedFiles
+        conflictedFiles: conflictCheck.conflictedFiles,
+        syncInProgress: syncBusy
       }
     });
   } catch (error) {

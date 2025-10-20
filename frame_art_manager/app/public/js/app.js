@@ -6,13 +6,17 @@ let libraryPath = null; // Store library path for tooltips
 let isSyncInProgress = false; // Track if a sync operation is currently running
 
 // State
+const navigationContext = detectNavigationContext();
+const isInitialTabLoad = navigationContext.isFirstLoadInTab;
+
 let allImages = {};
 let allTags = [];
 let allTVs = [];
 let currentImage = null;
 let selectedImages = new Set();
 let lastClickedIndex = null;
-let sortAscending = true; // true = ascending (A-Z, oldest first), false = descending
+let sortAscending = isInitialTabLoad ? false : true; // true = ascending (A-Z, oldest first), false = descending
+let galleryHasLoadedAtLeastOnce = false;
 
 const createDefaultEditState = () => ({
   active: false,
@@ -30,6 +34,50 @@ const createDefaultEditState = () => ({
 let editState = createDefaultEditState();
 let editControls = null;
 let cropInteraction = null;
+
+function detectNavigationContext() {
+  const defaultType = 'navigate';
+  let detectedType = defaultType;
+
+  try {
+    if (typeof performance !== 'undefined') {
+      if (typeof performance.getEntriesByType === 'function') {
+        const entries = performance.getEntriesByType('navigation');
+        if (entries && entries.length > 0) {
+          detectedType = entries[0]?.type || defaultType;
+        }
+      } else if (performance.navigation) {
+        switch (performance.navigation.type) {
+          case performance.navigation.TYPE_RELOAD:
+            detectedType = 'reload';
+            break;
+          case performance.navigation.TYPE_BACK_FORWARD:
+            detectedType = 'back_forward';
+            break;
+          case performance.navigation.TYPE_NAVIGATE:
+            detectedType = 'navigate';
+            break;
+          default:
+            detectedType = defaultType;
+            break;
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Navigation context detection failed:', error);
+  }
+
+  if (!['navigate', 'reload', 'back_forward', 'prerender'].includes(detectedType)) {
+    detectedType = defaultType;
+  }
+
+  return {
+    navigationType: detectedType,
+    isReloadNavigation: detectedType === 'reload',
+    isBackForwardNavigation: detectedType === 'back_forward',
+    isFirstLoadInTab: detectedType === 'navigate'
+  };
+}
 
 // Hash-based routing
 function handleRoute() {
@@ -282,6 +330,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadLibraryPath();
   initCloudSyncButton(); // Initialize cloud sync button in toolbar - BEFORE checking sync
   
+  if (isInitialTabLoad) {
+    const sortOrderSelect = document.getElementById('sort-order');
+    if (sortOrderSelect) {
+      sortOrderSelect.value = 'date';
+    }
+    sortAscending = false;
+    updateSortDirectionIcon();
+  }
+
   // Set up hash-based routing
   window.addEventListener('hashchange', handleRoute);
   window.addEventListener('load', handleRoute);
@@ -670,12 +727,14 @@ function setGallerySortToNewestFirst() {
 }
 
 async function refreshGalleryAfterSync(syncData) {
+  const hadGalleryBefore = galleryHasLoadedAtLeastOnce;
   const previousKeys = new Set(Object.keys(allImages || {}));
   await loadGallery();
   const currentKeys = Object.keys(allImages || {});
   const addedKeys = currentKeys.filter(key => !previousKeys.has(key));
 
-  if (addedKeys.length > 0 || hasRemoteNewImages(syncData)) {
+  const hasNewImagesFromRemote = hasRemoteNewImages(syncData);
+  if ((hadGalleryBefore && addedKeys.length > 0) || hasNewImagesFromRemote) {
     setGallerySortToNewestFirst();
   }
 
@@ -897,6 +956,7 @@ async function loadGallery() {
   try {
     const response = await fetch(`${API_BASE}/images`);
     allImages = await response.json();
+    galleryHasLoadedAtLeastOnce = true;
 
     // Also load tags for filter dropdown
     await loadTagsForFilter();
@@ -1859,6 +1919,10 @@ async function uploadBatchImages(files) {
     alert(message);
   }
   
+  if (successCount > 0) {
+    setGallerySortToNewestFirst();
+  }
+
   // Reload gallery and tags
   await loadGallery();
   await loadTags();
