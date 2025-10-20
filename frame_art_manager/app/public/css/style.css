@@ -11,6 +11,18 @@ body {
   line-height: 1.6;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .container {
   width: 100%;
   max-width: 1260px;
@@ -42,6 +54,11 @@ body {
 
 .crop-overlay.active {
   pointer-events: auto;
+}
+
+.crop-overlay.preview-muted .crop-box {
+  border-color: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
 }
 
 .crop-box {
@@ -95,6 +112,15 @@ body {
   background: #d1d7e1;
 }
 
+.toolbar-divider-inline {
+  display: inline-block;
+  width: 1px;
+  height: 24px;
+  background: #d1d7e1;
+  margin: 0 10px;
+  pointer-events: none;
+}
+
 .image-edit-toolbar .toolbar-group {
   display: flex;
   align-items: center;
@@ -142,20 +168,48 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 0;
+  color: #42526e;
   cursor: pointer;
-  transition: background 0.2s ease, border 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, border 0.2s ease, transform 0.2s ease, color 0.2s ease;
 }
 
 .toolbar-icon-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+  color: #a0acbf;
 }
 
 .toolbar-icon-btn.active {
   border-color: #2c82c9;
   background: rgba(44, 130, 201, 0.12);
   transform: translateY(-1px);
+  color: #1b4f92;
+}
+
+.toolbar-icon-btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  pointer-events: none;
+}
+
+.preview-toggle-btn .icon-eye-closed {
+  display: none;
+}
+
+.preview-toggle-btn.preview-off {
+  border-color: #d64541;
+  background: #fdebea;
+  color: #c0392b;
+}
+
+.preview-toggle-btn.preview-off .icon-eye-open {
+  display: none;
+}
+
+.preview-toggle-btn.preview-off .icon-eye-closed {
+  display: block;
 }
 
 .toolbar-status {
@@ -207,6 +261,11 @@ body {
   font-size: 0.85rem;
   font-weight: 600;
   color: #2c3e50;
+}
+
+.popover-header.popover-header-secondary {
+  margin-top: 6px;
+  color: #4d5c71;
 }
 
 .popover-slider {
@@ -1046,7 +1105,12 @@ body {
 .upload-preview {
   margin-top: 12px;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 12px;
+  text-align: center;
+  min-height: 140px;
 }
 
 .upload-preview img {
@@ -1054,6 +1118,31 @@ body {
   max-height: 240px;
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.upload-preview-spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 4px solid rgba(27, 79, 146, 0.18);
+  border-top-color: #1b4f92;
+  animation: upload-preview-spin 0.84s linear infinite;
+}
+
+@keyframes upload-preview-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.upload-preview-error {
+  font-size: 0.9rem;
+  color: #c0392b;
+  line-height: 1.4;
+  max-width: 360px;
 }
 
 .upload-preview.hidden {

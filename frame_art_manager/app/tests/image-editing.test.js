@@ -235,7 +235,23 @@ test('INTEGRATION: revert removes backup and subsequent edit recreates it', asyn
 
 test('UNIT: legacy filter names remap to available filters', () => {
   const remapped = service.sanitizeOperations({ filter: 'cobalt-pop' });
-  assert.strictEqual(remapped.filter, 'coastal-breeze', 'Legacy cobalt-pop should normalize to coastal-breeze');
+  assert.strictEqual(remapped.filter, 'pop-art', 'Legacy cobalt-pop should normalize to pop-art');
+});
+
+test('UNIT: sanitizeOperations clamps HSL adjustments', () => {
+  const sanitized = service.sanitizeOperations({
+    adjustments: {
+      brightness: 0,
+      contrast: 0,
+      hue: 300,
+      saturation: 150,
+      lightness: -150
+    }
+  });
+
+  assert.strictEqual(sanitized.adjustments.hue, 180, 'Hue should clamp to ±180 degrees');
+  assert.strictEqual(sanitized.adjustments.saturation, 100, 'Saturation should clamp to ±100');
+  assert.strictEqual(sanitized.adjustments.lightness, -100, 'Lightness should clamp to ±100');
 });
 
 test('INTEGRATION: invalid crop is rejected without altering the source file', async () => {

@@ -88,7 +88,9 @@
           </div>
 
           <div class="upload-preview hidden" id="upload-preview-container">
-            <img id="upload-preview-image" alt="Selected image preview" />
+            <div id="upload-preview-spinner" class="upload-preview-spinner hidden" aria-hidden="true"></div>
+            <img id="upload-preview-image" alt="Upload preview" class="hidden" />
+            <div id="upload-preview-error" class="upload-preview-error hidden" role="status" aria-live="polite"></div>
           </div>
 
           <div class="form-group">
@@ -262,14 +264,42 @@
         </div>
         <div class="toolbar-divider"></div>
         <div class="toolbar-group toolbar-group-tools">
+          <button class="toolbar-icon-btn preview-toggle-btn" id="toolbar-preview-toggle-btn" title="Hide Preview" aria-pressed="false" disabled>
+            <span class="sr-only">Toggle preview</span>
+            <svg class="toolbar-icon-svg icon-eye-open" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+              <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
+            </svg>
+            <svg class="toolbar-icon-svg icon-eye-closed" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+              <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></line>
+            </svg>
+          </button>
+          <span class="toolbar-divider toolbar-divider-inline" aria-hidden="true"></span>
           <button class="toolbar-icon-btn" data-tool="crop" title="Crop" disabled>
-            <span class="toolbar-icon">✂️</span>
+            <svg class="toolbar-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 4v13a2 2 0 0 0 2 2h13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M4 7h13a2 2 0 0 1 2 2v13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+              <line x1="4" y1="4" x2="9" y2="4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></line>
+              <line x1="4" y1="4" x2="4" y2="9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></line>
+            </svg>
           </button>
           <button class="toolbar-icon-btn" data-tool="adjust" title="Brightness / Contrast" disabled>
-            <span class="toolbar-icon">☀️</span>
+            <svg class="toolbar-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="5" y1="7" x2="19" y2="7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></line>
+              <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></line>
+              <line x1="5" y1="17" x2="19" y2="17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></line>
+              <circle cx="10" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+              <circle cx="15" cy="12" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+              <circle cx="12" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+            </svg>
           </button>
           <button class="toolbar-icon-btn" data-tool="filter" title="Filters" disabled>
-            <span class="toolbar-icon">🎨</span>
+            <svg class="toolbar-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 5h16l-5.8 7.2v5.7l-4.4 3.6V12.2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+              <line x1="4" y1="5" x2="20" y2="5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></line>
+              <line x1="10" y1="21.5" x2="10" y2="16.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></line>
+            </svg>
           </button>
         </div>
         <div class="toolbar-flex"></div>
@@ -281,7 +311,7 @@
       </div>
       <div id="edit-popover-container" class="edit-popover-container">
         <div id="adjustments-popover" class="edit-popover hidden">
-          <div class="popover-header">Brightness & Contrast</div>
+          <div class="popover-header">Brightness &amp; Contrast</div>
           <label class="popover-slider">
             <span>Brightness</span>
             <input type="range" id="adjust-brightness" min="-100" max="100" value="0" step="1">
@@ -292,15 +322,34 @@
             <input type="range" id="adjust-contrast" min="-100" max="100" value="0" step="1">
             <span class="slider-value" id="adjust-contrast-value">0</span>
           </label>
+          <div class="popover-header popover-header-secondary">Hue, Saturation &amp; Lightness</div>
+          <label class="popover-slider">
+            <span>Hue</span>
+            <input type="range" id="adjust-hue" min="-180" max="180" value="0" step="1">
+            <span class="slider-value" id="adjust-hue-value">0°</span>
+          </label>
+          <label class="popover-slider">
+            <span>Saturation</span>
+            <input type="range" id="adjust-saturation" min="-100" max="100" value="0" step="1">
+            <span class="slider-value" id="adjust-saturation-value">0</span>
+          </label>
+          <label class="popover-slider">
+            <span>Lightness</span>
+            <input type="range" id="adjust-lightness" min="-100" max="100" value="0" step="1">
+            <span class="slider-value" id="adjust-lightness-value">0</span>
+          </label>
         </div>
         <div id="filters-popover" class="edit-popover hidden">
           <div class="popover-header">Filters</div>
           <div class="filter-chip-row" id="filter-chip-row">
             <button class="filter-chip active" data-filter="none">None</button>
-            <button class="filter-chip" data-filter="sunlit-sienna">Sunlit Sienna</button>
-            <button class="filter-chip" data-filter="coastal-breeze">Coastal Breeze</button>
-            <button class="filter-chip" data-filter="pastel-wash">Pastel Wash</button>
-            <button class="filter-chip" data-filter="film-classic">Film Classic</button>
+            <button class="filter-chip" data-filter="sketch">Sketch / Charcoal</button>
+            <button class="filter-chip" data-filter="oil-paint">Oil Painting</button>
+            <button class="filter-chip" data-filter="watercolor">Watercolor</button>
+            <button class="filter-chip" data-filter="impressionist">Impressionist</button>
+            <button class="filter-chip" data-filter="pop-art">Pop Art</button>
+            <button class="filter-chip" data-filter="art-deco">Art Deco Stylization</button>
+            <button class="filter-chip" data-filter="neural-style">Neural Style</button>
             <button class="filter-chip" data-filter="noir-cinema">Noir Cinema</button>
             <button class="filter-chip" data-filter="silver-pearl">Silver Pearl</button>
             <button class="filter-chip" data-filter="graphite-ink">Graphite Ink</button>
@@ -427,10 +476,13 @@
               <h4>Filter</h4>
               <div class="edit-filter-options" role="radiogroup">
                 <button type="button" class="filter-chip active" data-filter="none">None</button>
-                <button type="button" class="filter-chip" data-filter="sunlit-sienna">Sunlit Sienna</button>
-                <button type="button" class="filter-chip" data-filter="coastal-breeze">Coastal Breeze</button>
-                <button type="button" class="filter-chip" data-filter="pastel-wash">Pastel Wash</button>
-                <button type="button" class="filter-chip" data-filter="film-classic">Film Classic</button>
+                <button type="button" class="filter-chip" data-filter="sketch">Sketch / Charcoal</button>
+                <button type="button" class="filter-chip" data-filter="oil-paint">Oil Painting</button>
+                <button type="button" class="filter-chip" data-filter="watercolor">Watercolor</button>
+                <button type="button" class="filter-chip" data-filter="impressionist">Impressionist</button>
+                <button type="button" class="filter-chip" data-filter="pop-art">Pop Art</button>
+                <button type="button" class="filter-chip" data-filter="art-deco">Art Deco Stylization</button>
+                <button type="button" class="filter-chip" data-filter="neural-style">Neural Style</button>
                 <button type="button" class="filter-chip" data-filter="noir-cinema">Noir Cinema</button>
                 <button type="button" class="filter-chip" data-filter="silver-pearl">Silver Pearl</button>
                 <button type="button" class="filter-chip" data-filter="graphite-ink">Graphite Ink</button>
