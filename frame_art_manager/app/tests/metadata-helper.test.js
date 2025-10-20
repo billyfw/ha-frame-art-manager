@@ -111,8 +111,8 @@ test('getAllTags returns array', async () => {
 
 test('INTEGRATION: addImage stores metadata correctly', async () => {
   const filename = 'test-image-abc123.jpg';
-  const matte = 'square_white';
-  const filter = 'none';
+  const matte = 'none';
+  const filter = 'None';
   const tags = ['landscape', 'test'];
   
   // Create a dummy image file so sharp doesn't fail
@@ -136,8 +136,8 @@ test('INTEGRATION: addImage stores metadata correctly', async () => {
 test('INTEGRATION: updateImage modifies metadata', async () => {
   const filename = 'test-image-abc123.jpg';
   const updates = {
-    matte: 'square_black',
-    filter: 'soft',
+    matte: 'triptych',
+    filter: 'Pastel',
     tags: ['updated', 'test']
   };
   
@@ -163,7 +163,7 @@ test('INTEGRATION: renameImage updates filename', async () => {
   
   assert.ok(renamedImage, 'New filename should exist');
   assert.ok(!oldImage, 'Old filename should not exist');
-  assert.strictEqual(renamedImage.matte, 'square_black'); // From previous test
+  assert.strictEqual(renamedImage.matte, 'triptych'); // From previous test
 });
 
 test('INTEGRATION: deleteImage removes metadata', async () => {
@@ -282,7 +282,7 @@ test('INTEGRATION: metadata persists across helper instances', async () => {
   await fs.writeFile(imagePath, dummyImage);
   
   // Add data with first helper instance
-  await helper.addImage('persist-test-uuid.jpg', 'square_white', 'soft', ['test']);
+  await helper.addImage('persist-test-uuid.jpg', 'none', 'None', ['test']);
   
   // Create new helper instance
   const newHelper = new MetadataHelper(testPath);
@@ -290,7 +290,7 @@ test('INTEGRATION: metadata persists across helper instances', async () => {
   
   const persistedImage = images['persist-test-uuid.jpg'];
   assert.ok(persistedImage, 'Image should persist across instances');
-  assert.strictEqual(persistedImage.matte, 'square_white');
+  assert.strictEqual(persistedImage.matte, 'none');
 });
 
 test('INTEGRATION: corrupt metadata.json is handled gracefully', async () => {

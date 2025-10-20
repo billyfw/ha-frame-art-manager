@@ -79,10 +79,10 @@ Images display as cards with:
 - Date added
 
 **Edit Controls:**
-- **Matte**: Dropdown with 7 options
-  - None, Square White/Black/Beige, Modern White/Black/Beige
-- **Filter**: Dropdown with 5 options
-  - None, Sepia, Grayscale, Warm, Cool
+- **Matte**: Dropdown with Samsung Frame options
+  - none, modernthin, modern, modernwide, flexible, shadowbox, panoramic, triptych, mix, squares
+- **Filter**: Dropdown with Samsung art filters
+  - None, Aqua, ArtDeco, Ink, Wash, Pastel, Feuve
 - **Tags**: Comma-separated text input
   - Add/remove tags inline
   - Auto-creates new tags
@@ -316,8 +316,8 @@ Shows all tags with:
 ```javascript
 {
   "filename": "landscape-a1b2c3d4.jpg",
-  "matte": "square_white",
-  "filter": "none",
+  "matte": "squares",
+  "filter": "None",
   "tags": ["landscape", "nature"],
   "dimensions": {"width": 3840, "height": 2160},
   "aspectRatio": 1.78,

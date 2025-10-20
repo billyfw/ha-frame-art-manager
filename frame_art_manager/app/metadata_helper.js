@@ -1,6 +1,12 @@
 const fs = require('fs').promises;
 const path = require('path');
 const sharp = require('sharp');
+const {
+  DEFAULT_MATTE,
+  DEFAULT_FILTER,
+  normalizeMatteValue,
+  normalizeFilterValue
+} = require('./constants');
 
 class MetadataHelper {
   constructor(frameArtPath) {
@@ -63,8 +69,11 @@ class MetadataHelper {
   /**
    * Add new image entry to metadata
    */
-  async addImage(filename, matte = 'none', filter = 'none', tags = []) {
+  async addImage(filename, matte = DEFAULT_MATTE, filter = DEFAULT_FILTER, tags = []) {
     const metadata = await this.readMetadata();
+
+    const normalizedMatte = normalizeMatteValue(matte);
+    const normalizedFilter = normalizeFilterValue(filter);
     
     // Get image dimensions using sharp
     const imagePath = path.join(this.libraryPath, filename);
@@ -95,8 +104,8 @@ class MetadataHelper {
     }
     
     metadata.images[filename] = {
-      matte,
-      filter,
+      matte: normalizedMatte,
+      filter: normalizedFilter,
       tags,
       dimensions,
       aspectRatio,
@@ -129,9 +138,17 @@ class MetadataHelper {
       throw new Error(`Image ${filename} not found in metadata`);
     }
 
+    const sanitizedUpdates = { ...updates };
+    if (Object.prototype.hasOwnProperty.call(sanitizedUpdates, 'matte')) {
+      sanitizedUpdates.matte = normalizeMatteValue(sanitizedUpdates.matte);
+    }
+    if (Object.prototype.hasOwnProperty.call(sanitizedUpdates, 'filter')) {
+      sanitizedUpdates.filter = normalizeFilterValue(sanitizedUpdates.filter);
+    }
+
     metadata.images[filename] = {
       ...metadata.images[filename],
-      ...updates,
+      ...sanitizedUpdates,
       updated: new Date().toISOString()
     };
 

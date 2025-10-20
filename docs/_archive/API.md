@@ -19,8 +19,8 @@ GET /api/images
 [
   {
     "filename": "landscape-a1b2c3d4.jpg",
-    "matte": "square_white",
-    "filter": "none",
+  "matte": "squares",
+  "filter": "None",
     "tags": ["landscape", "nature"],
     "added": "2025-01-15T10:30:00.000Z",
     "dimensions": {
@@ -40,8 +40,8 @@ GET /api/images/:filename
 ```json
 {
   "filename": "landscape-a1b2c3d4.jpg",
-  "matte": "square_white",
-  "filter": "none",
+  "matte": "squares",
+  "filter": "None",
   "tags": ["landscape", "nature"],
   "added": "2025-01-15T10:30:00.000Z",
   "dimensions": {
@@ -59,8 +59,8 @@ Content-Type: multipart/form-data
 
 **Body:**
 - `image` (file, required) - Image file
-- `matte` (string, optional) - Matte type (default: "none")
-- `filter` (string, optional) - Filter type (default: "none")
+- `matte` (string, optional) - Matte type (default: "none"); supported: none, modernthin, modern, modernwide, flexible, shadowbox, panoramic, triptych, mix, squares
+- `filter` (string, optional) - Filter type (default: "None"); supported: None, Aqua, ArtDeco, Ink, Wash, Pastel, Feuve
 - `tags` (string, optional) - Comma-separated tags
 
 **Response:**
@@ -89,8 +89,8 @@ Content-Type: application/json
 **Body:**
 ```json
 {
-  "matte": "modern_black",
-  "filter": "sepia",
+  "matte": "modern",
+  "filter": "ArtDeco",
   "tags": ["vintage", "portrait"]
 }
 ```
@@ -101,8 +101,8 @@ Content-Type: application/json
   "success": true,
   "image": {
     "filename": "portrait-a1b2c3d4.jpg",
-    "matte": "modern_black",
-    "filter": "sepia",
+  "matte": "modern",
+  "filter": "ArtDeco",
     "tags": ["vintage", "portrait"],
     "added": "2025-01-15T10:30:00.000Z",
     "dimensions": {

@@ -126,7 +126,7 @@ test('INTEGRATION: applyEdits creates backup and updates metadata', async () => 
   const result = await service.applyEdits(filename, {
     crop: { top: 5, right: 5, bottom: 5, left: 5 },
     adjustments: { brightness: 15, contrast: 10 },
-    filter: 'gallery-soft'
+    filter: 'film-classic'
   });
 
   assert.strictEqual(result.backupCreated, true, 'First edit should create a backup');
@@ -157,7 +157,7 @@ test('INTEGRATION: applyEdits reuses backup on subsequent edits', async () => {
   const secondResult = await service.applyEdits(filename, {
     crop: { top: 0, right: 0, bottom: 0, left: 0 },
     adjustments: { brightness: -10, contrast: 20 },
-    filter: 'vivid-sky'
+    filter: 'graphite-ink'
   });
 
   assert.strictEqual(secondResult.backupCreated, false, 'Backup should not be recreated on subsequent edits');
@@ -177,7 +177,7 @@ test('INTEGRATION: revert restores original file and metadata', async () => {
   await service.applyEdits(filename, {
     crop: { top: 10, right: 5, bottom: 10, left: 5 },
     adjustments: { brightness: 20, contrast: -10 },
-    filter: 'dusk-haze'
+    filter: 'pastel-wash'
   });
 
   const backupPath = path.join(testPath, 'originals', 'edit-subject-cccccccc_original.jpg');
@@ -211,7 +211,7 @@ test('INTEGRATION: revert removes backup and subsequent edit recreates it', asyn
   await service.applyEdits(filename, {
     crop: { top: 2, right: 2, bottom: 2, left: 2 },
     adjustments: { brightness: 10, contrast: 5 },
-    filter: 'gallery-soft'
+    filter: 'silver-pearl'
   });
 
   const backupPath = path.join(testPath, 'originals', 'edit-subject-eeeeeeee_original.jpg');
@@ -231,6 +231,11 @@ test('INTEGRATION: revert removes backup and subsequent edit recreates it', asyn
 
   assert.strictEqual(secondResult.backupCreated, true, 'Backup should be recreated after revert when applying new edits');
   assert.ok(await fileExists(backupPath), 'Backup should exist again after new edits');
+});
+
+test('UNIT: legacy filter names remap to available filters', () => {
+  const remapped = service.sanitizeOperations({ filter: 'cobalt-pop' });
+  assert.strictEqual(remapped.filter, 'coastal-breeze', 'Legacy cobalt-pop should normalize to coastal-breeze');
 });
 
 test('INTEGRATION: invalid crop is rejected without altering the source file', async () => {

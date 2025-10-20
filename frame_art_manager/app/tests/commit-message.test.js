@@ -247,9 +247,9 @@ index abc123..def456 100644
 --- a/metadata.json
 +++ b/metadata.json
 @@ -10,7 +10,7 @@
-     "portrait-woman.jpg": {
+  "portrait-woman.jpg": {
 -      "matte": "none",
-+      "matte": "square_white",
++      "matte": "squares",
        "filter": "none",
        "tags": [
          "portrait"`;
@@ -267,10 +267,10 @@ index abc123..def456 100644
 --- a/metadata.json
 +++ b/metadata.json
 @@ -10,7 +10,7 @@
-     "sunset-beach.jpg": {
-       "matte": "none",
+    "sunset-beach.jpg": {
+      "matte": "none",
 -      "filter": "none",
-+      "filter": "soft",
++      "filter": "Pastel",
        "tags": [
          "sunset"`;
   
@@ -290,8 +290,8 @@ index abc123..def456 100644
      "city-skyline.jpg": {
 -      "matte": "none",
 -      "filter": "none",
-+      "matte": "square_black",
-+      "filter": "soft",
++      "matte": "modernwide",
++      "filter": "Feuve",
        "tags": [
          "city"`;
   
@@ -308,9 +308,9 @@ index abc123..def456 100644
 --- a/metadata.json
 +++ b/metadata.json
 @@ -10,10 +10,11 @@
-     "abstract-art.jpg": {
+  "abstract-art.jpg": {
 -      "matte": "none",
-+      "matte": "square_white",
++      "matte": "squares",
        "filter": "none",
        "tags": [
 -        "abstract"
@@ -345,8 +345,8 @@ index abc123..def456 100644
       "dimensions": {
 @@ -25,7 +26,7 @@
     "image2.jpg": {
--      "matte": "none",
-+      "matte": "square_white",
+  -      "matte": "none",
+  +      "matte": "squares",
       "filter": "none",
       "tags": [
         "tag2"`;
@@ -438,7 +438,7 @@ index abc123..def456 100644
 @@ -10,7 +10,7 @@
      "no-tags.jpg": {
 -      "matte": "none",
-+      "matte": "square_white",
++      "matte": "squares",
        "filter": "none",
        "tags": [],`;
   
@@ -510,14 +510,14 @@ index abc123..def456 100644
 @@ -20,7 +21,7 @@
      "photo2.jpg": {
 -      "matte": "none",
-+      "matte": "square_black",
++      "matte": "mix",
        "filter": "none",
        "tags": [
 @@ -34,8 +35,8 @@
      "photo3.jpg": {
        "matte": "none",
 -      "filter": "none",
-+      "filter": "soft",
++      "filter": "Ink",
        "tags": [
 -        "tag1",
 -        "tag2"
@@ -716,7 +716,7 @@ index abc123..def456 100644
       },
       "image2.jpg": {
 -        "matte": "none",
-+        "matte": "square_white",
++        "matte": "squares",
         "filter": "none",
         "tags": [
           "tag2"`;
@@ -767,7 +767,7 @@ test('parseMetadataDiff: ignores images that appear only in context (no actual c
          "width": 1920,
 @@ -29,6 +32,7 @@
      "img_453432232a-90938c64.png": {
-       "matte": "square_white",
+  "matte": "squares",
        "filter": "none",
        "tags": [
          "222"
@@ -813,11 +813,11 @@ test('parseMetadataDiff: ignores property formatting changes (same value)', () =
 
 // BUG FIX TEST: Property value comparison (actual changes should be reported)
 test('parseMetadataDiff: detects property changes when values actually differ', () => {
-  // This simulates a diff where matte value actually changes from "none" to "square_white"
+  // This simulates a diff where matte value actually changes from "none" to "squares"
   const diff = `@@ -10,8 +10,8 @@
      "changed-image.jpg": {
 -      "matte": "none",
-+      "matte": "square_white",
++      "matte": "squares",
        "filter": "none",
        "tags": [
          "test"
@@ -848,9 +848,9 @@ test('parseMetadataDiff: ignores existing image properties when new images added
 +      "aspectRatio": 0.75,
 +      "added": "2025-10-17T22:20:18.619Z"
 +    },
-     "amanda-tx-license-back-copy-ce27751c.jpg": {
-       "matte": "square_white",
-       "filter": "sepia",
+    "amanda-tx-license-back-copy-ce27751c.jpg": {
+      "matte": "squares",
+      "filter": "Wash",
        "tags": [
          "amanda",
          "license"

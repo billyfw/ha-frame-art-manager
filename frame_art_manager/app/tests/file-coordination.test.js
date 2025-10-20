@@ -368,7 +368,7 @@ test('INTEGRATION: delete removes all three resources (file, thumb, metadata)', 
   // Setup: Create file, thumbnail, and metadata
   await createTestImage(filename);
   await createTestThumbnail(filename);
-  await helper.addImage(filename, 'square_white', 'soft', ['delete-test']);
+  await helper.addImage(filename, 'none', 'None', ['delete-test']);
   
   // Verify all exist before delete
   const imagePath = path.join(testPath, 'library', filename);
@@ -449,7 +449,7 @@ test('INTEGRATION: upload creates file, thumbnail, and metadata', async () => {
   
   // Simulate upload: create file, add metadata, generate thumbnail
   await createTestImage(filename);
-  await helper.addImage(filename, 'square_black', 'none', ['upload-test']);
+  await helper.addImage(filename, 'none', 'None', ['upload-test']);
   
   // Generate thumbnail (using MetadataHelper's method)
   try {
@@ -465,7 +465,7 @@ test('INTEGRATION: upload creates file, thumbnail, and metadata', async () => {
   
   const metadata = await helper.getAllImages();
   assert.ok(metadata[filename], 'Upload metadata should exist');
-  assert.strictEqual(metadata[filename].matte, 'square_black');
+  assert.strictEqual(metadata[filename].matte, 'none');
   assert.deepStrictEqual(metadata[filename].tags, ['upload-test']);
 });
 

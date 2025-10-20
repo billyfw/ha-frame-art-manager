@@ -6,7 +6,14 @@ const fs = require('fs').promises;
 const crypto = require('crypto');
 const MetadataHelper = require('../metadata_helper');
 const ImageEditService = require('../image_edit_service');
-const { MATTE_TYPES, FILTER_TYPES } = require('../constants');
+const {
+  MATTE_TYPES,
+  FILTER_TYPES,
+  DEFAULT_MATTE,
+  DEFAULT_FILTER,
+  normalizeMatteValue,
+  normalizeFilterValue
+} = require('../constants');
 
 async function removeFileIfExists(filePath) {
   try {
@@ -113,8 +120,11 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     }
 
     const helper = new MetadataHelper(req.frameArtPath);
-    const { matte = 'none', filter = 'none', tags = '' } = req.body;
+  const { matte = DEFAULT_MATTE, filter = DEFAULT_FILTER, tags = '' } = req.body;
     const tagArray = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [];
+
+  const normalizedMatte = normalizeMatteValue(matte);
+  const normalizedFilter = normalizeFilterValue(filter);
 
     let finalFilename = req.file.filename;
     let finalFilePath = path.join(req.frameArtPath, 'library', finalFilename);
@@ -181,8 +191,8 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     try {
       imageData = await helper.addImage(
         finalFilename,
-        matte,
-        filter,
+        normalizedMatte,
+        normalizedFilter,
         tagArray
       );
     } catch (validationError) {
@@ -217,11 +227,11 @@ router.post('/upload', upload.single('image'), async (req, res) => {
 router.put('/:filename', async (req, res) => {
   try {
     const helper = new MetadataHelper(req.frameArtPath);
-    const { matte, filter, tags } = req.body;
-    
-    const updates = {};
-    if (matte !== undefined) updates.matte = matte;
-    if (filter !== undefined) updates.filter = filter;
+  const { matte, filter, tags } = req.body;
+
+  const updates = {};
+  if (matte !== undefined) updates.matte = normalizeMatteValue(matte);
+  if (filter !== undefined) updates.filter = normalizeFilterValue(filter);
     if (tags !== undefined) updates.tags = tags;
 
     const imageData = await helper.updateImage(req.params.filename, updates);
