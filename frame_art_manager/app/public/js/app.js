@@ -9,61 +9,133 @@ let isSyncInProgress = false; // Track if a sync operation is currently running
 const navigationContext = detectNavigationContext();
 const isInitialTabLoad = navigationContext.isFirstLoadInTab;
 
+const SORT_PREFERENCE_STORAGE_KEY = 'frameArt.sortPreference';
+
+function loadSortPreference() {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(SORT_PREFERENCE_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || (parsed.order !== 'name' && parsed.order !== 'date')) {
+      return null;
+    }
+
+    return {
+      order: parsed.order,
+      ascending: typeof parsed.ascending === 'boolean' ? parsed.ascending : true
+    };
+  } catch (error) {
+    console.warn('Failed to load sort preference:', error);
+    return null;
+  }
+}
+
+function saveSortPreference(order, ascending) {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      SORT_PREFERENCE_STORAGE_KEY,
+      JSON.stringify({
+        order,
+        ascending: !!ascending
+      })
+    );
+  } catch (error) {
+    console.warn('Failed to save sort preference:', error);
+  }
+}
+
+const storedSortPreference = loadSortPreference();
+const initialSortOrderPreference = storedSortPreference?.order || 'date';
+let sortAscending = typeof storedSortPreference?.ascending === 'boolean' ? storedSortPreference.ascending : false;
+
+
 let allImages = {};
 let allTags = [];
 let allTVs = [];
 let currentImage = null;
 let selectedImages = new Set();
 let lastClickedIndex = null;
-let sortAscending = isInitialTabLoad ? false : true; // true = ascending (A-Z, oldest first), false = descending
 let galleryHasLoadedAtLeastOnce = false;
+let currentUploadPreviewUrl = null;
+let activeUploadPreviewToken = 0;
 
 const createDefaultEditState = () => ({
   active: false,
   hasBackup: false,
   crop: { top: 0, right: 0, bottom: 0, left: 0 },
-  adjustments: { brightness: 0, contrast: 0 },
+  adjustments: { brightness: 0, contrast: 0, hue: 0, saturation: 0, lightness: 0 },
   filter: 'none',
   naturalWidth: 0,
   naturalHeight: 0,
   cropPreset: 'free',
   activeTool: null,
-  isDirty: false
+  isDirty: false,
+  previewEnabled: true
 });
 
 const FILTER_ALIASES = {
-  'gallery-soft': 'pastel-wash',
-  'vivid-sky': 'coastal-breeze',
-  'dusk-haze': 'silver-pearl',
-  'impressionist': 'film-classic',
-  'deco-gold': 'sunlit-sienna',
-  'charcoal': 'noir-cinema',
+  'gallery-soft': 'watercolor',
+  'gallery': 'watercolor',
+  'vivid-sky': 'pop-art',
+  'dusk-haze': 'watercolor',
+  'impressionist': 'impressionist',
+  'oil painting': 'oil-paint',
+  'oilpaint': 'oil-paint',
+  'oil-painting': 'oil-paint',
+  'deco-gold': 'art-deco',
+  'artdeco': 'art-deco',
+  'art deco': 'art-deco',
+  'charcoal': 'sketch',
+  'pencil': 'sketch',
+  'sketch': 'sketch',
   'silver-tone': 'silver-pearl',
   'monochrome': 'silver-pearl',
   'grayscale': 'silver-pearl',
-  'ink-sketch': 'graphite-ink',
-  'aqua': 'coastal-breeze',
-  'artdeco': 'sunlit-sienna',
+  'ink-sketch': 'sketch',
   'ink': 'graphite-ink',
-  'wash': 'pastel-wash',
-  'pastel': 'pastel-wash',
-  'feuve': 'film-classic',
-  'luminous-portrait': 'sunlit-sienna',
-  'golden-hour': 'sunlit-sienna',
-  'ember-glow': 'film-classic',
-  'arctic-mist': 'coastal-breeze',
-  'verdant-matte': 'pastel-wash',
-  'forest-depth': 'film-classic',
-  'retro-fade': 'pastel-wash',
-  'cobalt-pop': 'coastal-breeze'
+  'wash': 'watercolor',
+  'pastel': 'watercolor',
+  'pastel-wash': 'watercolor',
+  'aqua': 'watercolor',
+  'feuve': 'impressionist',
+  'luminous-portrait': 'art-deco',
+  'golden-hour': 'art-deco',
+  'ember-glow': 'oil-paint',
+  'arctic-mist': 'watercolor',
+  'verdant-matte': 'impressionist',
+  'forest-depth': 'oil-paint',
+  'retro-fade': 'impressionist',
+  'cobalt-pop': 'pop-art',
+  'sunlit-sienna': 'art-deco',
+  'coastal-breeze': 'watercolor',
+  'film-classic': 'oil-paint',
+  'watercolour': 'watercolor',
+  'pop art': 'pop-art',
+  'popart': 'pop-art',
+  'neural': 'neural-style',
+  'neural-style': 'neural-style'
 };
 
 const AVAILABLE_FILTERS = new Set([
   'none',
-  'sunlit-sienna',
-  'coastal-breeze',
-  'pastel-wash',
-  'film-classic',
+  'sketch',
+  'oil-paint',
+  'watercolor',
+  'impressionist',
+  'pop-art',
+  'art-deco',
+  'neural-style',
   'noir-cinema',
   'silver-pearl',
   'graphite-ink'
@@ -322,41 +394,54 @@ function closeTagDropdownPortal() {
   tagDropdownState.isOpen = false;
 }
 
+const UUID_SUFFIX_PATTERN = /-[0-9a-f]{8}$/i;
+
+function extractBaseComponents(fn) {
+  const lastDotIndex = fn.lastIndexOf('.');
+  if (lastDotIndex <= 0) {
+    return {
+      base: fn,
+      ext: '',
+      hasUuid: false
+    };
+  }
+
+  const ext = fn.substring(lastDotIndex);
+  const nameWithoutExt = fn.substring(0, lastDotIndex);
+
+  if (UUID_SUFFIX_PATTERN.test(nameWithoutExt)) {
+    return {
+      base: nameWithoutExt.substring(0, nameWithoutExt.lastIndexOf('-')),
+      ext,
+      hasUuid: true
+    };
+  }
+
+  return {
+    base: nameWithoutExt,
+    ext,
+    hasUuid: false
+  };
+}
+
 // Helper function to get display name without UUID
 function getDisplayName(filename) {
-  // Remove UUID pattern (8 hex chars before extension): name-a1b2c3d4.jpg -> name
-  const ext = filename.substring(filename.lastIndexOf('.'));
-  const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.'));
-  
-  // Check if it ends with -UUID pattern (dash followed by 8 hex chars)
-  const uuidPattern = /-[0-9a-f]{8}$/i;
-  if (!uuidPattern.test(nameWithoutExt)) {
-    return filename; // No UUID, return as-is
-  }
-  
-  const baseNameWithoutUUID = nameWithoutExt.substring(0, nameWithoutExt.lastIndexOf('-'));
-  const displayName = baseNameWithoutUUID + ext;
-  
-  // Check if there are multiple images with the same base name
-  const allFilenames = Object.keys(allImages);
-  const sameBasisCount = allFilenames.filter(fn => {
-    const fnExt = fn.substring(fn.lastIndexOf('.'));
-    const fnNameWithoutExt = fn.substring(0, fn.lastIndexOf('.'));
-    
-    if (uuidPattern.test(fnNameWithoutExt)) {
-      const fnBase = fnNameWithoutExt.substring(0, fnNameWithoutExt.lastIndexOf('-'));
-      return (fnBase + fnExt) === displayName;
-    }
-    return fn === displayName;
-  }).length;
-  
-  // If there are duplicates, show the full filename with UUID and extension
-  if (sameBasisCount > 1) {
+  const { base, hasUuid } = extractBaseComponents(filename);
+  if (!hasUuid) {
     return filename;
   }
-  
-  // No duplicates - return just the base name without UUID or extension
-  return baseNameWithoutUUID;
+
+  const allFilenames = Object.keys(allImages);
+  const sharedBaseCount = allFilenames.filter(fn => {
+    const parsed = extractBaseComponents(fn);
+    return parsed.base === base;
+  }).length;
+
+  if (sharedBaseCount > 1) {
+    return filename;
+  }
+
+  return base;
 }
 
 // Helper function to format date
@@ -378,14 +463,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadLibraryPath();
   initCloudSyncButton(); // Initialize cloud sync button in toolbar - BEFORE checking sync
   
-  if (isInitialTabLoad) {
-    const sortOrderSelect = document.getElementById('sort-order');
-    if (sortOrderSelect) {
-      sortOrderSelect.value = 'date';
-    }
-    sortAscending = false;
-    updateSortDirectionIcon();
+  const sortOrderSelect = document.getElementById('sort-order');
+  if (sortOrderSelect) {
+    sortOrderSelect.value = initialSortOrderPreference;
   }
+
+  updateSortDirectionIcon();
+  saveSortPreference(sortOrderSelect ? sortOrderSelect.value : initialSortOrderPreference, sortAscending);
 
   // Set up hash-based routing
   window.addEventListener('hashchange', handleRoute);
@@ -772,6 +856,9 @@ function setGallerySortToNewestFirst() {
   if (!changeDispatched) {
     renderGallery();
   }
+
+  const orderValue = sortOrderSelect ? sortOrderSelect.value : 'date';
+  saveSortPreference(orderValue, sortAscending);
 }
 
 async function refreshGalleryAfterSync(syncData) {
@@ -1716,6 +1803,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sortOrderSelect.addEventListener('change', () => {
       resizeSortSelect('change');
       renderGallery();
+      saveSortPreference(sortOrderSelect.value, sortAscending);
     });
     // Initial resize
     resizeSortSelect('init');
@@ -1727,6 +1815,8 @@ document.addEventListener('DOMContentLoaded', () => {
       sortAscending = !sortAscending;
       updateSortDirectionIcon();
       renderGallery();
+      const orderValue = sortOrderSelect ? sortOrderSelect.value : initialSortOrderPreference;
+      saveSortPreference(orderValue, sortAscending);
     });
   }
 });
@@ -1747,23 +1837,153 @@ function updateTagFilterCount() {
 }
 
 // Upload Functions
-function updateUploadPreview(file) {
+function isHeicUpload(file) {
+  if (!file) return false;
+  const filename = (file.name || '').toLowerCase();
+  const mimetype = (file.type || '').toLowerCase();
+  return (
+    filename.endsWith('.heic') ||
+    filename.endsWith('.heif') ||
+    mimetype.startsWith('image/heic') ||
+    mimetype.startsWith('image/heif')
+  );
+}
+
+async function createPreviewUrl(file) {
+  if (!isHeicUpload(file)) {
+    const url = URL.createObjectURL(file);
+    return {
+      url,
+      alt: 'Selected image preview'
+    };
+  }
+
+  const formData = new FormData();
+  formData.append('image', file, file.name || 'preview.heic');
+
+  const response = await fetch(`${API_BASE}/images/preview`, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!response.ok) {
+    throw new Error(`Preview conversion failed (${response.status})`);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+
+  return {
+    url,
+    alt: 'Preview converted from HEIC source'
+  };
+}
+
+async function updateUploadPreview(file) {
   const container = document.getElementById('upload-preview-container');
   const previewImage = document.getElementById('upload-preview-image');
+  const spinner = document.getElementById('upload-preview-spinner');
+  const errorEl = document.getElementById('upload-preview-error');
 
-  if (!container || !previewImage) return;
+  if (!container || !previewImage) {
+    return;
+  }
+
+  activeUploadPreviewToken += 1;
+  const requestToken = activeUploadPreviewToken;
+
+  const hideSpinner = () => {
+    if (spinner) {
+      spinner.classList.add('hidden');
+    }
+  };
+
+  const showSpinner = () => {
+    if (spinner) {
+      spinner.classList.remove('hidden');
+    }
+  };
+
+  const hideError = () => {
+    if (errorEl) {
+      errorEl.textContent = '';
+      errorEl.classList.add('hidden');
+    }
+  };
+
+  const showError = message => {
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+    }
+  };
+
+  if (currentUploadPreviewUrl) {
+    URL.revokeObjectURL(currentUploadPreviewUrl);
+    currentUploadPreviewUrl = null;
+  }
+
+  previewImage.classList.add('hidden');
+  previewImage.removeAttribute('src');
+  previewImage.onload = null;
+  previewImage.onerror = null;
+  previewImage.alt = 'Upload preview';
+  hideSpinner();
+  hideError();
 
   if (!file) {
-    previewImage.src = '';
     container.classList.add('hidden');
     return;
   }
 
-  const objectUrl = URL.createObjectURL(file);
-  previewImage.src = objectUrl;
   container.classList.remove('hidden');
+  showSpinner();
 
-  previewImage.onload = () => URL.revokeObjectURL(objectUrl);
+  try {
+    const { url, alt } = await createPreviewUrl(file);
+
+    if (requestToken !== activeUploadPreviewToken) {
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    currentUploadPreviewUrl = url;
+    previewImage.alt = alt;
+    previewImage.onload = () => {
+      if (requestToken !== activeUploadPreviewToken) {
+        return;
+      }
+      hideSpinner();
+      hideError();
+      previewImage.classList.remove('hidden');
+      if (currentUploadPreviewUrl === url) {
+        URL.revokeObjectURL(url);
+        currentUploadPreviewUrl = null;
+      }
+    };
+    previewImage.onerror = () => {
+      if (requestToken !== activeUploadPreviewToken) {
+        return;
+      }
+      hideSpinner();
+      previewImage.classList.add('hidden');
+      showError('Preview unavailable.');
+      if (currentUploadPreviewUrl === url) {
+        URL.revokeObjectURL(url);
+        currentUploadPreviewUrl = null;
+      }
+    };
+
+    previewImage.src = url;
+  } catch (error) {
+    console.error('Upload preview failed:', error);
+    if (requestToken !== activeUploadPreviewToken) {
+      return;
+    }
+    hideSpinner();
+    previewImage.classList.add('hidden');
+    showError('Preview unavailable.');
+  }
 }
 
 function initUploadForm() {
@@ -1772,9 +1992,9 @@ function initUploadForm() {
 
   const fileInput = document.getElementById('image-file');
   if (fileInput) {
-    fileInput.addEventListener('change', (event) => {
+    fileInput.addEventListener('change', async (event) => {
       const file = event.target.files && event.target.files[0] ? event.target.files[0] : null;
-      updateUploadPreview(file);
+      await updateUploadPreview(file);
     });
   }
 
@@ -1801,6 +2021,7 @@ function initUploadForm() {
 
       if (result.success) {
         // Set sort to Date Added, descending (newest first) BEFORE navigation
+        sortAscending = false; // descending
         const sortOrderSelect = document.getElementById('sort-order');
         if (sortOrderSelect) {
           sortOrderSelect.value = 'date';
@@ -1808,8 +2029,9 @@ function initUploadForm() {
           const event = new Event('change', { bubbles: true });
           sortOrderSelect.dispatchEvent(event);
         }
-        sortAscending = false; // descending
         updateSortDirectionIcon();
+        const orderValue = sortOrderSelect ? sortOrderSelect.value : 'date';
+        saveSortPreference(orderValue, sortAscending);
         
         // Reset form for next use
   form.reset();
@@ -2609,9 +2831,10 @@ function initImageEditor() {
       editBtn: document.getElementById('toolbar-edit-btn'),
       applyBtn: document.getElementById('toolbar-apply-btn'),
       cancelBtn: document.getElementById('toolbar-cancel-btn'),
-      toolButtons: Array.from(toolbar.querySelectorAll('.toolbar-icon-btn')),
+      toolButtons: Array.from(toolbar.querySelectorAll('.toolbar-icon-btn[data-tool]')),
       toolGroup: toolbar.querySelector('.toolbar-group-tools'),
-      divider: toolbar.querySelector('.toolbar-divider')
+      divider: toolbar.querySelector('.toolbar-divider'),
+      previewToggleBtn: document.getElementById('toolbar-preview-toggle-btn')
     },
     revertBtn: document.getElementById('revert-original-btn'),
     popovers: {
@@ -2624,7 +2847,13 @@ function initImageEditor() {
       brightnessInput: document.getElementById('adjust-brightness'),
       contrastInput: document.getElementById('adjust-contrast'),
       brightnessValue: document.getElementById('adjust-brightness-value'),
-      contrastValue: document.getElementById('adjust-contrast-value')
+      contrastValue: document.getElementById('adjust-contrast-value'),
+      hueInput: document.getElementById('adjust-hue'),
+      saturationInput: document.getElementById('adjust-saturation'),
+      lightnessInput: document.getElementById('adjust-lightness'),
+      hueValue: document.getElementById('adjust-hue-value'),
+      saturationValue: document.getElementById('adjust-saturation-value'),
+      lightnessValue: document.getElementById('adjust-lightness-value')
     },
     filters: {
       chips: Array.from(document.querySelectorAll('#filter-chip-row .filter-chip'))
@@ -2655,6 +2884,12 @@ function initImageEditor() {
 
   editControls.toolbar.applyBtn?.addEventListener('click', submitImageEdits);
   editControls.toolbar.cancelBtn?.addEventListener('click', cancelEdits);
+  editControls.toolbar.previewToggleBtn?.addEventListener('click', () => {
+    if (!editState.active) {
+      return;
+    }
+    setPreviewEnabled(!editState.previewEnabled);
+  });
   editControls.revertBtn?.addEventListener('click', revertImageToOriginal);
   editControls.revertBtn?.classList.add('hidden');
 
@@ -2667,6 +2902,9 @@ function initImageEditor() {
 
   editControls.adjustments.brightnessInput?.addEventListener('input', handleAdjustmentInput);
   editControls.adjustments.contrastInput?.addEventListener('input', handleAdjustmentInput);
+  editControls.adjustments.hueInput?.addEventListener('input', handleAdjustmentInput);
+  editControls.adjustments.saturationInput?.addEventListener('input', handleAdjustmentInput);
+  editControls.adjustments.lightnessInput?.addEventListener('input', handleAdjustmentInput);
 
   editControls.filters.chips.forEach(chip => {
     chip.addEventListener('click', () => {
@@ -2695,6 +2933,7 @@ function initImageEditor() {
   });
 
   modalImage.addEventListener('load', handleModalImageLoad);
+  modalImage.addEventListener('error', handleModalImageError);
   window.addEventListener('resize', () => {
     if (editState.active) {
       updateCropOverlay();
@@ -2711,6 +2950,7 @@ function initImageEditor() {
 function handleModalImageLoad() {
   if (!editControls?.modalImage) return;
   const img = editControls.modalImage;
+  delete img.dataset.loadRetries;
   if (img.naturalWidth && img.naturalHeight) {
     editState.naturalWidth = img.naturalWidth;
     editState.naturalHeight = img.naturalHeight;
@@ -2720,6 +2960,23 @@ function handleModalImageLoad() {
     setActiveTool('crop', { force: true, silent: true });
   }
   applyPreviewFilters();
+}
+
+function handleModalImageError() {
+  if (!editControls?.modalImage || !currentImage) return;
+  const img = editControls.modalImage;
+  const retries = Number(img.dataset.loadRetries || 0);
+
+  if (retries >= 4) {
+    setToolbarStatus('Preview failed to load. Close and reopen the modal to retry.', 'error');
+    return;
+  }
+
+  img.dataset.loadRetries = String(retries + 1);
+  const delay = 150 * (retries + 1);
+  setTimeout(() => {
+    reloadModalImage(Date.now() + retries + 1);
+  }, delay);
 }
 
 function resetEditState(options = {}) {
@@ -2778,7 +3035,7 @@ function resetEditState(options = {}) {
 
 function updateToolbarState() {
   if (!editControls?.toolbar) return;
-  const { editBtn, applyBtn, cancelBtn, toolButtons } = editControls.toolbar;
+  const { editBtn, applyBtn, cancelBtn, toolButtons, previewToggleBtn } = editControls.toolbar;
   const isActive = editState.active;
 
   if (editBtn) {
@@ -2798,6 +3055,16 @@ function updateToolbarState() {
 
   if (editControls.toolbar.divider) {
     editControls.toolbar.divider.classList.toggle('hidden', !isActive);
+  }
+
+  if (previewToggleBtn) {
+    const wasDisabled = previewToggleBtn.disabled;
+    previewToggleBtn.disabled = !isActive;
+    if (!isActive && !editState.previewEnabled) {
+      setPreviewEnabled(true, { silent: true, force: true });
+    } else if (!wasDisabled || isActive) {
+      updatePreviewToggleUI();
+    }
   }
 
   toolButtons?.forEach(btn => {
@@ -2850,6 +3117,7 @@ function clearToolbarStatus() {
 function enterEditMode() {
   if (!editControls) return;
   editState.active = true;
+  setPreviewEnabled(true, { silent: true, force: true });
   document.body.classList.add('editing-active');
   if (!editState.naturalWidth || !editState.naturalHeight) {
     const img = editControls.modalImage;
@@ -2873,6 +3141,7 @@ function exitEditMode(options = {}) {
   const { resetState = false } = options;
   if (!editControls) return;
   editState.active = false;
+  setPreviewEnabled(true, { silent: true, force: true });
   document.body.classList.remove('editing-active');
   editState.activeTool = null;
   hidePopovers();
@@ -2953,6 +3222,34 @@ function hidePopovers() {
   editControls.popovers.crop?.classList.add('hidden');
 }
 
+function updatePreviewToggleUI() {
+  const btn = editControls?.toolbar?.previewToggleBtn;
+  if (!btn) return;
+  const previewOff = !editState.previewEnabled;
+  btn.classList.toggle('preview-off', previewOff);
+  btn.setAttribute('aria-pressed', previewOff ? 'true' : 'false');
+  btn.title = previewOff ? 'Show Preview' : 'Hide Preview';
+}
+
+function setPreviewEnabled(enabled, options = {}) {
+  const { silent = false, force = false } = options;
+  if (!force && editState.previewEnabled === enabled) {
+    updatePreviewToggleUI();
+    return;
+  }
+  editState.previewEnabled = enabled;
+  updatePreviewToggleUI();
+  if (!silent) {
+    if (enabled) {
+      clearToolbarStatus();
+    } else {
+      setToolbarStatus('Preview hidden. Toggle the eye to view edits.', 'info');
+    }
+  }
+  applyPreviewFilters();
+  updateCropOverlay();
+}
+
 function handleAdjustmentInput(event) {
   const input = event.target;
   const value = Number(input.value) || 0;
@@ -2960,6 +3257,12 @@ function handleAdjustmentInput(event) {
     editState.adjustments.brightness = value;
   } else if (input.id === 'adjust-contrast') {
     editState.adjustments.contrast = value;
+  } else if (input.id === 'adjust-hue') {
+    editState.adjustments.hue = clamp(value, -180, 180);
+  } else if (input.id === 'adjust-saturation') {
+    editState.adjustments.saturation = clamp(value, -100, 100);
+  } else if (input.id === 'adjust-lightness') {
+    editState.adjustments.lightness = clamp(value, -100, 100);
   }
   updateAdjustmentUI();
   markEditsDirty();
@@ -2968,18 +3271,47 @@ function handleAdjustmentInput(event) {
 
 function updateAdjustmentUI() {
   if (!editControls?.adjustments) return;
-  const { brightnessInput, contrastInput, brightnessValue, contrastValue } = editControls.adjustments;
+  const {
+    brightnessInput,
+    contrastInput,
+    hueInput,
+    saturationInput,
+    lightnessInput,
+    brightnessValue,
+    contrastValue,
+    hueValue,
+    saturationValue,
+    lightnessValue
+  } = editControls.adjustments;
   if (brightnessInput) {
     brightnessInput.value = editState.adjustments.brightness;
   }
   if (contrastInput) {
     contrastInput.value = editState.adjustments.contrast;
   }
+  if (hueInput) {
+    hueInput.value = editState.adjustments.hue;
+  }
+  if (saturationInput) {
+    saturationInput.value = editState.adjustments.saturation;
+  }
+  if (lightnessInput) {
+    lightnessInput.value = editState.adjustments.lightness;
+  }
   if (brightnessValue) {
     brightnessValue.textContent = editState.adjustments.brightness;
   }
   if (contrastValue) {
     contrastValue.textContent = editState.adjustments.contrast;
+  }
+  if (hueValue) {
+    hueValue.textContent = `${editState.adjustments.hue}°`;
+  }
+  if (saturationValue) {
+    saturationValue.textContent = editState.adjustments.saturation;
+  }
+  if (lightnessValue) {
+    lightnessValue.textContent = editState.adjustments.lightness;
   }
 }
 
@@ -3275,13 +3607,11 @@ function updateCropOverlay() {
   const overlay = editControls.crop.overlay;
   const box = editControls.crop.box;
 
-  if (!editState.active) {
-    overlay.classList.add('hidden');
-  } else {
-    overlay.classList.remove('hidden');
-  }
+  const overlayVisible = editState.active;
 
-  overlay.classList.toggle('active', editState.active && editState.activeTool === 'crop');
+  overlay.classList.toggle('hidden', !overlayVisible);
+  overlay.classList.toggle('preview-muted', overlayVisible && !editState.previewEnabled);
+  overlay.classList.toggle('active', overlayVisible && editState.activeTool === 'crop');
 
   const { top, right, bottom, left } = editState.crop;
   const widthPercent = Math.max(MIN_CROP_PERCENT, 100 - left - right);
@@ -3431,29 +3761,50 @@ function markEditsDirty() {
 function applyPreviewFilters() {
   if (!editControls?.modalImage) return;
   const img = editControls.modalImage;
-  if (!editState.active) {
+  if (!editState.active || !editState.previewEnabled) {
     img.style.filter = '';
     return;
   }
 
-  const brightness = clamp(1 + editState.adjustments.brightness / 100, 0.1, 3).toFixed(3);
-  const contrast = clamp(1 + editState.adjustments.contrast / 100, 0.1, 3).toFixed(3);
-  const parts = [`brightness(${brightness})`, `contrast(${contrast})`];
+  const adjustments = editState.adjustments || {};
+  const brightnessFactor = clamp(1 + (adjustments.brightness || 0) / 100, 0.1, 3);
+  const lightnessFactor = clamp(1 + (adjustments.lightness || 0) / 100, 0.1, 3);
+  const combinedBrightness = clamp(brightnessFactor * lightnessFactor, 0.1, 5).toFixed(3);
+  const contrast = clamp(1 + (adjustments.contrast || 0) / 100, 0.1, 3).toFixed(3);
+  const saturationFactor = clamp(1 + (adjustments.saturation || 0) / 100, 0.1, 5);
+  const hueRotate = clamp(adjustments.hue || 0, -180, 180);
+
+  const parts = [`brightness(${combinedBrightness})`, `contrast(${contrast})`];
+  if (Math.abs(hueRotate) > 0.001) {
+    parts.push(`hue-rotate(${hueRotate}deg)`);
+  }
+  if (Math.abs(adjustments.saturation || 0) > 0.001) {
+    parts.push(`saturate(${saturationFactor.toFixed(3)})`);
+  }
 
   const normalizedFilter = normalizeEditingFilterName(editState.filter);
 
   switch (normalizedFilter) {
-    case 'sunlit-sienna':
-      parts.push('sepia(0.28)', 'saturate(1.12)', 'hue-rotate(8deg)', 'brightness(1.02)', 'contrast(1.05)');
+    case 'sketch':
+      parts.push('grayscale(1)', 'contrast(2.15)', 'brightness(1.15)', 'invert(0.05)');
       break;
-    case 'coastal-breeze':
-      parts.push('saturate(0.95)', 'hue-rotate(185deg)', 'brightness(1.05)', 'contrast(1.02)');
+    case 'oil-paint':
+      parts.push('saturate(1.55)', 'contrast(1.18)', 'brightness(1.08)', 'blur(0.7px)');
       break;
-    case 'pastel-wash':
-      parts.push('saturate(0.75)', 'brightness(1.05)', 'contrast(0.9)');
+    case 'watercolor':
+      parts.push('saturate(1.35)', 'contrast(0.9)', 'brightness(1.12)', 'blur(1.15px)');
       break;
-    case 'film-classic':
-      parts.push('saturate(1.05)', 'brightness(1.02)', 'contrast(1.08)');
+    case 'impressionist':
+      parts.push('saturate(1.52)', 'contrast(1.12)', 'brightness(1.1)', 'blur(0.75px)');
+      break;
+    case 'pop-art':
+      parts.push('saturate(2.4)', 'contrast(1.85)', 'brightness(1.05)');
+      break;
+    case 'art-deco':
+      parts.push('sepia(0.45)', 'saturate(1.22)', 'contrast(1.22)');
+      break;
+    case 'neural-style':
+      parts.push('saturate(1.85)', 'contrast(1.28)', 'hue-rotate(32deg)');
       break;
     case 'noir-cinema':
       parts.push('grayscale(1)', 'contrast(1.4)', 'brightness(0.95)');

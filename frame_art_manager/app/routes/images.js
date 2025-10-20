@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const crypto = require('crypto');
+const heicConvert = require('heic-convert');
 const MetadataHelper = require('../metadata_helper');
 const ImageEditService = require('../image_edit_service');
 const {
@@ -15,6 +16,80 @@ const {
   normalizeFilterValue
 } = require('../constants');
 
+const LIBRARY_DIR = 'library';
+const THUMBS_DIR = 'thumbs';
+const ORIGINALS_DIR = 'originals';
+const FALLBACK_BASE_NAME = 'image';
+
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/avif',
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence'
+]);
+
+function sanitizeBaseName(rawName, fallback = FALLBACK_BASE_NAME) {
+  if (!rawName || typeof rawName !== 'string') {
+    return fallback;
+  }
+
+  const normalized = rawName
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  return normalized || fallback;
+}
+
+function determineExtension(file) {
+  const originalExt = path.extname(file.originalname || '').toLowerCase();
+  if (originalExt) {
+    return originalExt;
+  }
+
+  const mimetype = (file.mimetype || '').toLowerCase();
+  switch (mimetype) {
+    case 'image/jpeg':
+    case 'image/jpg':
+      return '.jpg';
+    case 'image/png':
+      return '.png';
+    case 'image/webp':
+      return '.webp';
+    case 'image/gif':
+      return '.gif';
+    case 'image/avif':
+      return '.avif';
+    case 'image/heic':
+    case 'image/heif':
+    case 'image/heic-sequence':
+    case 'image/heif-sequence':
+      return '.heic';
+    default:
+      return '.jpg';
+  }
+}
+
+function extractUuidSegment(filename) {
+  const match = filename.match(/-([0-9a-f]{8})(\.[^.]+)$/i);
+  return match ? match[1] : null;
+}
+
+function baseWithoutUuid(filename) {
+  const ext = path.extname(filename);
+  const nameWithoutExt = path.basename(filename, ext);
+  return nameWithoutExt.replace(/-([0-9a-f]{8})$/i, '');
+}
+
 async function removeFileIfExists(filePath) {
   try {
     await fs.unlink(filePath);
@@ -25,62 +100,163 @@ async function removeFileIfExists(filePath) {
   }
 }
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const libraryPath = path.join(req.frameArtPath, 'library');
-    cb(null, libraryPath);
-  },
-  filename: (req, file, cb) => {
-    // Generate UUID
-    const uuid = crypto.randomUUID().split('-')[0]; // Use first segment (8 chars)
-    
-    // Get file extension
-    const ext = path.extname(file.originalname);
-    
-    // Use custom name if provided, otherwise use original filename without extension
-    const customName = req.body.customName;
-    let baseName;
-    
-    if (customName && customName.trim()) {
-      // Use custom name, sanitize it
-      baseName = customName.trim()
-        .replace(/[^a-z0-9_-]/gi, '-') // Replace invalid chars with dash
-        .replace(/-+/g, '-')            // Remove consecutive dashes
-        .toLowerCase();
-    } else {
-      // Use original filename without extension
-      baseName = path.basename(file.originalname, ext)
-        .replace(/[^a-z0-9_-]/gi, '-')
-        .replace(/-+/g, '-')
-        .toLowerCase();
+async function applyCustomUploadName({
+  frameArtPath,
+  currentFilename,
+  currentFilePath,
+  customName,
+  uploadContext
+}) {
+  const extension = path.extname(currentFilename).toLowerCase();
+  const libraryPath = path.join(frameArtPath, LIBRARY_DIR);
+
+  const context = {
+    originalBase: uploadContext?.originalBase || baseWithoutUuid(currentFilename) || FALLBACK_BASE_NAME,
+    uuid: uploadContext?.uuid || extractUuidSegment(currentFilename) || crypto.randomUUID().split('-')[0],
+    originalExt: uploadContext?.originalExt || extension
+  };
+
+  let targetBase = context.originalBase;
+  if (typeof customName === 'string' && customName.trim()) {
+    const sanitizedCustom = sanitizeBaseName(customName, context.originalBase);
+    if (sanitizedCustom) {
+      targetBase = sanitizedCustom;
     }
-    
-    // Construct final filename: basename-uuid.ext
-    const finalFilename = `${baseName}-${uuid}${ext}`;
-    cb(null, finalFilename);
+  }
+
+  let candidateFilename = `${targetBase}-${context.uuid}${extension}`;
+  let candidatePath = path.join(libraryPath, candidateFilename);
+
+  if (candidateFilename === currentFilename) {
+    return {
+      filename: currentFilename,
+      filepath: currentFilePath,
+      context: { ...context, originalBase: targetBase, originalExt: extension }
+    };
+  }
+
+  while (true) {
+    try {
+      await fs.access(candidatePath);
+      context.uuid = crypto.randomUUID().split('-')[0];
+      candidateFilename = `${targetBase}-${context.uuid}${extension}`;
+      candidatePath = path.join(libraryPath, candidateFilename);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        break;
+      }
+      throw error;
+    }
+  }
+
+  await fs.rename(currentFilePath, candidatePath);
+
+  return {
+    filename: candidateFilename,
+    filepath: candidatePath,
+    context: { ...context, originalBase: targetBase, originalExt: extension }
+  };
+}
+
+const storage = multer.diskStorage({
+  destination(req, file, cb) {
+    const libraryPath = path.join(req.frameArtPath, LIBRARY_DIR);
+    fs.mkdir(libraryPath, { recursive: true })
+      .then(() => cb(null, libraryPath))
+      .catch(cb);
+  },
+  filename(req, file, cb) {
+    try {
+      const extension = determineExtension(file);
+      const originalBase = sanitizeBaseName(
+        path.basename(file.originalname || '', path.extname(file.originalname || '')),
+        FALLBACK_BASE_NAME
+      );
+      const uuidSegment = crypto.randomUUID().split('-')[0];
+      const finalFilename = `${originalBase}-${uuidSegment}${extension}`;
+      req.uploadContext = {
+        originalBase,
+        uuid: uuidSegment,
+        originalExt: extension
+      };
+      cb(null, finalFilename);
+    } catch (error) {
+      cb(error);
+    }
   }
 });
+
+const HEIC_EXTENSIONS = new Set(['.heic', '.heif']);
+const HEIC_MIME_TYPES = new Set([
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence'
+]);
+
+function imageFileFilter(req, file, cb) {
+  const mimetype = (file.mimetype || '').toLowerCase();
+  const ext = path.extname(file.originalname || '').toLowerCase();
+
+  if (ALLOWED_MIME_TYPES.has(mimetype) || HEIC_EXTENSIONS.has(ext)) {
+    cb(null, true);
+  } else if (mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    const error = new Error('Unsupported file type');
+    error.statusCode = 400;
+    cb(error);
+  }
+}
 
 const upload = multer({
   storage,
-  fileFilter: (req, file, cb) => {
-    // Accept image files including HEIC/HEIF (which will be converted to JPEG)
-    if (file.mimetype.startsWith('image/') || 
-        file.mimetype === 'application/octet-stream' && 
-        (file.originalname.toLowerCase().endsWith('.heic') || 
-         file.originalname.toLowerCase().endsWith('.heif'))) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
-    }
-  },
+  fileFilter: imageFileFilter,
   limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB limit
+    fileSize: 50 * 1024 * 1024
   }
 });
 
-// GET all images
+const previewUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: 25 * 1024 * 1024
+  }
+});
+
+function isHeicType({ mimetype, ext }) {
+  const normalizedMime = (mimetype || '').toLowerCase();
+  const normalizedExt = (ext || '').toLowerCase();
+  return HEIC_MIME_TYPES.has(normalizedMime) || HEIC_EXTENSIONS.has(normalizedExt);
+}
+
+function extensionToContentType(ext) {
+  switch ((ext || '').toLowerCase()) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.png':
+      return 'image/png';
+    case '.webp':
+      return 'image/webp';
+    case '.gif':
+      return 'image/gif';
+    case '.avif':
+      return 'image/avif';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+async function convertHeicBufferToJpeg(buffer, quality = 0.95) {
+  return heicConvert({
+    buffer,
+    format: 'JPEG',
+    quality
+  });
+}
+
 router.get('/', async (req, res) => {
   try {
     const helper = new MetadataHelper(req.frameArtPath);
@@ -92,7 +268,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET display options
 router.get('/options', (req, res) => {
   res.json({
     matteTypes: MATTE_TYPES,
@@ -100,7 +275,6 @@ router.get('/options', (req, res) => {
   });
 });
 
-// GET images by tag
 router.get('/tag/:tagName', async (req, res) => {
   try {
     const helper = new MetadataHelper(req.frameArtPath);
@@ -112,7 +286,42 @@ router.get('/tag/:tagName', async (req, res) => {
   }
 });
 
-// POST upload new image
+router.get('/verify', async (req, res) => {
+  try {
+    const helper = new MetadataHelper(req.frameArtPath);
+    const results = await helper.verifySync();
+    res.json(results);
+  } catch (error) {
+    console.error('Error verifying sync:', error);
+    res.status(500).json({ error: 'Failed to verify sync' });
+  }
+});
+
+router.post('/preview', previewUpload.single('image'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  try {
+    const ext = determineExtension(req.file);
+    const isHeic = isHeicType({ mimetype: req.file.mimetype, ext });
+    const contentType = isHeic
+      ? 'image/jpeg'
+      : req.file.mimetype || extensionToContentType(ext);
+
+    const outputBuffer = isHeic
+      ? await convertHeicBufferToJpeg(req.file.buffer, 0.9)
+      : req.file.buffer;
+
+    res.set('Content-Type', contentType || extensionToContentType(ext));
+    res.set('Cache-Control', 'no-store');
+    res.send(outputBuffer);
+  } catch (error) {
+    console.error('Error generating preview image:', error);
+    res.status(500).json({ error: 'Failed to generate preview image.' });
+  }
+});
+
 router.post('/upload', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
@@ -120,61 +329,70 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     }
 
     const helper = new MetadataHelper(req.frameArtPath);
-  const { matte = DEFAULT_MATTE, filter = DEFAULT_FILTER, tags = '' } = req.body;
-    const tagArray = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [];
+    const { matte = DEFAULT_MATTE, filter = DEFAULT_FILTER, tags = '' } = req.body;
 
-  const normalizedMatte = normalizeMatteValue(matte);
-  const normalizedFilter = normalizeFilterValue(filter);
+    const tagArray = Array.isArray(tags)
+      ? tags.map(tag => String(tag).trim()).filter(Boolean)
+      : typeof tags === 'string'
+        ? tags.split(',').map(tag => tag.trim()).filter(Boolean)
+        : [];
+
+    const normalizedMatte = normalizeMatteValue(matte);
+    const normalizedFilter = normalizeFilterValue(filter);
 
     let finalFilename = req.file.filename;
-    let finalFilePath = path.join(req.frameArtPath, 'library', finalFilename);
-    
-    // Convert HEIC files to JPEG for browser compatibility
-    const fileExt = path.extname(req.file.filename).toLowerCase();
-    if (fileExt === '.heic' || fileExt === '.heif') {
-      console.log(`Converting HEIC file to JPEG: ${req.file.filename}`);
-      
-      const convert = require('heic-convert');
+    let finalFilePath = req.file.path;
+
+    const fileExt = path.extname(finalFilename).toLowerCase();
+    if (isHeicType({ mimetype: req.file.mimetype, ext: fileExt })) {
+
       const originalPath = req.file.path;
-      const jpegFilename = req.file.filename.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg');
-      const jpegPath = path.join(req.frameArtPath, 'library', jpegFilename);
-      
+      const jpegFilename = finalFilename.replace(/\.(heic|heif)$/i, '.jpg');
+      const jpegPath = path.join(req.frameArtPath, LIBRARY_DIR, jpegFilename);
+
       try {
-        // Read the HEIC file
         const inputBuffer = await fs.readFile(originalPath);
-        
-        // Convert HEIC to JPEG with high quality (0-1 scale, 0.95 = 95%)
-        const outputBuffer = await convert({
-          buffer: inputBuffer,
-          format: 'JPEG',
-          quality: 0.95
-        });
-        
-        // Write the JPEG file
+        const outputBuffer = await convertHeicBufferToJpeg(inputBuffer, 0.95);
+
         await fs.writeFile(jpegPath, outputBuffer);
-        
-        // Delete the original HEIC file
         await fs.unlink(originalPath);
-        
+
         finalFilename = jpegFilename;
         finalFilePath = jpegPath;
-        console.log(`Successfully converted to: ${finalFilename}`);
+        if (req.uploadContext) {
+          req.uploadContext.originalExt = '.jpg';
+        }
+
+        req.file.filename = finalFilename;
+        req.file.path = finalFilePath;
       } catch (conversionError) {
         console.error('Error converting HEIC to JPEG:', conversionError);
-        // Clean up if conversion failed
         try {
           await fs.unlink(originalPath);
         } catch (cleanupError) {
           // Ignore cleanup errors
         }
-        return res.status(500).json({ 
+        return res.status(500).json({
           error: 'Failed to convert HEIC image. Please try uploading as JPEG or PNG.',
           details: conversionError.message
         });
       }
     }
 
-    // Ensure the uploaded file is not empty before proceeding
+    const renameResult = await applyCustomUploadName({
+      frameArtPath: req.frameArtPath,
+      currentFilename: finalFilename,
+      currentFilePath: finalFilePath,
+      customName: req.body.customName,
+      uploadContext: req.uploadContext || {}
+    });
+
+    finalFilename = renameResult.filename;
+    finalFilePath = renameResult.filepath;
+    req.uploadContext = renameResult.context;
+    req.file.filename = finalFilename;
+    req.file.path = finalFilePath;
+
     try {
       const stats = await fs.stat(finalFilePath);
       if (!stats.size) {
@@ -186,7 +404,6 @@ router.post('/upload', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'Uploaded file could not be accessed.' });
     }
 
-    // Add to metadata
     let imageData;
     try {
       imageData = await helper.addImage(
@@ -204,7 +421,6 @@ router.post('/upload', upload.single('image'), async (req, res) => {
       });
     }
 
-    // Generate thumbnail
     try {
       await helper.generateThumbnail(finalFilename);
     } catch (thumbError) {
@@ -219,30 +435,24 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     });
   } catch (error) {
     console.error('Error uploading image:', error);
-    res.status(500).json({ error: 'Failed to upload image' });
+    const status = error.statusCode || 500;
+    res.status(status).json({ error: status === 400 ? error.message : 'Failed to upload image' });
   }
 });
 
-// PUT update image metadata
-router.put('/:filename', async (req, res) => {
+router.get('/:filename/edit-state', async (req, res) => {
+  const filename = req.params.filename;
+
   try {
-    const helper = new MetadataHelper(req.frameArtPath);
-  const { matte, filter, tags } = req.body;
-
-  const updates = {};
-  if (matte !== undefined) updates.matte = normalizeMatteValue(matte);
-  if (filter !== undefined) updates.filter = normalizeFilterValue(filter);
-    if (tags !== undefined) updates.tags = tags;
-
-    const imageData = await helper.updateImage(req.params.filename, updates);
-    res.json({ success: true, data: imageData });
+    const service = new ImageEditService(req.frameArtPath);
+    const state = await service.getEditState(filename);
+    res.json({ success: true, ...state });
   } catch (error) {
-    console.error('Error updating image:', error);
-    res.status(404).json({ error: error.message });
+    console.error('Error loading edit state:', error);
+    res.status(500).json({ error: 'Failed to load edit state' });
   }
 });
 
-// POST apply image edits (crop, adjustments, filters)
 router.post('/:filename/edit', async (req, res) => {
   const filename = req.params.filename;
 
@@ -272,7 +482,6 @@ router.post('/:filename/edit', async (req, res) => {
   }
 });
 
-// POST revert image to original backup
 router.post('/:filename/revert', async (req, res) => {
   const filename = req.params.filename;
 
@@ -292,103 +501,67 @@ router.post('/:filename/revert', async (req, res) => {
   }
 });
 
-// GET edit state (e.g., backup availability)
-router.get('/:filename/edit-state', async (req, res) => {
-  const filename = req.params.filename;
-
-  try {
-    const service = new ImageEditService(req.frameArtPath);
-    const state = await service.getEditState(filename);
-    res.json({ success: true, ...state });
-  } catch (error) {
-    console.error('Error loading edit state:', error);
-    res.status(500).json({ error: 'Failed to load edit state' });
-  }
-});
-
-// POST rename image (change base name, keep UUID)
 router.post('/:filename/rename', async (req, res) => {
   try {
     const helper = new MetadataHelper(req.frameArtPath);
     const oldFilename = req.params.filename;
     const { newBaseName } = req.body;
-    
+
     if (!newBaseName || !newBaseName.trim()) {
       return res.status(400).json({ error: 'New base name is required' });
     }
-    
-    // Sanitize the new base name
-    const sanitizedBaseName = newBaseName.trim()
-      .replace(/[^a-z0-9_-]/gi, '-')
-      .replace(/-+/g, '-')
-      .toLowerCase();
-    
-    // Extract UUID and extension from old filename
+
+    const sanitizedBaseName = sanitizeBaseName(newBaseName, FALLBACK_BASE_NAME);
     const ext = path.extname(oldFilename);
-    const nameWithoutExt = path.basename(oldFilename, ext);
-    const uuidMatch = nameWithoutExt.match(/-([0-9a-f]{8})$/i);
-    
-    if (!uuidMatch) {
+    const uuid = extractUuidSegment(oldFilename);
+
+    if (!uuid) {
       return res.status(400).json({ error: 'Could not extract UUID from filename' });
     }
-    
-    const uuid = uuidMatch[1];
+
     const newFilename = `${sanitizedBaseName}-${uuid}${ext}`;
-    
-    // Check if new filename already exists
-    const newImagePath = path.join(req.frameArtPath, 'library', newFilename);
+    const newImagePath = path.join(req.frameArtPath, LIBRARY_DIR, newFilename);
+
     try {
       await fs.access(newImagePath);
       return res.status(400).json({ error: 'A file with this name already exists' });
-    } catch {
-      // File doesn't exist, we can proceed
+    } catch (accessError) {
+      if (accessError.code !== 'ENOENT') {
+        throw accessError;
+      }
     }
-    
-    // Use git mv for atomic rename operation
+
     const GitHelper = require('../git_helper');
     const git = new GitHelper(req.frameArtPath);
-    
-    console.log(`[RENAME] Starting rename: ${oldFilename} -> ${newFilename}`);
-    
-    // 1. Use git mv to rename the image file
-    // This stages the rename automatically
+
+    await git.git.mv(
+      path.join(LIBRARY_DIR, oldFilename),
+      path.join(LIBRARY_DIR, newFilename)
+    );
+
+    const oldThumb = path.join(req.frameArtPath, THUMBS_DIR, `thumb_${oldFilename}`);
+    const newThumb = path.join(req.frameArtPath, THUMBS_DIR, `thumb_${newFilename}`);
+
     try {
-      console.log(`[RENAME] Calling git mv for image...`);
+      await fs.access(oldThumb);
       await git.git.mv(
-        path.join('library', oldFilename),
-        path.join('library', newFilename)
+        path.join(THUMBS_DIR, `thumb_${oldFilename}`),
+        path.join(THUMBS_DIR, `thumb_${newFilename}`)
       );
-      console.log(`[RENAME] git mv succeeded for image`);
-    } catch (gitMvError) {
-      console.error('[RENAME] git mv failed for image:', gitMvError);
-      throw new Error(`Failed to rename image file: ${gitMvError.message}`);
-    }
-    
-    // 2. Rename the thumbnail if it exists (also using git mv)
-    const oldThumbPath = path.join(req.frameArtPath, 'thumbs', `thumb_${oldFilename}`);
-    try {
-      await fs.access(oldThumbPath);
-      // Thumbnail exists, use git mv
-      console.log(`[RENAME] Calling git mv for thumbnail...`);
-      await git.git.mv(
-        path.join('thumbs', `thumb_${oldFilename}`),
-        path.join('thumbs', `thumb_${newFilename}`)
-      );
-      console.log(`[RENAME] git mv succeeded for thumbnail`);
     } catch (thumbError) {
-      // Thumbnail might not exist or git mv failed - log but continue
-      console.warn('[RENAME] Thumbnail rename issue:', thumbError.message);
+      if (thumbError.code !== 'ENOENT') {
+        console.warn('[RENAME] Thumbnail rename issue:', thumbError.message);
+      }
     }
-    
-    // 3. Update metadata and stage it
+
     await helper.renameImage(oldFilename, newFilename);
     await git.git.add('metadata.json');
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       oldFilename,
       newFilename,
-      message: 'Image renamed successfully' 
+      message: 'Image renamed successfully'
     });
   } catch (error) {
     console.error('Error renaming image:', error);
@@ -396,27 +569,47 @@ router.post('/:filename/rename', async (req, res) => {
   }
 });
 
-// DELETE image
+router.put('/:filename', async (req, res) => {
+  try {
+    const helper = new MetadataHelper(req.frameArtPath);
+    const { matte, filter, tags } = req.body || {};
+
+    const updates = {};
+    if (matte !== undefined) {
+      updates.matte = normalizeMatteValue(matte);
+    }
+    if (filter !== undefined) {
+      updates.filter = normalizeFilterValue(filter);
+    }
+    if (tags !== undefined) {
+      updates.tags = Array.isArray(tags)
+        ? tags
+        : typeof tags === 'string'
+          ? tags.split(',').map(tag => tag.trim()).filter(Boolean)
+          : [];
+    }
+
+    const imageData = await helper.updateImage(req.params.filename, updates);
+    res.json({ success: true, data: imageData });
+  } catch (error) {
+    console.error('Error updating image:', error);
+    res.status(404).json({ error: error.message });
+  }
+});
+
 router.delete('/:filename', async (req, res) => {
   try {
     const helper = new MetadataHelper(req.frameArtPath);
     const filename = req.params.filename;
     const service = new ImageEditService(req.frameArtPath);
 
-    // Delete from metadata
     await helper.deleteImage(filename);
 
-    // Delete actual file
-    const imagePath = path.join(req.frameArtPath, 'library', filename);
-    await fs.unlink(imagePath);
+    const imagePath = path.join(req.frameArtPath, LIBRARY_DIR, filename);
+    await removeFileIfExists(imagePath);
 
-    // Delete thumbnail if it exists
-    const thumbPath = path.join(req.frameArtPath, 'thumbs', `thumb_${filename}`);
-    try {
-      await fs.unlink(thumbPath);
-    } catch {
-      // Thumbnail might not exist, that's ok
-    }
+    const thumbPath = path.join(req.frameArtPath, THUMBS_DIR, `thumb_${filename}`);
+    await removeFileIfExists(thumbPath);
 
     await service.removeOriginalBackup(filename);
 
@@ -427,7 +620,6 @@ router.delete('/:filename', async (req, res) => {
   }
 });
 
-// POST generate thumbnail for existing image
 router.post('/:filename/thumbnail', async (req, res) => {
   try {
     const helper = new MetadataHelper(req.frameArtPath);
@@ -439,15 +631,20 @@ router.post('/:filename/thumbnail', async (req, res) => {
   }
 });
 
-// GET verify sync between files and metadata
-router.get('/verify', async (req, res) => {
+router.get('/:filename', async (req, res) => {
   try {
     const helper = new MetadataHelper(req.frameArtPath);
-    const results = await helper.verifySync();
-    res.json(results);
+    const images = await helper.getAllImages();
+    const image = images[req.params.filename];
+
+    if (!image) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    res.json(image);
   } catch (error) {
-    console.error('Error verifying sync:', error);
-    res.status(500).json({ error: 'Failed to verify sync' });
+    console.error('Error getting image details:', error);
+    res.status(500).json({ error: 'Failed to retrieve image metadata' });
   }
 });
 

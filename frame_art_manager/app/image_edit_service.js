@@ -34,39 +34,352 @@ async function fileExists(filePath) {
   }
 }
 
+const EDGE_ENHANCE_KERNEL = {
+  width: 3,
+  height: 3,
+  kernel: [
+    -1, -1, -1,
+    -1, 8, -1,
+    -1, -1, -1
+  ]
+};
+
+async function generateEdgeOverlay(source, {
+  scale = 4,
+  bias = 0,
+  tint = null,
+  invert = false,
+  opacity = 0.5,
+  blend = 'multiply'
+} = {}) {
+  const { data, info } = await source
+    .clone()
+    .toColourspace('srgb')
+    .ensureAlpha()
+    .greyscale()
+  .convolve(EDGE_ENHANCE_KERNEL)
+  .linear(scale, bias, { clamp: true })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  let edgeImage = sharp(data, {
+    raw: {
+      width: info.width,
+      height: info.height,
+      channels: info.channels
+    }
+  });
+
+  edgeImage = edgeImage.toColourspace('srgb').ensureAlpha();
+
+  if (invert) {
+    edgeImage = edgeImage.negate({ alpha: false });
+  }
+
+  if (tint) {
+    edgeImage = edgeImage.tint(tint);
+  }
+
+  const overlayBuffer = await edgeImage.ensureAlpha().png().toBuffer();
+
+  return {
+    input: overlayBuffer,
+    blend,
+    opacity
+  };
+}
+
+async function quantizeToPalette(source, palette) {
+  const { data, info } = await source
+    .clone()
+    .toColourspace('srgb')
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const { width, height, channels } = info;
+  const output = Buffer.alloc(data.length);
+
+  for (let i = 0; i < data.length; i += channels) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+
+    let bestIndex = 0;
+    let bestDistance = Infinity;
+
+    for (let j = 0; j < palette.length; j++) {
+      const [pr, pg, pb] = palette[j];
+      const distance = (r - pr) * (r - pr) + (g - pg) * (g - pg) + (b - pb) * (b - pb);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = j;
+      }
+    }
+
+    const [nr, ng, nb] = palette[bestIndex];
+    output[i] = nr;
+    output[i + 1] = ng;
+    output[i + 2] = nb;
+    if (channels === 4) {
+      output[i + 3] = data[i + 3];
+    }
+  }
+
+  let quantized = sharp(output, {
+    raw: {
+      width,
+      height,
+      channels
+    }
+  }).toColourspace('srgb');
+
+  if (channels === 4) {
+    quantized = quantized.ensureAlpha();
+  }
+
+  return quantized;
+}
+
+function getOrientedDimensions(metadata) {
+  if (!metadata) {
+    return { width: null, height: null };
+  }
+
+  const orientation = metadata.orientation || 1;
+  const swapDimensions = orientation >= 5 && orientation <= 8;
+
+  const width = swapDimensions ? metadata.height : metadata.width;
+  const height = swapDimensions ? metadata.width : metadata.height;
+
+  return {
+    width: width ? Math.max(1, Math.round(width)) : width,
+    height: height ? Math.max(1, Math.round(height)) : height
+  };
+}
+
+function uniqueOverlayId(prefix = 'overlay') {
+  return `${prefix}-${crypto.randomBytes(4).toString('hex')}`;
+}
+
+function buildSvgPattern({ width, height, patternSize, dotRadius, dotColor, background, patternId, gradientId, stops, angle }) {
+  if (stops && stops.length) {
+    const stopTags = stops
+      .map(({ offset, color, opacity = 1 }) => {
+        const clampedOffset = Math.max(0, Math.min(1, Number(offset)));
+        return `<stop offset="${(clampedOffset * 100).toFixed(2)}%" stop-color="${color}" stop-opacity="${opacity}"/>`;
+      })
+      .join('');
+
+    return Buffer.from(
+      `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">` +
+      `<defs>` +
+      `<linearGradient id="${gradientId}" gradientUnits="objectBoundingBox" gradientTransform="rotate(${angle} 0.5 0.5)">` +
+      `${stopTags}` +
+      `</linearGradient>` +
+      `</defs>` +
+      `<rect width="100%" height="100%" fill="url(#${gradientId})"/>` +
+      `</svg>`
+    );
+  }
+
+  return Buffer.from(
+    `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">` +
+    `<defs>` +
+    `<pattern id="${patternId}" patternUnits="userSpaceOnUse" width="${patternSize}" height="${patternSize}">` +
+    `<rect width="${patternSize}" height="${patternSize}" fill="${background}"/>` +
+    `<circle cx="${patternSize / 2}" cy="${patternSize / 2}" r="${dotRadius}" fill="${dotColor}"/>` +
+    `</pattern>` +
+    `</defs>` +
+    `<rect width="100%" height="100%" fill="url(#${patternId})"/>` +
+    `</svg>`
+  );
+}
+
+function createSvgPatternOverlay(width, height, {
+  patternSize = 24,
+  dotRadius = patternSize / 3,
+  dotColor = '#0a0a0a',
+  background = 'rgba(255,255,255,0)',
+  opacity = 0.35,
+  blend = 'overlay'
+} = {}) {
+  if (!width || !height) {
+    return null;
+  }
+
+  const targetWidth = Math.max(1, Math.round(width));
+  const targetHeight = Math.max(1, Math.round(height));
+  const patternId = uniqueOverlayId('pattern');
+  const buffer = buildSvgPattern({
+    width: targetWidth,
+    height: targetHeight,
+    patternSize,
+    dotRadius,
+    dotColor,
+    background,
+    patternId
+  });
+
+  return {
+    input: buffer,
+    blend,
+    opacity
+  };
+}
+
+function createGradientOverlay(width, height, {
+  stops = [
+    { offset: 0, color: '#111625', opacity: 0.85 },
+    { offset: 0.58, color: '#f7c978', opacity: 0.55 },
+    { offset: 1, color: '#fff2d6', opacity: 0.25 }
+  ],
+  angle = 35,
+  opacity = 0.45,
+  blend = 'soft-light'
+} = {}) {
+  if (!width || !height) {
+    return null;
+  }
+
+  const targetWidth = Math.max(1, Math.round(width));
+  const targetHeight = Math.max(1, Math.round(height));
+  const gradientId = uniqueOverlayId('gradient');
+  const buffer = buildSvgPattern({
+    width: targetWidth,
+    height: targetHeight,
+    gradientId,
+    stops,
+    angle
+  });
+
+  return {
+    input: buffer,
+    blend,
+    opacity
+  };
+}
+
+async function createNoiseOverlay(width, height, {
+  intensity = 0.25,
+  opacity = 0.18,
+  blend = 'overlay'
+} = {}) {
+  if (!width || !height) {
+    return null;
+  }
+
+  const targetWidth = Math.max(1, Math.round(width));
+  const targetHeight = Math.max(1, Math.round(height));
+  const channels = 1;
+  const total = targetWidth * targetHeight * channels;
+  const buffer = Buffer.allocUnsafe(total);
+  const clampIntensity = Math.max(0, Math.min(1, intensity));
+  const amplitude = Math.round(127 * clampIntensity);
+
+  for (let i = 0; i < total; i += 1) {
+    const random = Math.random() * 2 - 1; // -1 → 1
+    const value = 128 + Math.round(random * amplitude);
+    buffer[i] = Math.max(0, Math.min(255, value));
+  }
+
+  const overlayBuffer = await sharp(buffer, {
+    raw: {
+      width: targetWidth,
+      height: targetHeight,
+      channels
+    }
+  })
+    .toColourspace('b-w')
+    .ensureAlpha()
+    .png()
+    .toBuffer();
+
+  return {
+    input: overlayBuffer,
+    blend,
+    opacity
+  };
+}
+
+async function getImageDimensions(instance) {
+  try {
+    const { info } = await instance
+      .clone()
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    if (info && info.width && info.height) {
+      return {
+        width: Math.max(1, Math.round(info.width)),
+        height: Math.max(1, Math.round(info.height))
+      };
+    }
+  } catch (rawError) {
+    // Fall back to metadata path below
+  }
+
+  const meta = await instance.clone().metadata();
+  if (meta && meta.width && meta.height) {
+    return {
+      width: Math.max(1, Math.round(meta.width)),
+      height: Math.max(1, Math.round(meta.height))
+    };
+  }
+
+  throw new Error('Unable to determine image dimensions for overlay generation');
+}
+
 const LEGACY_FILTER_MAP = {
-  'gallery-soft': 'pastel-wash',
-  'vivid-sky': 'coastal-breeze',
-  'dusk-haze': 'silver-pearl',
-  'impressionist': 'film-classic',
-  'deco-gold': 'sunlit-sienna',
-  'charcoal': 'noir-cinema',
+  'gallery-soft': 'watercolor',
+  'gallery': 'watercolor',
+  'vivid-sky': 'pop-art',
+  'dusk-haze': 'watercolor',
+  'impressionist': 'impressionist',
+  'deco-gold': 'art-deco',
+  'artdeco': 'art-deco',
+  'art deco': 'art-deco',
+  'charcoal': 'sketch',
+  'pencil': 'sketch',
+  'sketch': 'sketch',
   'silver-tone': 'silver-pearl',
   'monochrome': 'silver-pearl',
   'grayscale': 'silver-pearl',
-  'ink-sketch': 'graphite-ink',
-  'aqua': 'coastal-breeze',
-  'artdeco': 'sunlit-sienna',
+  'ink-sketch': 'sketch',
   'ink': 'graphite-ink',
-  'wash': 'pastel-wash',
-  'pastel': 'pastel-wash',
-  'feuve': 'film-classic',
-  'luminous-portrait': 'sunlit-sienna',
-  'golden-hour': 'sunlit-sienna',
-  'ember-glow': 'film-classic',
-  'arctic-mist': 'coastal-breeze',
-  'verdant-matte': 'pastel-wash',
-  'forest-depth': 'film-classic',
-  'retro-fade': 'pastel-wash',
-  'cobalt-pop': 'coastal-breeze'
+  'wash': 'watercolor',
+  'pastel': 'watercolor',
+  'pastel-wash': 'watercolor',
+  'aqua': 'watercolor',
+  'feuve': 'impressionist',
+  'luminous-portrait': 'art-deco',
+  'golden-hour': 'art-deco',
+  'ember-glow': 'oil-paint',
+  'arctic-mist': 'watercolor',
+  'verdant-matte': 'impressionist',
+  'forest-depth': 'oil-paint',
+  'retro-fade': 'impressionist',
+  'cobalt-pop': 'pop-art',
+  'sunlit-sienna': 'art-deco',
+  'coastal-breeze': 'watercolor',
+  'film-classic': 'oil-paint',
+  'watercolour': 'watercolor',
+  'pop art': 'pop-art',
+  'popart': 'pop-art',
+  'neural': 'neural-style',
+  'neural-style': 'neural-style'
 };
 
 const EDITING_FILTERS = [
   'none',
-  'sunlit-sienna',
-  'coastal-breeze',
-  'pastel-wash',
-  'film-classic',
+  'sketch',
+  'oil-paint',
+  'watercolor',
+  'impressionist',
+  'pop-art',
+  'art-deco',
+  'neural-style',
   'noir-cinema',
   'silver-pearl',
   'graphite-ink'
@@ -140,7 +453,10 @@ class ImageEditService {
 
     const sanitizedAdjustments = {
       brightness: Math.max(-100, Math.min(100, Number(adjustments.brightness) || 0)),
-      contrast: Math.max(-100, Math.min(100, Number(adjustments.contrast) || 0))
+      contrast: Math.max(-100, Math.min(100, Number(adjustments.contrast) || 0)),
+      hue: Math.max(-180, Math.min(180, Number(adjustments.hue) || 0)),
+      saturation: Math.max(-100, Math.min(100, Number(adjustments.saturation) || 0)),
+      lightness: Math.max(-100, Math.min(100, Number(adjustments.lightness) || 0))
     };
 
     let normalizedFilter = LEGACY_FILTER_MAP[filter.toLowerCase()] || filter.toLowerCase();
@@ -155,8 +471,8 @@ class ImageEditService {
     };
   }
 
-  calculateCropRegion(metadata, crop) {
-    const { width, height } = metadata;
+  calculateCropRegion(dimensions, crop) {
+    const { width, height } = dimensions;
     if (!width || !height) {
       throw new Error('Cannot determine image dimensions for cropping');
     }
@@ -182,11 +498,32 @@ class ImageEditService {
   }
 
   applyAdjustments(instance, adjustments) {
-    const { brightness, contrast } = adjustments;
+    const {
+      brightness = 0,
+      contrast = 0,
+      hue = 0,
+      saturation = 0,
+      lightness = 0
+    } = adjustments || {};
 
-    const brightnessFactor = Math.max(0, 1 + brightness / 100);
-    if (brightness !== 0) {
-      instance = instance.modulate({ brightness: brightnessFactor });
+    const brightnessFactor = Math.max(0.1, 1 + brightness / 100);
+    const lightnessFactor = Math.max(0.1, 1 + lightness / 100);
+    const combinedBrightness = Math.max(0.1, brightnessFactor * lightnessFactor);
+    const saturationFactor = Math.max(0, 1 + saturation / 100);
+
+    const modulateOptions = {};
+    if (Math.abs(combinedBrightness - 1) > 1e-3) {
+      modulateOptions.brightness = combinedBrightness;
+    }
+    if (Math.abs(saturation) > 1e-3) {
+      modulateOptions.saturation = saturationFactor;
+    }
+    if (Math.abs(hue) > 1e-3) {
+      modulateOptions.hue = hue;
+    }
+
+    if (Object.keys(modulateOptions).length > 0) {
+      instance = instance.modulate(modulateOptions);
     }
 
     if (contrast !== 0) {
@@ -198,32 +535,31 @@ class ImageEditService {
     return instance;
   }
 
-  applyFilter(instance, filterName) {
-    const normalizedFilter = LEGACY_FILTER_MAP[filterName] || filterName;
+  async applyFilter(instance, filterName) {
+    const candidate = typeof filterName === 'string' ? filterName.toLowerCase() : 'none';
+    const normalizedFilter = LEGACY_FILTER_MAP[candidate] || candidate;
+
+    if (!AVAILABLE_FILTERS.has(normalizedFilter)) {
+      return instance;
+    }
 
     switch (normalizedFilter) {
       case 'none':
         return instance;
-      case 'sunlit-sienna':
-        return instance
-          .modulate({ saturation: 1.08, brightness: 1.02, hue: 8 })
-          .linear(1.05, -10)
-          .tint('#f3d4b8');
-      case 'coastal-breeze':
-        return instance
-          .modulate({ saturation: 0.94, brightness: 1.05, hue: 190 })
-          .linear(1.02, -4)
-          .tint('#e3f0ff');
-      case 'pastel-wash':
-        return instance
-          .modulate({ saturation: 0.82, brightness: 1.05, hue: 10 })
-          .linear(0.92, 18)
-          .tint('#f7e9f6');
-      case 'film-classic':
-        return instance
-          .modulate({ saturation: 1.05, brightness: 1.02 })
-          .linear(1.08, -10)
-          .gamma(1.02);
+      case 'sketch':
+        return this.applySketchFilter(instance);
+      case 'oil-paint':
+        return this.applyOilPaintFilter(instance);
+      case 'watercolor':
+        return this.applyWatercolorFilter(instance);
+      case 'impressionist':
+        return this.applyImpressionistFilter(instance);
+      case 'pop-art':
+        return this.applyPopArtFilter(instance);
+      case 'art-deco':
+        return this.applyArtDecoFilter(instance);
+      case 'neural-style':
+        return this.applyNeuralStyleFilter(instance);
       case 'noir-cinema':
         return instance
           .greyscale()
@@ -247,24 +583,358 @@ class ImageEditService {
     }
   }
 
+  async applySketchFilter(instance) {
+  const { width, height } = await getImageDimensions(instance);
+
+    const edgeOverlay = await generateEdgeOverlay(instance, {
+      scale: 6.2,
+      bias: -12,
+      tint: '#f9f6ee',
+      invert: true,
+      opacity: 0.9,
+      blend: 'colour-dodge'
+    });
+
+    const paperOverlay = await createNoiseOverlay(width, height, {
+      intensity: 0.35,
+      opacity: 0.22,
+      blend: 'multiply'
+    });
+
+    const overlays = [edgeOverlay, paperOverlay].filter(Boolean);
+
+    let stylized = instance
+      .greyscale()
+      .median(1)
+      .blur(0.45)
+      .linear(1.45, -28)
+      .modulate({ brightness: 1.12, saturation: 0.08 })
+      .gamma(1.08);
+
+    if (overlays.length) {
+      stylized = stylized.composite(overlays);
+    }
+
+    return stylized;
+  }
+
+  async applyOilPaintFilter(instance) {
+  const { width, height } = await getImageDimensions(instance);
+
+    const edgeOverlay = await generateEdgeOverlay(instance, {
+      scale: 3.1,
+      bias: 48,
+      tint: '#f9d89a',
+      opacity: 0.35,
+      blend: 'soft-light'
+    });
+
+    const gradientOverlay = createGradientOverlay(width, height, {
+      stops: [
+        { offset: 0, color: '#47240f', opacity: 0.85 },
+        { offset: 0.55, color: '#ffb347', opacity: 0.55 },
+        { offset: 1, color: '#ffe9c5', opacity: 0.32 }
+      ],
+      angle: 18,
+      opacity: 0.58,
+      blend: 'soft-light'
+    });
+
+    const textureOverlay = await createNoiseOverlay(width, height, {
+      intensity: 0.28,
+      opacity: 0.2,
+      blend: 'overlay'
+    });
+
+    const overlays = [edgeOverlay, gradientOverlay, textureOverlay].filter(Boolean);
+
+    let stylized = instance
+      .median(5)
+      .blur(1.6)
+      .sharpen({ sigma: 1.45, m1: 1.28, m2: 0, x1: 1.6 })
+      .modulate({ saturation: 1.48, brightness: 1.08 })
+      .linear(1.22, -18)
+      .gamma(1.13);
+
+    if (overlays.length) {
+      stylized = stylized.composite(overlays);
+    }
+
+    return stylized;
+  }
+
+  async applyWatercolorFilter(instance) {
+    // Palette inspired by the open-source "Peach Beach" watercolour set on Lospec (CC0)
+    const palette = [
+      [229, 244, 255],
+      [196, 226, 255],
+      [167, 214, 250],
+      [255, 222, 211],
+      [240, 247, 233],
+      [212, 233, 255]
+    ];
+
+    const quantized = await quantizeToPalette(instance, palette);
+    const { width, height } = await getImageDimensions(quantized);
+
+    const flowOverlay = createGradientOverlay(width, height, {
+      stops: [
+        { offset: 0, color: '#93d1ff', opacity: 0.55 },
+        { offset: 0.65, color: '#ffe6f0', opacity: 0.4 },
+        { offset: 1, color: '#fdfdfd', opacity: 0.25 }
+      ],
+      angle: -24,
+      opacity: 0.5,
+      blend: 'screen'
+    });
+
+    const edgeOverlay = await generateEdgeOverlay(quantized, {
+      scale: 4.6,
+      bias: 118,
+      tint: '#6fb4ff',
+      opacity: 0.48,
+      blend: 'lighten'
+    });
+
+    const paperOverlay = await createNoiseOverlay(width, height, {
+      intensity: 0.24,
+      opacity: 0.2,
+      blend: 'multiply'
+    });
+
+    const overlays = [flowOverlay, edgeOverlay, paperOverlay].filter(Boolean);
+
+    let stylized = quantized
+      .blur(2.1)
+      .median(1)
+      .modulate({ saturation: 1.34, brightness: 1.12 })
+      .gamma(1.08);
+
+    if (overlays.length) {
+      stylized = stylized.composite(overlays);
+    }
+
+    return stylized;
+  }
+
+  async applyImpressionistFilter(instance) {
+    // Palette adapted from the open-source "Mizu 16" collection on Lospec (CC0)
+    const palette = [
+      [255, 214, 170],
+      [255, 186, 122],
+      [236, 160, 114],
+      [115, 159, 214],
+      [78, 115, 168],
+      [230, 237, 201]
+    ];
+
+    const stylizedBase = await quantizeToPalette(instance, palette);
+    const { width, height } = await getImageDimensions(stylizedBase);
+
+    const gradientOverlay = createGradientOverlay(width, height, {
+      stops: [
+        { offset: 0, color: '#3e4a7a', opacity: 0.55 },
+        { offset: 0.58, color: '#f3c06d', opacity: 0.5 },
+        { offset: 1, color: '#ffead4', opacity: 0.3 }
+      ],
+      angle: 28,
+      opacity: 0.58,
+      blend: 'soft-light'
+    });
+
+    const edgeOverlay = await generateEdgeOverlay(stylizedBase, {
+      scale: 3.8,
+      bias: 94,
+      tint: '#ffda7b',
+      opacity: 0.36,
+      blend: 'overlay'
+    });
+
+    const brushOverlay = await createNoiseOverlay(width, height, {
+      intensity: 0.32,
+      opacity: 0.22,
+      blend: 'overlay'
+    });
+
+    const overlays = [gradientOverlay, edgeOverlay, brushOverlay].filter(Boolean);
+
+    let stylized = stylizedBase
+      .median(2)
+      .blur(0.9)
+      .sharpen({ sigma: 1.05, m1: 1.1, m2: 0 })
+      .modulate({ saturation: 1.42, brightness: 1.08 })
+      .gamma(1.09);
+
+    if (overlays.length) {
+      stylized = stylized.composite(overlays);
+    }
+
+    return stylized;
+  }
+
+  async applyPopArtFilter(instance) {
+    // Palette adapted from the open-source "Pop Star 4" palette (CC0)
+    const palette = [
+      [18, 34, 197],
+      [255, 45, 119],
+      [255, 231, 0],
+      [0, 218, 178]
+    ];
+
+    const quantized = await quantizeToPalette(instance, palette);
+    const { width, height } = await getImageDimensions(quantized);
+
+    const halftoneOverlay = createSvgPatternOverlay(width, height, {
+      patternSize: 22,
+      dotRadius: 5.5,
+      dotColor: '#0b0b0b',
+      background: 'rgba(255,255,255,0)',
+      opacity: 0.45,
+      blend: 'multiply'
+    });
+
+    const highlightOverlay = await generateEdgeOverlay(quantized, {
+      scale: 6.2,
+      bias: 150,
+      tint: '#ffffff',
+      opacity: 0.55,
+      blend: 'screen'
+    });
+
+    const overlays = [halftoneOverlay, highlightOverlay].filter(Boolean);
+
+    let stylized = quantized
+      .modulate({ saturation: 2.4, brightness: 1.08 })
+      .linear(1.32, -22)
+      .gamma(1.05)
+      .sharpen({ sigma: 0.85, m1: 1.24, m2: 0 });
+
+    if (overlays.length) {
+      stylized = stylized.composite(overlays);
+    }
+
+    return stylized;
+  }
+
+  async applyArtDecoFilter(instance) {
+    const { width, height } = await getImageDimensions(instance);
+
+    const gradientOverlay = createGradientOverlay(width, height, {
+      stops: [
+        { offset: 0, color: '#101626', opacity: 0.88 },
+        { offset: 0.45, color: '#1e3a5f', opacity: 0.6 },
+        { offset: 1, color: '#f5c872', opacity: 0.48 }
+      ],
+      angle: 24,
+      opacity: 0.65,
+      blend: 'soft-light'
+    });
+
+    const edgeOverlay = await generateEdgeOverlay(instance, {
+      scale: 3.4,
+      bias: 112,
+      tint: '#f7d693',
+      opacity: 0.48,
+      blend: 'screen'
+    });
+
+    const textureOverlay = await createNoiseOverlay(width, height, {
+      intensity: 0.26,
+      opacity: 0.18,
+      blend: 'overlay'
+    });
+
+    const overlays = [gradientOverlay, edgeOverlay, textureOverlay].filter(Boolean);
+
+    let stylized = instance
+      .modulate({ saturation: 1.22, brightness: 1.06 })
+      .linear(1.16, -10)
+      .gamma(1.07);
+
+    if (overlays.length) {
+      stylized = stylized.composite(overlays);
+    }
+
+    return stylized;
+  }
+
+  async applyNeuralStyleFilter(instance) {
+    // Palette adapted from the open-source "Cyberpunk City" palette (CC0)
+    const palette = [
+      [65, 95, 255],
+      [236, 58, 141],
+      [252, 201, 88],
+      [32, 240, 182],
+      [20, 20, 28]
+    ];
+
+    const stylizedBase = await quantizeToPalette(instance, palette);
+    const { width, height } = await getImageDimensions(stylizedBase);
+
+    const neonOverlay = createGradientOverlay(width, height, {
+      stops: [
+        { offset: 0, color: '#301860', opacity: 0.7 },
+        { offset: 0.5, color: '#ff4fd8', opacity: 0.5 },
+        { offset: 1, color: '#58fff7', opacity: 0.35 }
+      ],
+      angle: 52,
+      opacity: 0.6,
+      blend: 'soft-light'
+    });
+
+    const edgeOverlay = await generateEdgeOverlay(stylizedBase, {
+      scale: 5.2,
+      bias: 138,
+      tint: '#c7b5ff',
+      opacity: 0.5,
+      blend: 'screen'
+    });
+
+    const textureOverlay = await createNoiseOverlay(width, height, {
+      intensity: 0.3,
+      opacity: 0.16,
+      blend: 'overlay'
+    });
+
+    const overlays = [neonOverlay, edgeOverlay, textureOverlay].filter(Boolean);
+
+    let stylized = stylizedBase
+      .blur(0.8)
+      .median(1)
+      .modulate({ saturation: 1.68, brightness: 1.08 })
+      .linear(1.12, -10)
+      .gamma(1.14);
+
+    if (overlays.length) {
+      stylized = stylized.composite(overlays);
+    }
+
+    return stylized;
+  }
+
   async applyEdits(filename, operations = {}) {
     const sanitized = this.sanitizeOperations(operations);
     const sourcePath = path.join(this.libraryPath, filename);
 
     const metadata = await sharp(sourcePath).metadata();
+    const orientedDimensions = getOrientedDimensions(metadata);
 
     const { backupPath, created: backupCreated } = await this.ensureOriginalBackup(filename);
 
-    let transformer = sharp(sourcePath);
+    let transformer = sharp(sourcePath).rotate();
 
     const cropNeeded = Object.values(sanitized.crop).some(value => value > 0.0001);
     if (cropNeeded) {
-      const region = this.calculateCropRegion(metadata, sanitized.crop);
+      const region = this.calculateCropRegion(orientedDimensions, sanitized.crop);
       transformer = transformer.extract(region);
     }
 
     transformer = this.applyAdjustments(transformer, sanitized.adjustments);
-    transformer = this.applyFilter(transformer, sanitized.filter);
+    transformer = await this.applyFilter(transformer, sanitized.filter);
+
+    if (metadata.format) {
+      transformer = transformer.toFormat(metadata.format);
+    }
 
     const tmpName = `${filename}.edit-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
     const tmpPath = path.join(this.libraryPath, tmpName);
