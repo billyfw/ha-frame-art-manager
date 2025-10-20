@@ -10,6 +10,30 @@ class MetadataHelper {
     this.thumbsPath = path.join(frameArtPath, 'thumbs');
   }
 
+  normalizeTV(tv) {
+    if (!tv) {
+      return tv;
+    }
+
+    if (!Array.isArray(tv.tags)) {
+      if (typeof tv.tags === 'string' && tv.tags.trim().length > 0) {
+        tv.tags = [tv.tags.trim()];
+      } else {
+        tv.tags = [];
+      }
+    }
+
+    if (!Array.isArray(tv.notTags)) {
+      if (typeof tv.notTags === 'string' && tv.notTags.trim().length > 0) {
+        tv.notTags = [tv.notTags.trim()];
+      } else {
+        tv.notTags = [];
+      }
+    }
+
+    return tv;
+  }
+
   /**
    * Read metadata.json
    */
@@ -268,14 +292,16 @@ class MetadataHelper {
   async addTV(name, ip, home = 'Madrone') {
     const metadata = await this.readMetadata();
     
-    const tv = {
+    const tv = this.normalizeTV({
       id: Date.now().toString(),
       name,
       ip,
       // Default or provided home
       home: (home === 'Madrone' || home === 'Maui') ? home : 'Madrone',
-      added: new Date().toISOString()
-    };
+      added: new Date().toISOString(),
+      tags: [],
+      notTags: []
+    });
 
     metadata.tvs.push(tv);
     await this.writeMetadata(metadata);
@@ -297,13 +323,32 @@ class MetadataHelper {
    */
   async getAllTVs() {
     const metadata = await this.readMetadata();
-    return metadata.tvs || [];
+    if (!metadata.tvs || metadata.tvs.length === 0) {
+      return [];
+    }
+
+    let updated = false;
+    const normalized = metadata.tvs.map(tv => {
+      const needsNormalize = !tv || !Array.isArray(tv.tags) || !Array.isArray(tv.notTags);
+      const normalizedTV = this.normalizeTV(tv);
+      if (needsNormalize) {
+        updated = true;
+      }
+      return normalizedTV;
+    });
+
+    if (updated) {
+      metadata.tvs = normalized;
+      await this.writeMetadata(metadata);
+    }
+
+    return normalized;
   }
 
   /**
-   * Update tags for a TV
+   * Update include/exclude tags for a TV
    */
-  async updateTVTags(tvId, tags) {
+  async updateTVTags(tvId, tags, notTags) {
     const metadata = await this.readMetadata();
     const tv = metadata.tvs.find(t => t.id === tvId);
     
@@ -311,7 +356,13 @@ class MetadataHelper {
       throw new Error('TV not found');
     }
 
-    tv.tags = tags || [];
+  this.normalizeTV(tv);
+  const sanitizedTags = Array.isArray(tags) ? tags.filter(Boolean) : [];
+  const sanitizedNotTags = Array.isArray(notTags) ? notTags.filter(Boolean) : [];
+
+  tv.tags = Array.from(new Set(sanitizedTags));
+  const tagSet = new Set(tv.tags);
+  tv.notTags = Array.from(new Set(sanitizedNotTags.filter(tag => !tagSet.has(tag))));
     
     // Clean up unused tags from global list
     await this.cleanupUnusedTags(metadata);
@@ -331,6 +382,7 @@ class MetadataHelper {
       throw new Error('TV not found');
     }
 
+    this.normalizeTV(tv);
     tv.name = name;
     tv.ip = ip;
     if (home === 'Madrone' || home === 'Maui') {
@@ -409,6 +461,9 @@ class MetadataHelper {
       for (const tv of metadata.tvs) {
         if (tv.tags && Array.isArray(tv.tags)) {
           tv.tags.forEach(tag => tagsInUse.add(tag));
+        }
+        if (tv.notTags && Array.isArray(tv.notTags)) {
+          tv.notTags.forEach(tag => tagsInUse.add(tag));
         }
       }
     }

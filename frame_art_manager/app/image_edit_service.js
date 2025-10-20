@@ -156,19 +156,16 @@ class ImageEditService {
   applyFilter(instance, filterName) {
     switch (filterName) {
       case 'gallery-soft':
-      case 'warm':
         return instance
           .modulate({ saturation: 1.08, brightness: 1.03 })
           .linear(1.02, -4)
           .tint('#f5e4d3');
       case 'vivid-sky':
-      case 'punch':
         return instance
           .modulate({ saturation: 1.2, brightness: 1.03 })
           .linear(1.04, -2)
           .tint('#e2f1ff');
       case 'dusk-haze':
-      case 'cool':
         return instance
           .modulate({ saturation: 1.08, brightness: 0.98 })
           .tint('#d9c6ff')
@@ -192,7 +189,6 @@ class ImageEditService {
           .linear(1.32, -34)
           .modulate({ brightness: 0.92 });
       case 'silver-tone':
-      case 'mono':
       case 'monochrome':
       case 'grayscale':
         return instance

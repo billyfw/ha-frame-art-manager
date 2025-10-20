@@ -729,8 +729,28 @@ body {
   margin-top: 4px;
   z-index: 9999;
   display: none;
-  max-height: 300px;
+  max-height: 400px;
   overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* Show scrollbar only when content overflows */
+.multiselect-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.multiselect-dropdown::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 0 4px 4px 0;
+}
+
+.multiselect-dropdown::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.multiselect-dropdown::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .multiselect-dropdown.active {
@@ -772,7 +792,8 @@ body {
 }
 
 .multiselect-options {
-  padding: 4px 0;
+  padding: 4px 0 8px 0;
+  box-sizing: border-box;
 }
 
 .multiselect-option {
@@ -2336,6 +2357,10 @@ body {
   font-style: italic;
 }
 
+#tv-modal-not-tag-pills:empty::after {
+  content: 'No exclusions selected';
+}
+
 .tag-pill {
   display: inline-flex;
   align-items: center;
@@ -2451,6 +2476,14 @@ body {
 .tag-picker-item input[type="checkbox"] {
   margin: 0;
   cursor: pointer;
+}
+
+.tag-picker-item input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}
+
+.tag-picker-item input[type="checkbox"]:disabled + label {
+  opacity: 0.6;
 }
 
 .tag-picker-item label {

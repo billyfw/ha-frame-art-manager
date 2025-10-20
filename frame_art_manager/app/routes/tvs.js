@@ -71,14 +71,22 @@ router.post('/:tvId/test', async (req, res) => {
 // PUT update TV tags
 router.put('/:tvId/tags', async (req, res) => {
   try {
-    const { tags } = req.body;
+    const { tags, notTags } = req.body || {};
 
-    if (!Array.isArray(tags)) {
+    if (tags !== undefined && !Array.isArray(tags)) {
       return res.status(400).json({ error: 'Tags must be an array' });
     }
 
+    if (notTags !== undefined && !Array.isArray(notTags)) {
+      return res.status(400).json({ error: 'NotTags must be an array' });
+    }
+
     const helper = new MetadataHelper(req.frameArtPath);
-    const tv = await helper.updateTVTags(req.params.tvId, tags);
+    const tv = await helper.updateTVTags(
+      req.params.tvId,
+      Array.isArray(tags) ? tags : [],
+      Array.isArray(notTags) ? notTags : []
+    );
     res.json({ success: true, tv });
   } catch (error) {
     console.error('Error updating TV tags:', error);

@@ -1868,10 +1868,36 @@ async function uploadBatchImages(files) {
 }
 
 // TV Management
+function ensureTVCollections(tv = {}) {
+  if (!Array.isArray(tv.tags)) {
+    if (typeof tv.tags === 'string' && tv.tags.trim().length > 0) {
+      tv.tags = [tv.tags.trim()];
+    } else {
+      tv.tags = [];
+    }
+  }
+
+  if (!Array.isArray(tv.notTags)) {
+    if (typeof tv.notTags === 'string' && tv.notTags.trim().length > 0) {
+      tv.notTags = [tv.notTags.trim()];
+    } else {
+      tv.notTags = [];
+    }
+  }
+
+  return tv;
+}
+
+function serializeTagsForDataAttribute(tags = []) {
+  const json = JSON.stringify(Array.isArray(tags) ? tags : []);
+  return json.replace(/'/g, '&#39;');
+}
+
 async function loadTVs() {
   try {
     const response = await fetch(`${API_BASE}/tvs`);
-    allTVs = await response.json();
+    const tvs = await response.json();
+    allTVs = Array.isArray(tvs) ? tvs.map(ensureTVCollections) : [];
     renderTVList();
     // Update TV shortcuts in the tag filter dropdown
     loadTagsForFilter();
@@ -1889,10 +1915,15 @@ function renderTVList() {
   }
 
   list.innerHTML = allTVs.map(tv => {
+    ensureTVCollections(tv);
     const tvTags = tv.tags || [];
+    const notTags = tv.notTags || [];
     const tagText = tvTags.length === 0 ? 'All images' : 
                     tvTags.length === 1 ? tvTags[0] : 
                     tvTags.join(', ');
+    const notTagText = notTags.length === 0 ? 'No exclusions' : 
+                       notTags.length === 1 ? notTags[0] : 
+                       notTags.join(', ');
     
     return `
     <div class="list-item list-item-clickable" onclick="openTVModal('${tv.id}')">
@@ -1900,6 +1931,7 @@ function renderTVList() {
         <div class="list-item-name">${tv.name}</div>
         <div class="list-item-detail">${tv.ip}</div>
         <div class="list-item-detail">${tagText}</div>
+        <div class="list-item-detail"><strong>Exclude:</strong> ${notTagText}</div>
         <div class="list-item-detail"><strong>Home:</strong> ${tv.home || 'Madrone'}</div>
       </div>
     </div>
@@ -1949,12 +1981,14 @@ async function removeTV(tvId) {
 }
 
 let currentTVId = null;
+let currentTVTagPickerMode = 'include';
 
 function openTVModal(tvId) {
   const tv = allTVs.find(t => t.id === tvId);
   if (!tv) return;
 
   currentTVId = tvId;
+  ensureTVCollections(tv);
   
   // Populate modal fields
   document.getElementById('tv-modal-name').value = tv.name;
@@ -1970,7 +2004,8 @@ function openTVModal(tvId) {
   }
   
   // Populate tag pills
-  renderTVModalTagPills(tv.tags || []);
+  renderTVModalTagPills(tv.tags || [], 'include');
+  renderTVModalTagPills(tv.notTags || [], 'exclude');
   
   // Show modal with active class for proper centering
   const modal = document.getElementById('tv-modal');
@@ -1978,31 +2013,36 @@ function openTVModal(tvId) {
   modal.style.display = 'flex';
 }
 
-function renderTVModalTagPills(tags) {
-  const container = document.getElementById('tv-modal-tag-pills');
+function renderTVModalTagPills(tags, type = 'include') {
+  const containerId = type === 'exclude' ? 'tv-modal-not-tag-pills' : 'tv-modal-tag-pills';
+  const container = document.getElementById(containerId);
   if (!container) return;
-  
-  if (tags.length === 0) {
+
+  const list = Array.isArray(tags) ? tags : [];
+
+  if (list.length === 0) {
     container.innerHTML = '';
     return;
   }
-  
-  container.innerHTML = tags.map(tag => `
+
+  container.innerHTML = list.map(tag => `
     <div class="tag-pill">
       <span>${tag}</span>
-      <span class="tag-pill-remove" data-tag="${tag}">&times;</span>
+      <span class="tag-pill-remove" data-tag="${tag}" data-tag-type="${type}">&times;</span>
     </div>
   `).join('');
-  
-  // Add click handlers for remove buttons
+
   container.querySelectorAll('.tag-pill-remove').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      const tagToRemove = e.target.dataset.tag;
+      const tagToRemove = e.currentTarget.dataset.tag;
+      const tagType = e.currentTarget.dataset.tagType === 'exclude' ? 'notTags' : 'tags';
       const tv = allTVs.find(t => t.id === currentTVId);
-      if (tv && tv.tags) {
-        tv.tags = tv.tags.filter(t => t !== tagToRemove);
-        renderTVModalTagPills(tv.tags);
+      if (!tv) {
+        return;
       }
+      ensureTVCollections(tv);
+      tv[tagType] = (tv[tagType] || []).filter(t => t !== tagToRemove);
+      renderTVModalTagPills(tv[tagType], tagType === 'notTags' ? 'exclude' : 'include');
     });
   });
 }
@@ -2018,32 +2058,54 @@ function updateTVModalTagsDisplay() {
   // No longer used - tags removed from TV modal
 }
 
-function openTVTagPicker() {
+function openTVTagPicker(mode = 'include') {
   if (!currentTVId) return;
-  
+
   const tv = allTVs.find(t => t.id === currentTVId);
   if (!tv) return;
-  
-  const tvTags = tv.tags || [];
+
+  ensureTVCollections(tv);
+  currentTVTagPickerMode = mode === 'exclude' ? 'exclude' : 'include';
+  const property = currentTVTagPickerMode === 'exclude' ? 'notTags' : 'tags';
+  const selectedTags = tv[property] || [];
   const listContainer = document.getElementById('tv-tag-picker-list');
-  
-  // Populate tag checkboxes
+  const title = document.getElementById('tv-tag-picker-title');
+
+  if (title) {
+    title.textContent = currentTVTagPickerMode === 'exclude' ? 'Select Excluded Tags' : 'Select Display Tags';
+  }
+
+  if (!Array.isArray(allTags)) {
+    // Fallback: ensure tags are loaded before rendering list
+    loadTags().then(() => openTVTagPicker(currentTVTagPickerMode)).catch(() => {});
+    return;
+  }
+
   listContainer.innerHTML = allTags.map(tag => {
     const safeId = `tv-tag-picker-${tag.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-    const checked = tvTags.includes(tag) ? 'checked' : '';
+    const checked = selectedTags.includes(tag) ? 'checked' : '';
+    const isDisplayTag = tv.tags.includes(tag);
+    const isExcludeTag = tv.notTags.includes(tag);
+    const isLocked = currentTVTagPickerMode === 'exclude' ? isDisplayTag : isExcludeTag;
+    const disabled = isLocked ? 'disabled' : '';
+    const annotation = isLocked
+      ? currentTVTagPickerMode === 'exclude'
+        ? ' (display tag)'
+        : ' (excluded)'
+      : '';
     return `
       <div class="tag-picker-item">
-        <input type="checkbox" id="${safeId}" value="${tag}" ${checked} class="tv-tag-picker-checkbox" />
-        <label for="${safeId}">${tag}</label>
+        <input type="checkbox" id="${safeId}" value="${tag}" ${checked} ${disabled} class="tv-tag-picker-checkbox" />
+        <label for="${safeId}">${tag}${annotation}</label>
       </div>
     `;
   }).join('');
-  
+
   // Show modal
   const modal = document.getElementById('tv-tag-picker-modal');
   modal.classList.add('active');
   modal.style.display = 'flex';
-  
+
   // Focus search input
   setTimeout(() => {
     const searchInput = document.getElementById('tv-tag-picker-search');
@@ -2055,6 +2117,7 @@ function closeTVTagPicker() {
   const modal = document.getElementById('tv-tag-picker-modal');
   modal.classList.remove('active');
   modal.style.display = 'none';
+  currentTVTagPickerMode = 'include';
   
   // Clear search
   const searchInput = document.getElementById('tv-tag-picker-search');
@@ -2068,23 +2131,26 @@ function closeTVTagPicker() {
 
 function saveTVTagPickerSelection() {
   if (!currentTVId) return;
-  
+
   const tv = allTVs.find(t => t.id === currentTVId);
   if (!tv) return;
-  
-  // Get selected tags
+
+  ensureTVCollections(tv);
+
   const checkboxes = document.querySelectorAll('.tv-tag-picker-checkbox');
   const selectedTags = Array.from(checkboxes)
-    .filter(cb => cb.checked)
+    .filter(cb => cb.checked && !cb.disabled)
     .map(cb => cb.value);
-  
-  // Update local TV object
-  tv.tags = selectedTags;
-  
-  // Update UI
-  renderTVModalTagPills(selectedTags);
-  
-  // Close picker
+
+  const property = currentTVTagPickerMode === 'exclude' ? 'notTags' : 'tags';
+  const oppositeProperty = property === 'tags' ? 'notTags' : 'tags';
+
+  tv[property] = selectedTags;
+  tv[oppositeProperty] = (tv[oppositeProperty] || []).filter(tag => !selectedTags.includes(tag));
+
+  renderTVModalTagPills(tv[property], property === 'notTags' ? 'exclude' : 'include');
+  renderTVModalTagPills(tv[oppositeProperty], oppositeProperty === 'notTags' ? 'exclude' : 'include');
+
   closeTVTagPicker();
 }
 
@@ -2102,6 +2168,7 @@ async function saveTVModal() {
   // Get selected tags and home from local TV object
   const tv = allTVs.find(t => t.id === currentTVId);
   const tags = tv ? (tv.tags || []) : [];
+  const notTags = tv ? (tv.notTags || []) : [];
   const home = tv ? (tv.home || 'Madrone') : 'Madrone';
   
   try {
@@ -2119,7 +2186,7 @@ async function saveTVModal() {
       const tagsResponse = await fetch(`${API_BASE}/tvs/${currentTVId}/tags`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags })
+        body: JSON.stringify({ tags, notTags })
       });
       
       const tagsResult = await tagsResponse.json();
@@ -2128,7 +2195,7 @@ async function saveTVModal() {
         // Update local data
         const tvIndex = allTVs.findIndex(t => t.id === currentTVId);
         if (tvIndex !== -1) {
-          allTVs[tvIndex] = tagsResult.tv;
+          allTVs[tvIndex] = ensureTVCollections(tagsResult.tv);
         }
         
         renderTVList();
@@ -2184,6 +2251,9 @@ async function loadTagsForFilter() {
     const response = await fetch(`${API_BASE}/tags`);
     allTags = await response.json();
     
+    // Sort tags alphabetically
+    allTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    
     // Populate TV shortcuts section
     const tvShortcutsContainer = document.getElementById('tv-shortcuts');
     
@@ -2199,27 +2269,31 @@ async function loadTagsForFilter() {
     const nonTVTags = allTags.filter(tag => !allTVTags.has(tag));
     
     if (allTVs && allTVs.length > 0) {
-      const tvsWithTags = allTVs.filter(tv => tv.tags && tv.tags.length > 0);
+      const normalizedTVs = allTVs.map(ensureTVCollections);
       
-      if (tvsWithTags.length > 0 || nonTVTags.length > 0) {
+      // Sort TVs alphabetically by name
+      normalizedTVs.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+      
+      const shouldRenderShortcuts = normalizedTVs.length > 0 || nonTVTags.length > 0;
+
+      if (shouldRenderShortcuts) {
         tvShortcutsContainer.innerHTML = `
           <div class="tv-shortcuts-header">TV Shortcuts</div>
           ${nonTVTags.length > 0 ? `
             <div class="multiselect-option">
-              <input type="checkbox" id="tv-shortcut-no-tvs" value="no-tvs" class="tv-shortcut-checkbox" data-tv-tags='${JSON.stringify(nonTVTags)}'>
+              <input type="checkbox" id="tv-shortcut-no-tvs" value="no-tvs" class="tv-shortcut-checkbox" data-tv-tags='${serializeTagsForDataAttribute(nonTVTags)}'>
               <label for="tv-shortcut-no-tvs">*No TVs</label>
             </div>
           ` : ''}
-          ${tvsWithTags.map(tv => `
+          ${normalizedTVs.map(tv => `
             <div class="multiselect-option">
-              <input type="checkbox" id="tv-shortcut-${tv.id}" value="${tv.id}" class="tv-shortcut-checkbox" data-tv-tags='${JSON.stringify(tv.tags)}'>
-              <label for="tv-shortcut-${tv.id}">${tv.name}</label>
+              <input type="checkbox" id="tv-shortcut-${tv.id}" value="${tv.id}" class="tv-shortcut-checkbox" data-tv-tags='${serializeTagsForDataAttribute(tv.tags)}'>
+              <label for="tv-shortcut-${tv.id}">${tv.name}${tv.tags.length === 0 ? ' (no display tags)' : ''}</label>
             </div>
           `).join('')}
           <div class="tv-shortcuts-divider"></div>
         `;
-        
-        // Add event listeners to TV shortcut checkboxes
+
         const tvCheckboxes = tvShortcutsContainer.querySelectorAll('.tv-shortcut-checkbox');
         tvCheckboxes.forEach(checkbox => {
           checkbox.addEventListener('change', handleTVShortcutChange);
@@ -2232,7 +2306,7 @@ async function loadTagsForFilter() {
       tvShortcutsContainer.innerHTML = `
         <div class="tv-shortcuts-header">TV Shortcuts</div>
         <div class="multiselect-option">
-          <input type="checkbox" id="tv-shortcut-no-tvs" value="no-tvs" class="tv-shortcut-checkbox" data-tv-tags='${JSON.stringify(nonTVTags)}'>
+          <input type="checkbox" id="tv-shortcut-no-tvs" value="no-tvs" class="tv-shortcut-checkbox" data-tv-tags='${serializeTagsForDataAttribute(nonTVTags)}'>
           <label for="tv-shortcut-no-tvs">*No TVs</label>
         </div>
         <div class="tv-shortcuts-divider"></div>
@@ -2268,56 +2342,33 @@ async function loadTagsForFilter() {
 
 function handleTVShortcutChange(event) {
   const checkbox = event.target;
-  const tvTags = JSON.parse(checkbox.dataset.tvTags);
-  const isChecked = checkbox.checked;
-  const isNoTVs = checkbox.id === 'tv-shortcut-no-tvs';
-  
-  if (isChecked) {
-    if (isNoTVs) {
-      // If "No TVs" is being checked, uncheck all other TV shortcuts first
-      const otherTVCheckboxes = document.querySelectorAll('.tv-shortcut-checkbox:not(#tv-shortcut-no-tvs)');
-      otherTVCheckboxes.forEach(tvCheckbox => {
-        if (tvCheckbox.checked || tvCheckbox.indeterminate) {
-          const otherTVTags = JSON.parse(tvCheckbox.dataset.tvTags);
-          // Uncheck all tags from this TV
-          otherTVTags.forEach(tag => {
-            const tagCheckbox = document.getElementById(`tag-${tag}`);
-            if (tagCheckbox) {
-              tagCheckbox.checked = false;
-            }
-          });
-          tvCheckbox.checked = false;
-          tvCheckbox.indeterminate = false;
-        }
-      });
-    } else {
-      // Regular TV is being checked - uncheck tags not in this TV
-      const tvTagsSet = new Set(tvTags);
-      const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
-      allTagCheckboxes.forEach(tagCheckbox => {
-        if (!tvTagsSet.has(tagCheckbox.value)) {
-          tagCheckbox.checked = false;
-        }
-      });
-      
-      // Also uncheck "No TVs" if it was checked
-      const noTVsCheckbox = document.getElementById('tv-shortcut-no-tvs');
-      if (noTVsCheckbox) {
-        noTVsCheckbox.checked = false;
-        noTVsCheckbox.indeterminate = false;
+  const tvTags = JSON.parse(checkbox.dataset.tvTags || '[]');
+  const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
+
+  if (checkbox.checked) {
+    // Apply the exact tag set represented by this shortcut
+    const tagsToSelect = new Set(tvTags);
+    allTagCheckboxes.forEach(tagCheckbox => {
+      tagCheckbox.checked = tagsToSelect.has(tagCheckbox.value);
+    });
+
+    // Deselect other shortcuts explicitly before state reconciliation
+    document.querySelectorAll('.tv-shortcut-checkbox').forEach(tvCheckbox => {
+      if (tvCheckbox !== checkbox) {
+        tvCheckbox.checked = false;
       }
-    }
+    });
+  } else {
+    // Removing this shortcut clears its tags from the selection
+    tvTags.forEach(tag => {
+      const tagCheckbox = document.getElementById(`tag-${tag}`);
+      if (tagCheckbox) {
+        tagCheckbox.checked = false;
+      }
+    });
   }
-  
-  // Select or deselect all tags for this TV/No TVs
-  tvTags.forEach(tag => {
-    const tagCheckbox = document.getElementById(`tag-${tag}`);
-    if (tagCheckbox) {
-      tagCheckbox.checked = isChecked;
-    }
-  });
-  
-  // Update the display and re-render gallery
+
+  // Recalculate shortcut state and gallery based on the new tag selection
   updateTagFilterDisplay();
 }
 
@@ -2349,52 +2400,15 @@ function updateTVShortcutStates() {
   const selectedTagCheckboxes = document.querySelectorAll('.tag-checkbox:checked');
   const selectedTags = Array.from(selectedTagCheckboxes).map(cb => cb.value);
   const selectedTagsSet = new Set(selectedTags);
-  
+
   tvCheckboxes.forEach(tvCheckbox => {
-    const tvTags = JSON.parse(tvCheckbox.dataset.tvTags);
-    const isNoTVs = tvCheckbox.id === 'tv-shortcut-no-tvs';
-    
-    if (isNoTVs) {
-      // Special logic for "No TVs" checkbox
-      const nonTVTagsSet = new Set(tvTags);
-      
-      // Check if any selected tag is part of a TV
-      const hasAnyTVTag = selectedTags.some(tag => !nonTVTagsSet.has(tag));
-      
-      if (hasAnyTVTag) {
-        // Any TV tag is selected - uncheck "No TVs"
-        tvCheckbox.checked = false;
-        tvCheckbox.indeterminate = false;
-      } else if (selectedTags.length === 0) {
-        // No tags selected
-        tvCheckbox.checked = false;
-        tvCheckbox.indeterminate = false;
-      } else {
-        // Only non-TV tags are selected
-        const allNonTVTagsSelected = tvTags.length > 0 && tvTags.every(tag => selectedTagsSet.has(tag));
-        
-        if (allNonTVTagsSelected && selectedTags.length === tvTags.length) {
-          // Exactly the non-TV tags are selected
-          tvCheckbox.checked = true;
-          tvCheckbox.indeterminate = false;
-        } else {
-          // Subset of non-TV tags selected
-          tvCheckbox.checked = false;
-          tvCheckbox.indeterminate = true;
-        }
-      }
-    } else {
-      // Regular TV checkbox logic
-      // Check if all TV tags are selected
-      const allTVTagsSelected = tvTags.every(tag => selectedTagsSet.has(tag));
-      
-      // Update checkbox state without triggering change event
-      tvCheckbox.checked = allTVTagsSelected;
-      
-      // Set indeterminate state if some but not all tags are selected
-      const someTVTagsSelected = tvTags.some(tag => selectedTagsSet.has(tag));
-      tvCheckbox.indeterminate = someTVTagsSelected && !allTVTagsSelected;
-    }
+    const shortcutTags = JSON.parse(tvCheckbox.dataset.tvTags || '[]');
+    const shortcutTagSet = new Set(shortcutTags);
+    const sameSize = selectedTagsSet.size === shortcutTagSet.size;
+    const exactMatch = sameSize && [...shortcutTagSet].every(tag => selectedTagsSet.has(tag));
+
+    tvCheckbox.checked = exactMatch;
+    tvCheckbox.indeterminate = false;
   });
 }
 
@@ -3315,15 +3329,12 @@ function applyPreviewFilters() {
 
   switch (editState.filter) {
     case 'gallery-soft':
-    case 'warm':
       parts.push('sepia(0.12)', 'saturate(1.12)', 'brightness(1.05)');
       break;
     case 'vivid-sky':
-    case 'punch':
       parts.push('saturate(1.24)', 'hue-rotate(350deg)', 'brightness(1.04)');
       break;
     case 'dusk-haze':
-    case 'cool':
       parts.push('saturate(1.08)', 'hue-rotate(315deg)', 'brightness(0.98)', 'contrast(1.05)');
       break;
     case 'impressionist':
@@ -3336,7 +3347,6 @@ function applyPreviewFilters() {
       parts.push('grayscale(1)', 'contrast(1.25)');
       break;
     case 'silver-tone':
-    case 'mono':
     case 'monochrome':
     case 'grayscale':
       parts.push('grayscale(1)', 'brightness(1.05)', 'contrast(0.92)');
@@ -4355,6 +4365,7 @@ function initTVModal() {
   const cancelBtn = document.getElementById('tv-modal-cancel-btn');
   const closeBtn = document.getElementById('tv-modal-close');
   const addTagBtn = document.getElementById('tv-modal-add-tag-btn');
+  const addNotTagBtn = document.getElementById('tv-modal-add-not-tag-btn');
   const madroneBtn = document.getElementById('tv-home-madrone');
   const mauiBtn = document.getElementById('tv-home-maui');
   
@@ -4371,7 +4382,10 @@ function initTVModal() {
     closeBtn.addEventListener('click', closeTVModal);
   }
   if (addTagBtn) {
-    addTagBtn.addEventListener('click', openTVTagPicker);
+    addTagBtn.addEventListener('click', () => openTVTagPicker('include'));
+  }
+  if (addNotTagBtn) {
+    addNotTagBtn.addEventListener('click', () => openTVTagPicker('exclude'));
   }
   // Home toggle handlers
   function setHome(value) {
