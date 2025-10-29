@@ -22,3 +22,15 @@ Thumbs.db
 
 # Test coverage
 coverage/
+
+# Certificates & keys
+*.key
+*.pem
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx
+CAROOT/
+local_ha_ssl_certs/
+
