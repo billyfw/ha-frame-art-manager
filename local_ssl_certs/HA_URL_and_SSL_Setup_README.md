@@ -5,8 +5,10 @@ This setup provides a clean, secure way to reach Home Assistant (HA) both **insi
 
 | Context | URL | Behavior |
 |----------|-----|-----------|
-| **Inside LAN** | https://art-manager.ancwbfw.com | Resolved by UniFi DNS → NGINX Proxy Manager → Home Assistant via local SSL |
-| **Outside LAN** | https://art-manager.ancwbfw.com | GoDaddy forwards (302) → Nabu Casa remote URL |
+| **Inside LAN** | https://art-manager.ancwbfw.com | Resolved by UniFi DNS → NGINX Proxy Manager → Home Assistant via locally trusted SSL (full padlock) |
+| **Outside LAN** | https://art-manager.ancwbfw.com | GoDaddy forwards (302) → Nabu Casa remote URL (no certificate for the custom domain) |
+
+🔒 **Local-only green padlock:** Because the mkcert CA is trusted on LAN devices, the internal reverse proxy can present a valid certificate for `art-manager.ancwbfw.com`. That padlock is expected to disappear when you leave the network because GoDaddy’s forwarding cannot present a matching certificate for the custom hostname. This isnt fixable according to chatgpt without additional tools like cloudflare or exposing internal ports, because doing the ssl thing on godaddy means you can't use forwarding to send to a specific path.
 
 The same URL therefore “just works” at home and remotely.
 
@@ -34,6 +36,15 @@ https://kmxagapau1yzoflurif8li6nmfqbzeje.ui.nabu.casa/e2a3b0cb_frame_art_manager
 - **UniFi Local DNS Override** – Maps the same hostname to the HA IP for LAN users.
 - **NGINX Proxy Manager Add-on** – Provides internal reverse-proxy, HTTPS termination, and redirect to the HA subpath.
 - **mkcert** – Generates a locally-trusted certificate for the LAN domain.
+
+### Why remote HTTPS stays “Not Secure”
+- GoDaddy forwarding only offers a 302 redirect; it does **not** terminate TLS for `art-manager.ancwbfw.com`, so browsers never see a valid cert for that hostname when you are off-LAN.
+- Nabu Casa serves content under its own wildcard certificate (`*.ui.nabu.casa`), which is why the browser swaps to that hostname after the redirect.
+- To keep `https://art-manager.ancwbfw.com` green on the open internet, you would need either:
+      - A proxy that can present a trusted certificate while forwarding traffic (e.g., Cloudflare in front of Home Assistant), **or**
+      - Directly exposing your Home Assistant/Nginx proxy to the internet with appropriate port forwarding and a public CA-issued certificate.
+
+Those trade-offs are outside the scope of this local-only setup; the current approach intentionally keeps Home Assistant unexposed while still providing a trusted experience on the LAN.
 
 ## SSL and Certificates
 
