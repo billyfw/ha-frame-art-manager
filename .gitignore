@@ -32,5 +32,3 @@ coverage/
 *.p12
 *.pfx
 CAROOT/
-local_ha_ssl_certs/
-
