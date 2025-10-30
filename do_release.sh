@@ -5,12 +5,50 @@
 
 set -e
 
+# Function to show usage
+show_usage() {
+    echo "Frame Art Manager Release Script"
+    echo ""
+    echo "Usage: ./do_release.sh [major|minor|patch] [-m \"commit message\"]"
+    echo ""
+    echo "Version Bump Types:"
+    echo "  major    Increment major version (e.g., 0.5.5 -> 1.0.0)"
+    echo "  minor    Increment minor version (e.g., 0.5.5 -> 0.6.0)"
+    echo "  patch    Increment patch version (e.g., 0.5.5 -> 0.5.6)"
+    echo ""
+    echo "Options:"
+    echo "  -m \"message\"    Custom commit message (optional)"
+    echo "  --help, -h      Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  ./do_release.sh patch"
+    echo "  ./do_release.sh minor"
+    echo "  ./do_release.sh patch -m \"Fix SSH key handling\""
+    echo ""
+    echo "What this script does:"
+    echo "  1. Reads current version from config.yaml"
+    echo "  2. Bumps version number based on type (major/minor/patch)"
+    echo "  3. Updates config.yaml with new version"
+    echo "  4. Commits all changes to git"
+    echo "  5. Creates a git tag (e.g., v0.5.6)"
+    echo "  6. Pushes code and tags to GitHub"
+    echo "  7. SSHs into Home Assistant"
+    echo "  8. Auto-detects add-on slug"
+    echo "  9. Uninstalls old version of add-on (if exists)"
+    echo "  10. Reinstalls fresh from GitHub with new version"
+    echo "  11. Starts the add-on"
+}
+
 # Parse arguments
 BUMP_TYPE=""
 COMMIT_MESSAGE=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --help|-h)
+            show_usage
+            exit 0
+            ;;
         -m)
             COMMIT_MESSAGE="$2"
             shift 2
@@ -21,6 +59,8 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             echo "Error: Unknown option $1"
+            echo ""
+            show_usage
             exit 1
             ;;
     esac
@@ -29,27 +69,10 @@ done
 # Check if argument provided
 if [ -z "$BUMP_TYPE" ]; then
     echo "Error: Version bump type required"
+    echo ""
     echo "Usage: ./do_release.sh [major|minor|patch] [-m \"commit message\"]"
     echo ""
-    echo "Examples:"
-    echo "  ./do_release.sh patch  # 0.5.5 -> 0.5.6"
-    echo "  ./do_release.sh minor  # 0.5.5 -> 0.6.0"
-    echo "  ./do_release.sh major  # 0.5.5 -> 1.0.0"
-    echo "  ./do_release.sh patch -m \"Fix SSH key handling\"  # With custom message"
-    echo ""
-    echo "What this script does:"
-    echo "  • Reads current version from config.yaml"
-    echo "  • Bumps version number based on type (major/minor/patch)"
-    echo "  • Updates config.yaml with new version"
-    echo "  • Commits all changes to git"
-    echo "  • Creates a git tag (e.g., v0.5.6)"
-    echo "  • Pushes code and tags to GitHub"
-    echo "  • SSHs into Home Assistant"
-    echo "  • Auto-detects add-on slug"
-    echo "  • Uninstalls old version of add-on"
-    echo "  • Reinstalls fresh from GitHub with new version"
-    echo "  • Starts the add-on"
-    echo ""
+    echo "Run './do_release.sh --help' for more information"
     exit 1
 fi
 
