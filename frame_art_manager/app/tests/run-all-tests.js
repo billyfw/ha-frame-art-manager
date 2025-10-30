@@ -27,7 +27,8 @@ const testSuites = [
   { name: 'Image Editing Tests', file: 'image-editing.test.js' },
   { name: 'File Coordination Tests', file: 'file-coordination.test.js' },
   { name: 'Upload Validation Tests', file: 'upload-validation.test.js' },
-  { name: 'Commit Message Tests', file: 'commit-message.test.js' }
+  { name: 'Commit Message Tests', file: 'commit-message.test.js' },
+  { name: 'Validation Tests', file: 'validation.test.js' }
 ];
 
 // Results tracking

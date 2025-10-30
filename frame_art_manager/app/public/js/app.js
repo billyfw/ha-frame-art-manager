@@ -2202,6 +2202,39 @@ async function uploadBatchImages(files) {
 }
 
 // TV Management
+
+// Validation helpers
+function isValidIPAddress(ip) {
+  if (!ip || typeof ip !== 'string') {
+    return false;
+  }
+  
+  // Basic IPv4 validation
+  const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+  if (!ipv4Pattern.test(ip)) {
+    return false;
+  }
+  
+  // Check each octet is 0-255
+  const octets = ip.split('.');
+  return octets.every(octet => {
+    const num = parseInt(octet, 10);
+    return num >= 0 && num <= 255;
+  });
+}
+
+function isValidMacAddress(mac) {
+  if (!mac || typeof mac !== 'string') {
+    return false;
+  }
+  
+  // Remove all non-hex characters
+  const cleaned = mac.replace(/[^0-9a-fA-F]/g, '');
+  
+  // MAC address should be exactly 12 hex characters
+  return cleaned.length === 12;
+}
+
 function ensureTVCollections(tv = {}) {
   if (!Array.isArray(tv.tags)) {
     if (typeof tv.tags === 'string' && tv.tags.trim().length > 0) {
@@ -2258,12 +2291,13 @@ function renderTVList() {
     const notTagText = notTags.length === 0 ? 'No exclusions' : 
                        notTags.length === 1 ? notTags[0] : 
                        notTags.join(', ');
+    const macText = tv.mac || 'aa:bb:cc:dd:ee:ff';
     
     return `
     <div class="list-item list-item-clickable" onclick="openTVModal('${tv.id}')">
       <div class="list-item-info">
         <div class="list-item-name">${tv.name}</div>
-        <div class="list-item-detail">${tv.ip}</div>
+        <div class="list-item-detail">${tv.ip} • ${macText}</div>
         <div class="list-item-detail">${tagText}</div>
         <div class="list-item-detail"><strong>Exclude:</strong> ${notTagText}</div>
         <div class="list-item-detail"><strong>Home:</strong> ${tv.home || 'Madrone'}</div>
@@ -2280,14 +2314,43 @@ function initTVForm() {
 
   const name = document.getElementById('tv-name').value;
   const ip = document.getElementById('tv-ip').value;
+  const mac = document.getElementById('tv-mac').value;
   const homeSelect = document.getElementById('tv-home');
   const home = homeSelect ? homeSelect.value : 'Madrone';
+
+    // Validate name
+    if (!name || !name.trim()) {
+      alert('TV name cannot be blank');
+      return;
+    }
+    
+    // Validate IP address
+    if (!ip || !ip.trim()) {
+      alert('IP address is required');
+      return;
+    }
+    
+    if (!isValidIPAddress(ip.trim())) {
+      alert('Invalid IP address format. Please use format like 192.168.1.100');
+      return;
+    }
+    
+    // Validate MAC address
+    if (!mac || !mac.trim()) {
+      alert('MAC address is required');
+      return;
+    }
+    
+    if (!isValidMacAddress(mac.trim())) {
+      alert('Invalid MAC address. Please use format like AA:BB:CC:DD:EE:FF (12 hex characters)');
+      return;
+    }
 
     try {
       const response = await fetch(`${API_BASE}/tvs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, ip, home })
+        body: JSON.stringify({ name: name.trim(), ip: ip.trim(), mac: mac.trim(), home })
       });
 
       const result = await response.json();
@@ -2296,9 +2359,12 @@ function initTVForm() {
         form.reset();
         if (homeSelect) homeSelect.value = 'Madrone';
         loadTVs();
+      } else {
+        alert(result.error || 'Failed to add TV');
       }
     } catch (error) {
       console.error('Error adding TV:', error);
+      alert('Failed to add TV');
     }
   });
 }
@@ -2327,6 +2393,7 @@ function openTVModal(tvId) {
   // Populate modal fields
   document.getElementById('tv-modal-name').value = tv.name;
   document.getElementById('tv-modal-ip').value = tv.ip;
+  document.getElementById('tv-modal-mac').value = tv.mac || 'aa:bb:cc:dd:ee:ff';
   document.getElementById('tv-modal-date').textContent = formatDate(tv.added);
   // Set home toggle
   const homeValue = tv.home || 'Madrone';
@@ -2493,9 +2560,33 @@ async function saveTVModal() {
   
   const name = document.getElementById('tv-modal-name').value.trim();
   const ip = document.getElementById('tv-modal-ip').value.trim();
+  const mac = document.getElementById('tv-modal-mac').value.trim();
   
-  if (!name || !ip) {
-    alert('Please fill in all required fields');
+  // Validate name
+  if (!name) {
+    alert('TV name cannot be blank');
+    return;
+  }
+  
+  // Validate IP address
+  if (!ip) {
+    alert('IP address is required');
+    return;
+  }
+  
+  if (!isValidIPAddress(ip)) {
+    alert('Invalid IP address format. Please use format like 192.168.1.100');
+    return;
+  }
+  
+  // Validate MAC address
+  if (!mac) {
+    alert('MAC address is required');
+    return;
+  }
+  
+  if (!isValidMacAddress(mac)) {
+    alert('Invalid MAC address. Please use format like AA:BB:CC:DD:EE:FF (12 hex characters)');
     return;
   }
   
@@ -2506,11 +2597,11 @@ async function saveTVModal() {
   const home = tv ? (tv.home || 'Madrone') : 'Madrone';
   
   try {
-    // Update TV basic info (including home)
+    // Update TV basic info (including home and mac)
     const response = await fetch(`${API_BASE}/tvs/${currentTVId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, ip, home })
+      body: JSON.stringify({ name, ip, mac, home })
     });
     
     const result = await response.json();
@@ -2536,6 +2627,8 @@ async function saveTVModal() {
         loadTagsForFilter(); // Update TV shortcuts in filter dropdown
         closeTVModal();
       }
+    } else {
+      alert(result.error || 'Failed to save TV changes');
     }
   } catch (error) {
     console.error('Error saving TV:', error);
