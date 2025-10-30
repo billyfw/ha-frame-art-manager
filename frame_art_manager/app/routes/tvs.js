@@ -17,18 +17,22 @@ router.get('/', async (req, res) => {
 // POST add new TV
 router.post('/', async (req, res) => {
   try {
-    const { name, ip, home } = req.body;
+    const { name, ip, home, mac } = req.body;
 
     if (!name || !ip) {
       return res.status(400).json({ error: 'Name and IP are required' });
     }
 
+    if (!mac) {
+      return res.status(400).json({ error: 'MAC address is required' });
+    }
+
     const helper = new MetadataHelper(req.frameArtPath);
-    const tv = await helper.addTV(name, ip, home);
+    const tv = await helper.addTV(name, ip, home, mac);
     res.json({ success: true, tv });
   } catch (error) {
     console.error('Error adding TV:', error);
-    res.status(500).json({ error: 'Failed to add TV' });
+    res.status(500).json({ error: error.message || 'Failed to add TV' });
   }
 });
 
@@ -97,14 +101,18 @@ router.put('/:tvId/tags', async (req, res) => {
 // PUT update TV details
 router.put('/:tvId', async (req, res) => {
   try {
-    const { name, ip, home } = req.body;
+    const { name, ip, home, mac } = req.body;
 
     if (!name || !ip) {
       return res.status(400).json({ error: 'Name and IP are required' });
     }
 
+    if (!mac) {
+      return res.status(400).json({ error: 'MAC address is required' });
+    }
+
     const helper = new MetadataHelper(req.frameArtPath);
-    const tv = await helper.updateTV(req.params.tvId, name, ip, home);
+    const tv = await helper.updateTV(req.params.tvId, name, ip, home, mac);
     res.json({ success: true, tv });
   } catch (error) {
     console.error('Error updating TV:', error);

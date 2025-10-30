@@ -91,6 +91,33 @@ Tests coordination logic for operations that affect multiple resources (file + t
 npm run test:coordination
 ```
 
+### validation.test.js
+Tests client-side validation functions for IP addresses and MAC addresses.
+
+**Coverage:**
+- IP address validation (IPv4 format, octet ranges)
+- MAC address validation (12 hex characters, various separators)
+- Edge cases (empty strings, null, undefined, wrong types)
+- Invalid formats detection
+
+**Test breakdown:**
+- 15 IP address validation tests
+- 19 MAC address validation tests
+
+**Run individually:**
+```bash
+npm run test:validation
+```
+
+**Example output:**
+```
+✓ Valid IP: 192.168.1.1
+✓ Invalid IP: 256.1.1.1
+✓ Valid MAC: AA:BB:CC:DD:EE:FF
+✓ Valid MAC: AABBCCDDEEFF
+✓ Invalid MAC: AA:BB:CC (too short)
+```
+
 ## Running Tests
 
 **Run all tests:**
@@ -104,6 +131,7 @@ npm run test:semantic     # Semantic sync tests only
 npm run test:git          # Git sync tests only
 npm run test:metadata     # Metadata helper tests only
 npm run test:coordination # File coordination tests only
+npm run test:validation   # Validation tests only
 ```
 
 **Verbose output:**
@@ -201,14 +229,21 @@ test('descriptive test name', async () => {
 ## Test Coverage
 
 ### ✅ Tested
-- **Semantic sync status parsing (22 tests)**
+- **Semantic sync status parsing (23 tests)**
   - Unit tests: Parsing logic, filtering, categorization
   - Integration tests: Real Git operations, file creation, remote detection
-- **Git sync functionality (12 tests)**
+- **Git sync functionality (27 tests)**
   - Structural tests: Configuration, status, return types
   - Integration tests: Pull operations, idempotency, working tree updates
-- **Metadata CRUD operations (16 tests)**
-- **File coordination (rename, delete, upload) (9 tests)**
+- **Metadata CRUD operations (21 tests)**
+  - Includes MAC address normalization and TV management
+- **File coordination (rename, delete, upload) (12 tests)**
+- **Image editing operations (7 tests)**
+- **Upload validation (2 tests)**
+- **Commit message generation (37 tests)**
+- **Input validation functions (34 tests)**
+  - IP address validation (15 tests)
+  - MAC address validation (19 tests)
 - Image management workflows
 - TV management workflows
 - Tag operations
@@ -217,7 +252,7 @@ test('descriptive test name', async () => {
 - Rollback scenarios
 - Filename sanitization
 
-**Total: 59 automated tests**
+**Total: 129 automated tests**
 
 ### ⏳ Future Testing
 - API endpoint responses (supertest)

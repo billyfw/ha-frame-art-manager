@@ -11,6 +11,7 @@
     "test:git": "node tests/git-sync.test.js",
     "test:metadata": "node tests/metadata-helper.test.js",
     "test:coordination": "node tests/file-coordination.test.js",
+    "test:validation": "node tests/validation.test.js",
     "test:verbose": "node tests/semantic-sync.test.js --verbose && node tests/git-sync.test.js --verbose && node tests/metadata-helper.test.js --verbose && node tests/file-coordination.test.js --verbose",
     "postinstall": "npm rebuild sharp --silent"
   },

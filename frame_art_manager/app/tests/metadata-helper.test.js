@@ -194,12 +194,14 @@ test('INTEGRATION: addTag and removeTag work correctly', async () => {
 test('INTEGRATION: addTV and removeTV work correctly', async () => {
   const name = 'Test TV';
   const ip = '192.168.1.100';
+  const mac = '11:22:33:44:55:66';
   
   // Add TV
-  const tv = await helper.addTV(name, ip);
+  const tv = await helper.addTV(name, ip, 'Madrone', mac);
   assert.ok(tv.id, 'TV should have ID');
   assert.strictEqual(tv.name, name);
   assert.strictEqual(tv.ip, ip);
+  assert.strictEqual(tv.mac, '11:22:33:44:55:66');
   assert.deepStrictEqual(tv.tags, []);
   assert.deepStrictEqual(tv.notTags, []);
   
@@ -218,19 +220,22 @@ test('INTEGRATION: addTV and removeTV work correctly', async () => {
 test('INTEGRATION: updateTV modifies TV metadata', async () => {
   const name = 'Original TV';
   const ip = '192.168.1.100';
+  const mac = '22:33:44:55:66:77';
   
-  const tv = await helper.addTV(name, ip);
+  const tv = await helper.addTV(name, ip, 'Madrone', mac);
   
   const newName = 'Updated TV';
   const newIp = '192.168.1.101';
+  const newMac = '77:66:55:44:33:22';
   
-  await helper.updateTV(tv.id, newName, newIp);
+  await helper.updateTV(tv.id, newName, newIp, 'Madrone', newMac);
   
   const tvs = await helper.getAllTVs();
   const updatedTV = tvs.find(t => t.id === tv.id);
   
   assert.strictEqual(updatedTV.name, newName);
   assert.strictEqual(updatedTV.ip, newIp);
+  assert.strictEqual(updatedTV.mac, '77:66:55:44:33:22');
   assert.deepStrictEqual(updatedTV.tags, []);
   assert.deepStrictEqual(updatedTV.notTags, []);
 });
@@ -319,6 +324,110 @@ test('INTEGRATION: corrupt metadata.json is handled gracefully', async () => {
     tags: []
   };
   await fs.writeFile(metadataPath, JSON.stringify(validMetadata, null, 2));
+});
+
+test('UNIT: normalizeMacAddress handles various formats', () => {
+  // Standard formats
+  assert.strictEqual(helper.normalizeMacAddress('AA:BB:CC:DD:EE:FF'), 'aa:bb:cc:dd:ee:ff');
+  assert.strictEqual(helper.normalizeMacAddress('aa:bb:cc:dd:ee:ff'), 'aa:bb:cc:dd:ee:ff');
+  
+  // Dash separators
+  assert.strictEqual(helper.normalizeMacAddress('AA-BB-CC-DD-EE-FF'), 'aa:bb:cc:dd:ee:ff');
+  assert.strictEqual(helper.normalizeMacAddress('aa-bb-cc-dd-ee-ff'), 'aa:bb:cc:dd:ee:ff');
+  
+  // No separators
+  assert.strictEqual(helper.normalizeMacAddress('AABBCCDDEEFF'), 'aa:bb:cc:dd:ee:ff');
+  assert.strictEqual(helper.normalizeMacAddress('aabbccddeeff'), 'aa:bb:cc:dd:ee:ff');
+  
+  // Mixed separators (dots, spaces, etc.)
+  assert.strictEqual(helper.normalizeMacAddress('AA.BB.CC.DD.EE.FF'), 'aa:bb:cc:dd:ee:ff');
+  assert.strictEqual(helper.normalizeMacAddress('AA BB CC DD EE FF'), 'aa:bb:cc:dd:ee:ff');
+  assert.strictEqual(helper.normalizeMacAddress('AA:BB-CC.DD EE:FF'), 'aa:bb:cc:dd:ee:ff');
+  
+  // Invalid inputs
+  assert.strictEqual(helper.normalizeMacAddress(''), null);
+  assert.strictEqual(helper.normalizeMacAddress(null), null);
+  assert.strictEqual(helper.normalizeMacAddress(undefined), null);
+  assert.strictEqual(helper.normalizeMacAddress('AABBCC'), null); // Too short (6 hex chars)
+  assert.strictEqual(helper.normalizeMacAddress('AABBCCDDEE'), null); // Too short (10 hex chars)
+  assert.strictEqual(helper.normalizeMacAddress('GGHHIIJJKKLL'), null); // Invalid hex (0 hex chars)
+});
+
+test('INTEGRATION: addTV stores MAC address correctly', async () => {
+  const name = 'TV with MAC';
+  const ip = '192.168.1.200';
+  const mac = 'AA-BB-CC-DD-EE-FF';
+  
+  const tv = await helper.addTV(name, ip, 'Madrone', mac);
+  assert.ok(tv.id, 'TV should have ID');
+  assert.strictEqual(tv.name, name);
+  assert.strictEqual(tv.ip, ip);
+  assert.strictEqual(tv.mac, 'aa:bb:cc:dd:ee:ff', 'MAC should be normalized');
+  
+  const tvs = await helper.getAllTVs();
+  const persistedTV = tvs.find(t => t.id === tv.id);
+  assert.strictEqual(persistedTV.mac, 'aa:bb:cc:dd:ee:ff', 'Persisted MAC should be normalized');
+});
+
+test('INTEGRATION: updateTV updates MAC address', async () => {
+  const tvs = await helper.getAllTVs();
+  const tv = tvs.find(t => t.name === 'TV with MAC');
+  assert.ok(tv, 'TV should exist');
+  
+  const newMac = 'FF:EE:DD:CC:BB:AA';
+  await helper.updateTV(tv.id, tv.name, tv.ip, tv.home, newMac);
+  
+  const updatedTVs = await helper.getAllTVs();
+  const updatedTV = updatedTVs.find(t => t.id === tv.id);
+  
+  assert.strictEqual(updatedTV.mac, 'ff:ee:dd:cc:bb:aa', 'MAC should be updated and normalized');
+});
+
+test('INTEGRATION: addTV handles null or empty MAC', async () => {
+  const name = 'TV without MAC';
+  const ip = '192.168.1.201';
+  
+  try {
+    await helper.addTV(name, ip, 'Madrone', null);
+    assert.fail('Should throw error for missing MAC');
+  } catch (error) {
+    assert.ok(error.message.includes('MAC address is required'));
+  }
+  
+  try {
+    await helper.addTV(name, ip, 'Madrone', '');
+    assert.fail('Should throw error for empty MAC');
+  } catch (error) {
+    assert.ok(error.message.includes('MAC address is required'));
+  }
+});
+
+test('INTEGRATION: getAllTVs migrates TVs without MAC addresses', async () => {
+  // Manually create a TV without MAC in the metadata file
+  const metadata = await helper.readMetadata();
+  metadata.tvs.push({
+    id: 'legacy-tv-123',
+    name: 'Legacy TV',
+    ip: '192.168.1.250',
+    home: 'Madrone',
+    added: new Date().toISOString(),
+    tags: [],
+    notTags: []
+    // Note: no mac field
+  });
+  await helper.writeMetadata(metadata);
+  
+  // Now call getAllTVs which should trigger migration
+  const tvs = await helper.getAllTVs();
+  const legacyTV = tvs.find(t => t.id === 'legacy-tv-123');
+  
+  assert.ok(legacyTV, 'Legacy TV should be found');
+  assert.strictEqual(legacyTV.mac, 'aa:bb:cc:dd:ee:ff', 'Legacy TV should have dummy MAC');
+  
+  // Verify it was persisted
+  const reloadedMetadata = await helper.readMetadata();
+  const persistedLegacyTV = reloadedMetadata.tvs.find(t => t.id === 'legacy-tv-123');
+  assert.strictEqual(persistedLegacyTV.mac, 'aa:bb:cc:dd:ee:ff', 'Dummy MAC should be persisted');
 });
 
 // Test runner

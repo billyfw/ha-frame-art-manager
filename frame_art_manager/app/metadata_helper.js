@@ -16,6 +16,29 @@ class MetadataHelper {
     this.thumbsPath = path.join(frameArtPath, 'thumbs');
   }
 
+  /**
+   * Normalize MAC address to standard format (lowercase with colons)
+   * Accepts: AA:BB:CC:DD:EE:FF, aa-bb-cc-dd-ee-ff, aabbccddeeff, etc.
+   * Returns: aa:bb:cc:dd:ee:ff or null if invalid
+   */
+  normalizeMacAddress(mac) {
+    if (!mac || typeof mac !== 'string') {
+      return null;
+    }
+
+    // Remove all non-hex characters
+    const cleaned = mac.replace(/[^0-9a-fA-F]/g, '');
+    
+    // MAC address should be exactly 12 hex characters
+    if (cleaned.length !== 12) {
+      return null;
+    }
+
+    // Format as lowercase with colons: aa:bb:cc:dd:ee:ff
+    const formatted = cleaned.toLowerCase().match(/.{1,2}/g).join(':');
+    return formatted;
+  }
+
   normalizeTV(tv) {
     if (!tv) {
       return tv;
@@ -35,6 +58,12 @@ class MetadataHelper {
       } else {
         tv.notTags = [];
       }
+    }
+
+    // Normalize MAC address if present
+    if (tv.mac) {
+      const normalizedMac = this.normalizeMacAddress(tv.mac);
+      tv.mac = normalizedMac || tv.mac; // Keep original if normalization fails
     }
 
     return tv;
@@ -306,13 +335,21 @@ class MetadataHelper {
   /**
    * Add a TV to the list
    */
-  async addTV(name, ip, home = 'Madrone') {
+  async addTV(name, ip, home = 'Madrone', mac) {
+    if (!mac || typeof mac !== 'string') {
+      throw new Error('MAC address is required');
+    }
+    
     const metadata = await this.readMetadata();
     
+    // Generate unique ID using timestamp + random suffix to avoid collisions
+    const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
     const tv = this.normalizeTV({
-      id: Date.now().toString(),
+      id,
       name,
       ip,
+      mac,
       // Default or provided home
       home: (home === 'Madrone' || home === 'Maui') ? home : 'Madrone',
       added: new Date().toISOString(),
@@ -347,6 +384,13 @@ class MetadataHelper {
     let updated = false;
     const normalized = metadata.tvs.map(tv => {
       const needsNormalize = !tv || !Array.isArray(tv.tags) || !Array.isArray(tv.notTags);
+      
+      // Add dummy MAC if missing (migration for existing data)
+      if (!tv.mac) {
+        tv.mac = 'aa:bb:cc:dd:ee:ff';
+        updated = true;
+      }
+      
       const normalizedTV = this.normalizeTV(tv);
       if (needsNormalize) {
         updated = true;
@@ -391,7 +435,11 @@ class MetadataHelper {
   /**
    * Update TV name and IP
    */
-  async updateTV(tvId, name, ip, home) {
+  async updateTV(tvId, name, ip, home, mac) {
+    if (!mac || typeof mac !== 'string') {
+      throw new Error('MAC address is required');
+    }
+    
     const metadata = await this.readMetadata();
     const tv = metadata.tvs.find(t => t.id === tvId);
     
@@ -402,6 +450,7 @@ class MetadataHelper {
     this.normalizeTV(tv);
     tv.name = name;
     tv.ip = ip;
+    tv.mac = mac;
     if (home === 'Madrone' || home === 'Maui') {
       tv.home = home;
     }
