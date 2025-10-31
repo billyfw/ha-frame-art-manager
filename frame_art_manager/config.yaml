@@ -1,6 +1,6 @@
 # Frame Art Manager Add-on Configuration
 name: Frame Art Manager
-version: "0.8.2"
+version: "0.7.5"
 slug: frame_art_manager
 description: Manage Frame TV artwork library
 url: https://github.com/billyfw/ha-frame-art-manager
@@ -14,13 +14,11 @@ init: false
 startup: application
 boot: auto
 options:
-  home: ""
   frame_art_path: /config/www/frame_art
   port: 8099
   git_remote_host_alias: "github-billy"
   ssh_private_key: []
 schema:
-  home: str?
   frame_art_path: str
   port: int
   git_remote_host_alias: str?
