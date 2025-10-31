@@ -143,6 +143,9 @@ const AVAILABLE_FILTERS = new Set([
 const METADATA_DEFAULT_MATTE = 'none';
 const METADATA_DEFAULT_FILTER = 'None';
 
+const ADVANCED_TAB_DEFAULT = 'settings';
+const VALID_ADVANCED_TABS = new Set(['settings', 'metadata', 'sync']);
+
 function normalizeEditingFilterName(name) {
   if (!name) return 'none';
   const key = String(name).toLowerCase();
@@ -204,7 +207,8 @@ function handleRoute() {
   
   if (hash.startsWith('/advanced')) {
     const parts = hash.split('/');
-    const subTab = parts[2] || 'settings'; // /advanced/sync -> 'sync'
+    const requestedTab = parts[2] || ADVANCED_TAB_DEFAULT; // /advanced/sync -> 'sync'
+    const subTab = VALID_ADVANCED_TABS.has(requestedTab) ? requestedTab : ADVANCED_TAB_DEFAULT;
     switchToTab('advanced');
     switchToAdvancedSubTab(subTab);
   } else if (hash === '/upload') {
@@ -221,31 +225,25 @@ function navigateTo(path) {
 }
 
 function switchToAdvancedSubTab(tabName) {
-  // Remove active class from all buttons and contents
-  document.querySelectorAll('.advanced-tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelectorAll('.advanced-tab-content').forEach(content => content.classList.remove('active'));
-  
-  // Add active class to target button and content
-  const targetButton = document.querySelector(`[data-tab="${tabName}"]`);
-  const targetContent = document.getElementById(`advanced-${tabName}-content`);
-  
-  if (targetButton) targetButton.classList.add('active');
-  if (targetContent) targetContent.classList.add('active');
-  
-  // Reload data based on which sub-tab
-  if (tabName === 'sync') {
-    // Always reload sync status when viewing sync tab
-    // Use setTimeout to ensure DOM is fully ready
+  const requested = typeof tabName === 'string' ? tabName.trim().toLowerCase() : '';
+  const targetTab = VALID_ADVANCED_TABS.has(requested) ? requested : ADVANCED_TAB_DEFAULT;
+
+  document.querySelectorAll('.advanced-tab-btn').forEach((button) => {
+    button.classList.toggle('active', button.dataset.tab === targetTab);
+  });
+
+  document.querySelectorAll('.advanced-tab-content').forEach((panel) => {
+    panel.classList.toggle('active', panel.id === `advanced-${targetTab}-content`);
+  });
+
+  if (targetTab === 'sync') {
     setTimeout(() => {
-      console.log('Loading sync status...');
       loadSyncStatus();
       loadSyncLogs();
     }, 0);
-  } else if (tabName === 'metadata') {
-    // Reload metadata when viewing metadata tab
+  } else if (targetTab === 'metadata') {
     loadMetadata();
   }
-  // settings tab doesn't need reload, data is already loaded
 }
 
 // Debug flag: force the tag filter dropdown to always be visible
@@ -329,6 +327,8 @@ function openTagDropdownPortal() {
 
   // Mark button active
   btn.classList.add('active');
+  btn.setAttribute('aria-expanded', 'true');
+  dropdown.setAttribute('aria-hidden', 'false');
 
   // Ensure options exist on first open
   const optionsContainer = dropdown.querySelector('.multiselect-options');
@@ -353,8 +353,12 @@ function closeTagDropdownPortal() {
       dropdown.classList.remove('active');
       dropdown.style.display = 'none';
       dropdown.style.pointerEvents = 'none'; // Ensure it can't intercept clicks
+      dropdown.setAttribute('aria-hidden', 'true');
     }
-    if (btn) btn.classList.remove('active');
+    if (btn) {
+      btn.classList.remove('active');
+      btn.setAttribute('aria-expanded', 'false');
+    }
     return;
   }
 
@@ -378,7 +382,11 @@ function closeTagDropdownPortal() {
   }
 
   // Button state
-  if (btn) btn.classList.remove('active');
+  if (btn) {
+    btn.classList.remove('active');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  dropdown.setAttribute('aria-hidden', 'true');
 
   // Remove handlers
   if (tagDropdownState.resizeHandler) {
@@ -1052,7 +1060,7 @@ function initSettingsNavigation() {
       tagFilterDropdown?.classList.remove('active');
       // Also ensure hidden and portal closed
       closeTagDropdownPortal();
-      navigateTo('/advanced/settings');
+      navigateTo(`/advanced/${ADVANCED_TAB_DEFAULT}`);
     });
   }
 
@@ -1068,11 +1076,14 @@ function initSettingsNavigation() {
 
 function initAdvancedSubTabs() {
   const tabButtons = document.querySelectorAll('.advanced-tab-btn');
-  
-  tabButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      const tabName = button.dataset.tab;
-      navigateTo(`/advanced/${tabName}`);
+
+  tabButtons.forEach((button) => {
+    button.setAttribute('type', 'button');
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      const requestedTab = typeof button.dataset.tab === 'string' ? button.dataset.tab : '';
+      const safeTab = VALID_ADVANCED_TABS.has(requestedTab) ? requestedTab : ADVANCED_TAB_DEFAULT;
+      navigateTo(`/advanced/${safeTab}`);
     });
   });
 }
@@ -1080,6 +1091,11 @@ function initAdvancedSubTabs() {
 // Gallery Functions
 async function loadGallery() {
   const grid = document.getElementById('image-grid');
+  if (!grid) {
+    console.warn('Image grid element not found; skipping gallery load.');
+    return;
+  }
+
   grid.innerHTML = '<div class="loading">Loading images...</div>';
 
   try {
@@ -1093,7 +1109,9 @@ async function loadGallery() {
     renderGallery();
   } catch (error) {
     console.error('Error loading gallery:', error);
-    grid.innerHTML = '<div class="error">Failed to load images</div>';
+    if (grid) {
+      grid.innerHTML = '<div class="error">Failed to load images</div>';
+    }
   }
 }
 
@@ -1152,7 +1170,8 @@ function clearSelection() {
 
 function selectAllImages() {
   // Get all currently visible/filtered images
-  const searchTerm = document.getElementById('search-input').value.toLowerCase();
+  const searchInput = document.getElementById('search-input');
+  const searchTerm = (searchInput?.value || '').toLowerCase();
   const selectedTagCheckboxes = document.querySelectorAll('.tag-checkbox:checked');
   const selectedTags = Array.from(selectedTagCheckboxes).map(cb => cb.value);
 
@@ -1577,10 +1596,17 @@ async function addImageTags() {
 
 function renderGallery(filter = '') {
   const grid = document.getElementById('image-grid');
-  const searchTerm = document.getElementById('search-input').value.toLowerCase();
+  if (!grid) {
+    console.warn('Gallery render skipped: image grid element not found.');
+    return;
+  }
+
+  const searchInput = document.getElementById('search-input');
+  const searchTerm = (searchInput?.value || '').toLowerCase();
   const selectedTagCheckboxes = document.querySelectorAll('.tag-checkbox:checked');
   const selectedTags = Array.from(selectedTagCheckboxes).map(cb => cb.value);
-  const sortOrder = document.getElementById('sort-order').value;
+  const sortOrderSelect = document.getElementById('sort-order');
+  const sortOrder = sortOrderSelect ? sortOrderSelect.value : initialSortOrderPreference;
 
   let filteredImages = Object.entries(allImages);
 
@@ -1813,16 +1839,26 @@ document.addEventListener('DOMContentLoaded', () => {
       saveSortPreference(orderValue, sortAscending);
     });
   }
+
+  updateSortDirectionIcon();
 });
 
 // Fallback: ensure gear button opens Advanced even if initSettingsNavigation didn't bind
 // (No fallback gear handler needed now that UI binds first.)
 
 function updateSortDirectionIcon() {
-  const icon = document.getElementById('sort-direction-icon');
-  if (icon) {
-    icon.textContent = sortAscending ? '⬆' : '⬇';
+  const sortDirectionBtn = document.getElementById('sort-direction-btn');
+  if (!sortDirectionBtn) {
+    return;
   }
+
+  const isAscending = !!sortAscending;
+  const icon = isAscending ? '↑' : '↓';
+  sortDirectionBtn.textContent = icon;
+  sortDirectionBtn.setAttribute('data-direction', isAscending ? 'asc' : 'desc');
+  sortDirectionBtn.setAttribute('aria-pressed', String(isAscending));
+  sortDirectionBtn.setAttribute('aria-label', isAscending ? 'Sort ascending' : 'Sort descending');
+  sortDirectionBtn.title = isAscending ? 'Sort ascending' : 'Sort descending';
 }
 
 function updateTagFilterCount() {
@@ -2242,15 +2278,23 @@ function updateTagFilterDisplay() {
   const buttonText = document.getElementById('tag-filter-text');
   const clearBtn = document.getElementById('clear-tag-filter-btn');
   
-  if (selectedTags.length === 0) {
-    buttonText.textContent = 'All Tags';
-    clearBtn.style.display = 'none';
-  } else if (selectedTags.length === 1) {
-    buttonText.textContent = selectedTags[0];
-    clearBtn.style.display = 'block';
-  } else {
-    buttonText.textContent = selectedTags.join(', ');
-    clearBtn.style.display = 'block';
+  let label = 'All Tags';
+  let showClear = false;
+
+  if (selectedTags.length === 1) {
+    label = selectedTags[0];
+    showClear = true;
+  } else if (selectedTags.length > 1) {
+    label = selectedTags.join(', ');
+    showClear = true;
+  }
+
+  if (buttonText) {
+    buttonText.textContent = label;
+  }
+
+  if (clearBtn) {
+    clearBtn.style.display = showClear ? 'block' : 'none';
   }
   
   renderGallery();
@@ -3493,6 +3537,11 @@ function renderModalResolutionFromMetadata(imageData) {
 // Modal Functions
 function initModal() {
   const modal = document.getElementById('image-modal');
+  if (!modal) {
+    console.warn('Image modal element not found; skipping modal initialization.');
+    return;
+  }
+
   const closeBtn = document.getElementById('image-modal-close');
   const cancelBtn = document.getElementById('modal-cancel-btn');
   const deleteBtn = document.getElementById('modal-delete-btn');
@@ -3505,7 +3554,6 @@ function initModal() {
   const filterSelect = document.getElementById('modal-filter');
   const expandBtn = document.getElementById('expand-image-btn');
 
-  // Helper function to close modal and auto-sync
   const closeModalAndSync = async () => {
     if (editState.active) {
       cancelEdits();
@@ -3513,42 +3561,59 @@ function initModal() {
     modal.classList.remove('active');
     resetEditState({ hasBackup: false, keepDimensions: false, silent: true });
     clearToolbarStatus();
-    // Check if there are changes to sync and auto-sync
-    const status = await fetch(`${API_BASE}/sync/status`).then(r => r.json());
-    if (status.success && status.status.hasChanges) {
-      await manualSync();
-    }
-  };
-  
-  if (closeBtn) closeBtn.onclick = closeModalAndSync;
-  if (cancelBtn) cancelBtn.onclick = closeModalAndSync;
-  
-  window.onclick = (event) => {
-    if (event.target === modal) {
-      closeModalAndSync();
+    try {
+      const status = await fetch(`${API_BASE}/sync/status`).then(r => r.json());
+      if (status.success && status.status?.hasChanges) {
+        await manualSync();
+      }
+    } catch (error) {
+      console.error('Error checking sync status on modal close:', error);
     }
   };
 
-  deleteBtn.onclick = deleteImage;
-  editFilenameBtn.onclick = showEditFilenameForm;
-  saveFilenameBtn.onclick = saveFilenameChange;
-  cancelFilenameBtn.onclick = hideEditFilenameForm;
-  addTagsBtn.onclick = addImageTags;
-  
-  // Expand image to full screen
+  closeBtn?.addEventListener('click', closeModalAndSync);
+  cancelBtn?.addEventListener('click', closeModalAndSync);
+
+  window.addEventListener('click', (event) => {
+    if (event.target === modal) {
+      closeModalAndSync();
+    }
+  });
+
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', deleteImage);
+  }
+
+  if (editFilenameBtn && saveFilenameBtn && cancelFilenameBtn) {
+    editFilenameBtn.addEventListener('click', showEditFilenameForm);
+    saveFilenameBtn.addEventListener('click', saveFilenameChange);
+    cancelFilenameBtn.addEventListener('click', hideEditFilenameForm);
+  } else {
+    if (editFilenameBtn || saveFilenameBtn || cancelFilenameBtn) {
+      console.warn('Incomplete filename editing controls detected; skipping filename editing bindings.');
+    }
+  }
+
+  if (addTagsBtn) {
+    addTagsBtn.addEventListener('click', addImageTags);
+  }
+
   if (expandBtn) {
-    expandBtn.onclick = () => {
+    expandBtn.addEventListener('click', () => {
       if (currentImage) {
         showFullScreenImage(currentImage);
       }
-    };
+    });
   }
-  
-  // Auto-save matte and filter on change
-  matteSelect.onchange = saveImageChanges;
-  filterSelect.onchange = saveImageChanges;
-  
-  // Add Enter key support for tags input
+
+  if (matteSelect) {
+    matteSelect.addEventListener('change', saveImageChanges);
+  }
+
+  if (filterSelect) {
+    filterSelect.addEventListener('change', saveImageChanges);
+  }
+
   if (tagsInput) {
     tagsInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
@@ -3614,6 +3679,11 @@ function openImageModal(filename) {
   
   currentImage = filename;
 
+  if (!modal) {
+    console.warn('Image modal not found; cannot open image modal view.');
+    return;
+  }
+
   // Clear multi-select when opening image detail modal
   // This ensures the multi-select toolbar disappears since we're focusing on a single image
   if (selectedImages.size > 0) {
@@ -3626,17 +3696,28 @@ function openImageModal(filename) {
   if (modalImageEl) {
     modalImageEl.src = `library/${filename}?v=${cacheBuster}`;
   }
-  document.getElementById('modal-filename').textContent = getDisplayName(filename);
-  document.getElementById('modal-actual-filename').textContent = filename;
+  const modalFilenameEl = document.getElementById('modal-filename');
+  if (modalFilenameEl) {
+    modalFilenameEl.textContent = getDisplayName(filename);
+  }
+  const modalActualFilenameEl = document.getElementById('modal-actual-filename');
+  if (modalActualFilenameEl) {
+    modalActualFilenameEl.textContent = filename;
+  }
   
   renderModalResolutionFromMetadata(imageData);
 
   // Set form values
   const metadataMatte = imageData.matte || METADATA_DEFAULT_MATTE;
   const metadataFilter = imageData.filter || METADATA_DEFAULT_FILTER;
-
-  document.getElementById('modal-matte').value = metadataMatte;
-  document.getElementById('modal-filter').value = metadataFilter;
+  const modalMatteSelect = document.getElementById('modal-matte');
+  if (modalMatteSelect) {
+    modalMatteSelect.value = metadataMatte;
+  }
+  const modalFilterSelect = document.getElementById('modal-filter');
+  if (modalFilterSelect) {
+    modalFilterSelect.value = metadataFilter;
+  }
 
   if (allImages[currentImage]) {
     allImages[currentImage].matte = metadataMatte;

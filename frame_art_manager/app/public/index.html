@@ -14,27 +14,49 @@
       <div class="gallery-toolbar">
         <button type="button" id="open-upload-btn" class="btn-primary btn-add">Add</button>
         <button type="button" id="open-batch-upload-btn" class="btn-primary btn-add" title="Bulk upload new images with default metadata (max 5MB per image)">Batch Add</button>
-          <div class="subsection">
-            <h3>Manage Tags</h3>
-            <form id="tag-form" class="inline-form">
-              <input type="text" id="tag-name" placeholder="New Tag" required />
-              <button type="submit" class="btn-primary">Add Tag</button>
-            </form>
 
-            <div id="tag-list" class="tag-cloud">
-              <!-- Tag list will be loaded here -->
+        <div class="controls" role="toolbar" aria-label="Gallery controls">
+          <div class="control-item control-search">
+            <input type="search" id="search-input" placeholder="Search images" aria-label="Search images" autocomplete="off" />
+          </div>
+          <div class="control-item control-filter">
+            <div class="custom-multiselect">
+              <button type="button" id="tag-filter-btn" class="multiselect-button" aria-haspopup="listbox" aria-expanded="false">
+                <span id="tag-filter-text">All Tags</span>
+                <span class="dropdown-arrow">▾</span>
+              </button>
+              <div id="tag-filter-dropdown" class="multiselect-dropdown" role="menu">
+                <div class="multiselect-header">
+                  <span>Filter by tag</span>
+                  <button type="button" id="clear-tag-filter-btn" class="clear-filter-btn" title="Clear tag filter">×</button>
+                </div>
+                <div class="multiselect-options">
+                  <!-- Tag options injected here -->
+                </div>
+              </div>
             </div>
           </div>
+          <div class="control-item control-sort">
+            <span class="sort-label" id="sort-label">Sort</span>
+            <select id="sort-order" aria-labelledby="sort-label">
+              <option value="date">Newest first</option>
+              <option value="name">Name (A–Z)</option>
+            </select>
+            <button type="button" id="sort-direction-btn" class="sort-direction-btn" title="Toggle sort direction" aria-label="Toggle sort direction">↓</button>
+          </div>
         </div>
+
         <div class="control-item control-settings">
           <button type="button" id="open-advanced-btn" class="btn-icon btn-settings" title="Advanced settings">⚙</button>
         </div>
-      </div>
-        <button type="button" id="sync-btn" class="btn-icon btn-sync" title="Sync with cloud">
-          <span id="sync-icon">✅</span>
-          <span id="sync-text">Synced</span>
-          <span id="sync-badge" class="sync-badge" style="display: none;">0</span>
-        </button>
+
+        <div class="control-item control-sync">
+          <button type="button" id="sync-btn" class="btn-icon btn-sync" title="Sync with cloud">
+            <span id="sync-icon">✅</span>
+            <span id="sync-text">Synced</span>
+            <span id="sync-badge" class="sync-badge" style="display: none;">0</span>
+          </button>
+        </div>
       </div>
 
       <div id="bulk-actions" class="bulk-actions">
