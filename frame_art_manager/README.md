@@ -8,7 +8,7 @@
 
 ## About
 
-the owner's Art Manager home built web interface for managing artwork that can be displayed on TVs. Upload images, organize with tags, assign artwork to specific TVs, and sync your library with Git LFS for backup and multi-device management.
+the owner's Art Manager home built web interface for managing artwork destined for Samsung Frame displays. Upload images, organize with tags, and sync your library with Git LFS for backup and multi-device management. TV assignment and scheduling now live in the Home Assistant integration—this add-on focuses on curating the artwork library itself.
 
 ## Installation
 

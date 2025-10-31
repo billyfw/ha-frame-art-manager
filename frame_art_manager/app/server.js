@@ -9,7 +9,6 @@ const os = require('os');
 
 // Import route handlers
 const imagesRouter = require('./routes/images');
-const tvsRouter = require('./routes/tvs');
 const tagsRouter = require('./routes/tags');
 const syncRouter = require('./routes/sync');
 
@@ -56,7 +55,6 @@ app.use((req, res, next) => {
 
 // API Routes
 app.use('/api/images', imagesRouter);
-app.use('/api/tvs', tvsRouter);
 app.use('/api/tags', tagsRouter);
 app.use('/api/sync', syncRouter);
 
@@ -106,7 +104,6 @@ async function initializeDirectories() {
       const initialMetadata = {
         version: "1.0",
         images: {},
-        tvs: [],
         tags: []
       };
       await fs.writeFile(metadataPath, JSON.stringify(initialMetadata, null, 2));

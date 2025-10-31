@@ -11,54 +11,6 @@ body {
   line-height: 1.6;
 }
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.container {
-  width: 100%;
-  max-width: 1260px;
-  margin: 0 auto;
-  padding: 24px 28px 40px;
-}
-.hidden {
-  display: none !important;
-}
-
-.modal-image-stage {
-  position: relative;
-  display: inline-block;
-  overflow: hidden;
-}
-
-.modal-image-stage img {
-  display: block;
-  max-width: 100%;
-  border-radius: 0;
-  transition: filter 0.2s ease;
-}
-
-.crop-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.crop-overlay.active {
-  pointer-events: auto;
-}
-
-.crop-overlay.preview-muted .crop-box {
-  border-color: rgba(255, 255, 255, 0.75);
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
 }
 
 .crop-box {
@@ -820,25 +772,6 @@ body {
 .multiselect-dropdown.debug-visible {
   display: block !important;
   outline: 2px dashed #d35400;
-}
-
-.tv-shortcuts {
-  padding: 0;
-}
-
-.tv-shortcuts-header {
-  padding: 8px 12px 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: #7f8c8d;
-  letter-spacing: 0.5px;
-}
-
-.tv-shortcuts-divider {
-  height: 1px;
-  background: #e0e0e0;
-  margin: 4px 0;
 }
 
 .tags-header {
@@ -2384,8 +2317,6 @@ body {
   margin-top: 0;
   margin-bottom: 20px;
   color: #2c3e50;
-}
-
 .bulk-modal-content .form-group {
   margin-bottom: 20px;
 }
@@ -2412,181 +2343,11 @@ body {
   justify-content: flex-end;
 }
 
-/* TV Modal */
-.tv-modal {
-  max-width: 500px;
-}
-
-.tv-modal .modal-details {
-  padding: 20px;
-}
-
-.tag-pills-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-  min-height: 36px;
-  padding: 8px;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  background: #f6f8fa;
-}
-
-.tag-pills-container:empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tag-pills-container:empty::after {
-  content: 'No tags selected - will show all images';
-  color: #7f8c8d;
-  font-size: 13px;
-  font-style: italic;
-}
-
-#tv-modal-not-tag-pills:empty::after {
-  content: 'No exclusions selected';
-}
-
-.tag-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: #0366d6;
-  color: white;
-  border-radius: 12px;
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-.tag-pill-remove {
-  cursor: pointer;
-  font-weight: bold;
-  opacity: 0.8;
-  transition: opacity 0.2s;
-}
-
-.tag-pill-remove:hover {
-  opacity: 1;
-}
-
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 13px;
-}
-
-.tv-modal-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-  margin-top: 20px;
-}
-
-.tv-modal-actions-right {
-  display: flex;
-  gap: 10px;
-}
-
-/* Toggle buttons (segmented) */
-.toggle-group {
-  display: inline-flex;
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.toggle-btn {
-  background: #f6f8fa;
-  border: none;
-  padding: 8px 12px;
-  cursor: pointer;
-  font-size: 14px;
-  color: #24292f;
-}
-
-.toggle-btn + .toggle-btn {
-  border-left: 1px solid #d0d7de;
-}
-
-.toggle-btn.active {
-  background: #0366d6;
-  color: white;
-}
-
-/* TV Tag Picker Modal */
-.tv-tag-picker-modal {
-  max-width: 400px;
-}
-
-.tag-picker-search {
-  margin-bottom: 15px;
-}
-
-.tag-picker-search input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
-  font-size: 14px;
-}
-
-.tag-picker-search input:focus {
-  outline: none;
-  border-color: #0366d6;
-  box-shadow: 0 0 0 2px rgba(3,102,214,0.15);
-}
-
-.tag-picker-list {
-  max-height: 300px;
-  overflow-y: auto;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  padding: 8px;
-  margin-bottom: 15px;
-}
-
-.tag-picker-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.15s;
-}
-
-.tag-picker-item:hover {
-  background-color: #f6f8fa;
-}
-
-.tag-picker-item input[type="checkbox"] {
-  margin: 0;
-  cursor: pointer;
-}
-
-.tag-picker-item input[type="checkbox"]:disabled {
-  cursor: not-allowed;
-}
-
-.tag-picker-item input[type="checkbox"]:disabled + label {
-  opacity: 0.6;
-}
-
-.tag-picker-item label {
-  cursor: pointer;
-  margin: 0;
-  flex: 1;
-  user-select: none;
-}
-
 .modal-actions {
   display: flex;
-  gap: 10px;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
   margin-top: 20px;
 }
 
@@ -2596,7 +2357,6 @@ body {
   align-items: center;
 }
 
-#modal-delete-btn,
 #revert-original-btn {
   padding: 6px 12px;
   font-size: 0.8rem;

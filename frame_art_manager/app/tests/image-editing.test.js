@@ -49,7 +49,6 @@ async function setupTestEnv() {
   // Initialize metadata file
   const initialMetadata = {
     images: {},
-    tvs: [],
     tags: []
   };
   await fs.writeFile(
@@ -79,7 +78,6 @@ async function cleanTestState() {
 
   await helper.writeMetadata({
     images: {},
-    tvs: [],
     tags: []
   });
 }
