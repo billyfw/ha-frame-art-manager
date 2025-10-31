@@ -30,9 +30,14 @@ Configuration options are available in the **Configuration** tab of the add-on.
 
 **Default values:**
 ```yaml
+home: ""
 frame_art_path: /config/www/frame_art
 port: 8099
 ```
+
+### Option: `home`
+
+Friendly label for the household or physical location this add-on instance manages (for example `Madrone`). The field is optional today but will let future releases target site-specific automations.
 
 ### Option: `frame_art_path`
 

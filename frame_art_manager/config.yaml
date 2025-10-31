@@ -14,11 +14,16 @@ init: false
 startup: application
 boot: auto
 options:
+  home: ""
   frame_art_path: /config/www/frame_art
   port: 8099
   git_remote_host_alias: "github-billy"
   ssh_private_key: []
 schema:
+  home:
+    type: str?
+    name: Home
+    description: (e.g. Madrone)
   frame_art_path: str
   port: int
   git_remote_host_alias: str?

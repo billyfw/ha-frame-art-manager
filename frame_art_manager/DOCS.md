@@ -37,6 +37,10 @@ The web interface has 4 main areas:
 
 ## Configuration
 
+### Home Label (Optional)
+
+Set the **Home** field to a nickname like `Madrone` so future automations can tell which location this add-on instance belongs to. The value is optional today but is passed to the backend for upcoming features.
+
 ### Git Sync (Optional)
 
 To enable Git synchronization of your frame art library:
