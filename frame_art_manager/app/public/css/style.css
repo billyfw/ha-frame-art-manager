@@ -2317,6 +2317,8 @@ body {
   margin-top: 0;
   margin-bottom: 20px;
   color: #2c3e50;
+}
+
 .bulk-modal-content .form-group {
   margin-bottom: 20px;
 }
@@ -2424,6 +2426,11 @@ body {
   background: #f6f8fa;
 }
 
+.advanced-tab-btn:focus-visible {
+  outline: 2px solid #3498db;
+  outline-offset: 2px;
+}
+
 .advanced-tab-btn.active {
   color: #3498db;
   border-bottom-color: #3498db;
@@ -2431,12 +2438,12 @@ body {
 }
 
 .advanced-tab-content {
-  display: none;
+  display: none !important;
   animation: fadeIn 0.3s;
 }
 
 .advanced-tab-content.active {
-  display: block;
+  display: block !important;
 }
 
 .subsection {
