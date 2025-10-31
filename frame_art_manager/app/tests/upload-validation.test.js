@@ -91,7 +91,6 @@ async function setupTestRepo() {
   const baseMetadata = {
     version: '1.0',
     images: {},
-    tvs: [],
     tags: []
   };
 

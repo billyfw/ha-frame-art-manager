@@ -911,18 +911,18 @@ class GitHelper {
         continue;
       }
       
-      // Detect when we exit the "images" section (entering "tvs" or "tags" section at root level)
-      // We can tell it's root level if:
-      // 1. We've seen the images section
-      // 2. We see a closing brace for images: },
-      // 3. Followed by "tvs" or "tags"
+  // Detect when we exit the "images" section (entering the next root-level section like "tags")
+  // We can tell it's root level if:
+  // 1. We've seen the images section
+  // 2. We see a closing brace for images: },
+  // 3. Followed by "tags" or another root key
       if (hasSeenImagesSection && trimmed === '},') {
         // This might be the closing of the images section
-        // Check if the next non-empty line is "tvs" or "tags"
+        // Check if the next non-empty line is "tags" (or another root key)
         for (let j = i + 1; j < lines.length; j++) {
           const nextTrimmed = lines[j].trim();
           if (nextTrimmed === '') continue;
-          if (nextTrimmed.match(/^"tvs"\s*:\s*\[/) || nextTrimmed.match(/^"tags"\s*:\s*\[/)) {
+          if (nextTrimmed.match(/^"tags"\s*:\s*\[/) || nextTrimmed.match(/^"\w+"\s*:/)) {
             // Save the last image's changes before leaving images section
             if (currentImage && imageHasActualChanges && 
                 (addedTags.length > 0 || removedTags.length > 0 || propertyChanges.length > 0)) {

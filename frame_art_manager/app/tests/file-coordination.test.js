@@ -67,7 +67,6 @@ async function setupTestEnv() {
   // Create initial metadata.json
   const initialMetadata = {
     images: {},
-    tvs: [],
     tags: []
   };
   await fs.writeFile(
@@ -550,7 +549,6 @@ async function runTests() {
         // Reset metadata
         await helper.writeMetadata({
           images: {},
-          tvs: [],
           tags: []
         });
         

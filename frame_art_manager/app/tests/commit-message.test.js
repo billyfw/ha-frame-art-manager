@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Commit Message Generation Tests
  * Tests the parseMetadataDifftest('parseMetadataDiftest('parseMetadataDiff: detects single tag addition', () => {
+  "tags": ["newtag"]
   const diff = `diff --git a/metadata.json b/metadata.json
 index c0b1658..8e9a4cd 100644
 --- a/metadata.json
@@ -550,13 +550,12 @@ test('parseMetadataDiff: handles diff with only metadata structure changes', () 
 index abc123..def456 100644
 --- a/metadata.json
 +++ b/metadata.json
-@@ -1,6 +1,6 @@
- {
-   "images": {},
-   "tvs": [],
+@@ -1,4 +1,4 @@
+{
+  "images": {},
 -  "tags": []
 +  "tags": ["newtag"]
- }`;
+}`;
   
   const changes = gitHelper.parseMetadataDiff(diff);
   

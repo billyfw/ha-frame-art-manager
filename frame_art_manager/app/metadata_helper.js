@@ -39,36 +39,6 @@ class MetadataHelper {
     return formatted;
   }
 
-  normalizeTV(tv) {
-    if (!tv) {
-      return tv;
-    }
-
-    if (!Array.isArray(tv.tags)) {
-      if (typeof tv.tags === 'string' && tv.tags.trim().length > 0) {
-        tv.tags = [tv.tags.trim()];
-      } else {
-        tv.tags = [];
-      }
-    }
-
-    if (!Array.isArray(tv.notTags)) {
-      if (typeof tv.notTags === 'string' && tv.notTags.trim().length > 0) {
-        tv.notTags = [tv.notTags.trim()];
-      } else {
-        tv.notTags = [];
-      }
-    }
-
-    // Normalize MAC address if present
-    if (tv.mac) {
-      const normalizedMac = this.normalizeMacAddress(tv.mac);
-      tv.mac = normalizedMac || tv.mac; // Keep original if normalization fails
-    }
-
-    return tv;
-  }
-
   /**
    * Read metadata.json
    */
@@ -78,7 +48,7 @@ class MetadataHelper {
       return JSON.parse(data);
     } catch (error) {
       console.error('Error reading metadata:', error);
-      return { version: "1.0", images: {}, tvs: [], tags: [] };
+      return { version: "1.0", images: {}, tags: [] };
     }
   }
 
@@ -333,132 +303,6 @@ class MetadataHelper {
   }
 
   /**
-   * Add a TV to the list
-   */
-  async addTV(name, ip, home = 'Madrone', mac) {
-    if (!mac || typeof mac !== 'string') {
-      throw new Error('MAC address is required');
-    }
-    
-    const metadata = await this.readMetadata();
-    
-    // Generate unique ID using timestamp + random suffix to avoid collisions
-    const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
-    const tv = this.normalizeTV({
-      id,
-      name,
-      ip,
-      mac,
-      // Default or provided home
-      home: (home === 'Madrone' || home === 'Maui') ? home : 'Madrone',
-      added: new Date().toISOString(),
-      tags: [],
-      notTags: []
-    });
-
-    metadata.tvs.push(tv);
-    await this.writeMetadata(metadata);
-    return tv;
-  }
-
-  /**
-   * Remove a TV from the list
-   */
-  async removeTV(tvId) {
-    const metadata = await this.readMetadata();
-    metadata.tvs = metadata.tvs.filter(tv => tv.id !== tvId);
-    await this.writeMetadata(metadata);
-    return true;
-  }
-
-  /**
-   * Get all TVs
-   */
-  async getAllTVs() {
-    const metadata = await this.readMetadata();
-    if (!metadata.tvs || metadata.tvs.length === 0) {
-      return [];
-    }
-
-    let updated = false;
-    const normalized = metadata.tvs.map(tv => {
-      const needsNormalize = !tv || !Array.isArray(tv.tags) || !Array.isArray(tv.notTags);
-      
-      // Add dummy MAC if missing (migration for existing data)
-      if (!tv.mac) {
-        tv.mac = 'aa:bb:cc:dd:ee:ff';
-        updated = true;
-      }
-      
-      const normalizedTV = this.normalizeTV(tv);
-      if (needsNormalize) {
-        updated = true;
-      }
-      return normalizedTV;
-    });
-
-    if (updated) {
-      metadata.tvs = normalized;
-      await this.writeMetadata(metadata);
-    }
-
-    return normalized;
-  }
-
-  /**
-   * Update include/exclude tags for a TV
-   */
-  async updateTVTags(tvId, tags, notTags) {
-    const metadata = await this.readMetadata();
-    const tv = metadata.tvs.find(t => t.id === tvId);
-    
-    if (!tv) {
-      throw new Error('TV not found');
-    }
-
-  this.normalizeTV(tv);
-  const sanitizedTags = Array.isArray(tags) ? tags.filter(Boolean) : [];
-  const sanitizedNotTags = Array.isArray(notTags) ? notTags.filter(Boolean) : [];
-
-  tv.tags = Array.from(new Set(sanitizedTags));
-  const tagSet = new Set(tv.tags);
-  tv.notTags = Array.from(new Set(sanitizedNotTags.filter(tag => !tagSet.has(tag))));
-    
-    // Clean up unused tags from global list
-    await this.cleanupUnusedTags(metadata);
-    
-    await this.writeMetadata(metadata);
-    return tv;
-  }
-
-  /**
-   * Update TV name and IP
-   */
-  async updateTV(tvId, name, ip, home, mac) {
-    if (!mac || typeof mac !== 'string') {
-      throw new Error('MAC address is required');
-    }
-    
-    const metadata = await this.readMetadata();
-    const tv = metadata.tvs.find(t => t.id === tvId);
-    
-    if (!tv) {
-      throw new Error('TV not found');
-    }
-
-    this.normalizeTV(tv);
-    tv.name = name;
-    tv.ip = ip;
-    tv.mac = mac;
-    if (home === 'Madrone' || home === 'Maui') {
-      tv.home = home;
-    }
-    await this.writeMetadata(metadata);
-    return tv;
-  }
-
-  /**
    * Add a tag to the library
    */
   async addTag(tagName) {
@@ -506,7 +350,7 @@ class MetadataHelper {
 
   /**
    * Clean up unused tags from global tag list
-   * Removes tags that are not used by any image or TV
+   * Removes tags that are not used by any image entry
    * Note: This method modifies the metadata object passed to it
    */
   async cleanupUnusedTags(metadata) {
@@ -519,18 +363,6 @@ class MetadataHelper {
     for (const imageData of Object.values(metadata.images)) {
       if (imageData.tags && Array.isArray(imageData.tags)) {
         imageData.tags.forEach(tag => tagsInUse.add(tag));
-      }
-    }
-
-    // Also collect tags in use by TVs
-    if (metadata.tvs && Array.isArray(metadata.tvs)) {
-      for (const tv of metadata.tvs) {
-        if (tv.tags && Array.isArray(tv.tags)) {
-          tv.tags.forEach(tag => tagsInUse.add(tag));
-        }
-        if (tv.notTags && Array.isArray(tv.notTags)) {
-          tv.notTags.forEach(tag => tagsInUse.add(tag));
-        }
       }
     }
 

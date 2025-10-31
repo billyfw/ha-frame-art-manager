@@ -62,7 +62,6 @@ let sortAscending = typeof storedSortPreference?.ascending === 'boolean' ? store
 
 let allImages = {};
 let allTags = [];
-let allTVs = [];
 let currentImage = null;
 let selectedImages = new Set();
 let lastClickedIndex = null;
@@ -476,19 +475,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('load', handleRoute);
   
   // Load UI first so user can start working immediately
-  await loadTVs(); // Load TVs first so they're available for the filter dropdown
   loadGallery();
   loadTags();
   initUploadForm();
   initBatchUploadForm(); // Initialize batch upload
-  initTVForm();
   initTagForm();
   initModal();
   initMetadataViewer();
   initSyncDetail();
   initBulkActions();
-  initTVModal();
-  initTVTagPickerModal();
   initSettingsNavigation();
   initUploadNavigation();
   
@@ -1023,7 +1018,6 @@ function switchToTab(tabName) {
   if (tabName === 'advanced') {
     loadLibraryPath();
     loadTags();
-    loadTVs(); // Load TVs when opening Advanced
     loadMetadata();
   }
 }
@@ -2201,467 +2195,6 @@ async function uploadBatchImages(files) {
   await manualSync();
 }
 
-// TV Management
-
-// Validation helpers
-function isValidIPAddress(ip) {
-  if (!ip || typeof ip !== 'string') {
-    return false;
-  }
-  
-  // Basic IPv4 validation
-  const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
-  if (!ipv4Pattern.test(ip)) {
-    return false;
-  }
-  
-  // Check each octet is 0-255
-  const octets = ip.split('.');
-  return octets.every(octet => {
-    const num = parseInt(octet, 10);
-    return num >= 0 && num <= 255;
-  });
-}
-
-function isValidMacAddress(mac) {
-  if (!mac || typeof mac !== 'string') {
-    return false;
-  }
-  
-  // Remove all non-hex characters
-  const cleaned = mac.replace(/[^0-9a-fA-F]/g, '');
-  
-  // MAC address should be exactly 12 hex characters
-  return cleaned.length === 12;
-}
-
-function ensureTVCollections(tv = {}) {
-  if (!Array.isArray(tv.tags)) {
-    if (typeof tv.tags === 'string' && tv.tags.trim().length > 0) {
-      tv.tags = [tv.tags.trim()];
-    } else {
-      tv.tags = [];
-    }
-  }
-
-  if (!Array.isArray(tv.notTags)) {
-    if (typeof tv.notTags === 'string' && tv.notTags.trim().length > 0) {
-      tv.notTags = [tv.notTags.trim()];
-    } else {
-      tv.notTags = [];
-    }
-  }
-
-  return tv;
-}
-
-function serializeTagsForDataAttribute(tags = []) {
-  const json = JSON.stringify(Array.isArray(tags) ? tags : []);
-  return json.replace(/'/g, '&#39;');
-}
-
-async function loadTVs() {
-  try {
-    const response = await fetch(`${API_BASE}/tvs`);
-    const tvs = await response.json();
-    allTVs = Array.isArray(tvs) ? tvs.map(ensureTVCollections) : [];
-    renderTVList();
-    // Update TV shortcuts in the tag filter dropdown
-    loadTagsForFilter();
-  } catch (error) {
-    console.error('Error loading TVs:', error);
-  }
-}
-
-function renderTVList() {
-  const list = document.getElementById('tv-list');
-  
-  if (allTVs.length === 0) {
-    list.innerHTML = '<div class="empty-state">No TVs added yet</div>';
-    return;
-  }
-
-  list.innerHTML = allTVs.map(tv => {
-    ensureTVCollections(tv);
-    const tvTags = tv.tags || [];
-    const notTags = tv.notTags || [];
-    const tagText = tvTags.length === 0 ? 'All images' : 
-                    tvTags.length === 1 ? tvTags[0] : 
-                    tvTags.join(', ');
-    const notTagText = notTags.length === 0 ? 'No exclusions' : 
-                       notTags.length === 1 ? notTags[0] : 
-                       notTags.join(', ');
-    const macText = tv.mac || 'aa:bb:cc:dd:ee:ff';
-    
-    return `
-    <div class="list-item list-item-clickable" onclick="openTVModal('${tv.id}')">
-      <div class="list-item-info">
-        <div class="list-item-name">${tv.name}</div>
-        <div class="list-item-detail">${tv.ip} • ${macText}</div>
-        <div class="list-item-detail">${tagText}</div>
-        <div class="list-item-detail"><strong>Exclude:</strong> ${notTagText}</div>
-        <div class="list-item-detail"><strong>Home:</strong> ${tv.home || 'Madrone'}</div>
-      </div>
-    </div>
-  `;
-  }).join('');
-}
-
-function initTVForm() {
-  const form = document.getElementById('tv-form');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-  const name = document.getElementById('tv-name').value;
-  const ip = document.getElementById('tv-ip').value;
-  const mac = document.getElementById('tv-mac').value;
-  const homeSelect = document.getElementById('tv-home');
-  const home = homeSelect ? homeSelect.value : 'Madrone';
-
-    // Validate name
-    if (!name || !name.trim()) {
-      alert('TV name cannot be blank');
-      return;
-    }
-    
-    // Validate IP address
-    if (!ip || !ip.trim()) {
-      alert('IP address is required');
-      return;
-    }
-    
-    if (!isValidIPAddress(ip.trim())) {
-      alert('Invalid IP address format. Please use format like 192.168.1.100');
-      return;
-    }
-    
-    // Validate MAC address
-    if (!mac || !mac.trim()) {
-      alert('MAC address is required');
-      return;
-    }
-    
-    if (!isValidMacAddress(mac.trim())) {
-      alert('Invalid MAC address. Please use format like AA:BB:CC:DD:EE:FF (12 hex characters)');
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE}/tvs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), ip: ip.trim(), mac: mac.trim(), home })
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        form.reset();
-        if (homeSelect) homeSelect.value = 'Madrone';
-        loadTVs();
-      } else {
-        alert(result.error || 'Failed to add TV');
-      }
-    } catch (error) {
-      console.error('Error adding TV:', error);
-      alert('Failed to add TV');
-    }
-  });
-}
-
-async function removeTV(tvId) {
-  if (!confirm('Are you sure you want to remove this TV?')) return;
-
-  try {
-    await fetch(`${API_BASE}/tvs/${tvId}`, { method: 'DELETE' });
-    loadTVs();
-  } catch (error) {
-    console.error('Error removing TV:', error);
-  }
-}
-
-let currentTVId = null;
-let currentTVTagPickerMode = 'include';
-
-function openTVModal(tvId) {
-  const tv = allTVs.find(t => t.id === tvId);
-  if (!tv) return;
-
-  currentTVId = tvId;
-  ensureTVCollections(tv);
-  
-  // Populate modal fields
-  document.getElementById('tv-modal-name').value = tv.name;
-  document.getElementById('tv-modal-ip').value = tv.ip;
-  document.getElementById('tv-modal-mac').value = tv.mac || 'aa:bb:cc:dd:ee:ff';
-  document.getElementById('tv-modal-date').textContent = formatDate(tv.added);
-  // Set home toggle
-  const homeValue = tv.home || 'Madrone';
-  const madroneBtn = document.getElementById('tv-home-madrone');
-  const mauiBtn = document.getElementById('tv-home-maui');
-  if (madroneBtn && mauiBtn) {
-    madroneBtn.classList.toggle('active', homeValue === 'Madrone');
-    mauiBtn.classList.toggle('active', homeValue === 'Maui');
-  }
-  
-  // Populate tag pills
-  renderTVModalTagPills(tv.tags || [], 'include');
-  renderTVModalTagPills(tv.notTags || [], 'exclude');
-  
-  // Show modal with active class for proper centering
-  const modal = document.getElementById('tv-modal');
-  modal.classList.add('active');
-  modal.style.display = 'flex';
-}
-
-function renderTVModalTagPills(tags, type = 'include') {
-  const containerId = type === 'exclude' ? 'tv-modal-not-tag-pills' : 'tv-modal-tag-pills';
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  const list = Array.isArray(tags) ? tags : [];
-
-  if (list.length === 0) {
-    container.innerHTML = '';
-    return;
-  }
-
-  container.innerHTML = list.map(tag => `
-    <div class="tag-pill">
-      <span>${tag}</span>
-      <span class="tag-pill-remove" data-tag="${tag}" data-tag-type="${type}">&times;</span>
-    </div>
-  `).join('');
-
-  container.querySelectorAll('.tag-pill-remove').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const tagToRemove = e.currentTarget.dataset.tag;
-      const tagType = e.currentTarget.dataset.tagType === 'exclude' ? 'notTags' : 'tags';
-      const tv = allTVs.find(t => t.id === currentTVId);
-      if (!tv) {
-        return;
-      }
-      ensureTVCollections(tv);
-      tv[tagType] = (tv[tagType] || []).filter(t => t !== tagToRemove);
-      renderTVModalTagPills(tv[tagType], tagType === 'notTags' ? 'exclude' : 'include');
-    });
-  });
-}
-
-function closeTVModal() {
-  const modal = document.getElementById('tv-modal');
-  modal.classList.remove('active');
-  modal.style.display = 'none';
-  currentTVId = null;
-}
-
-function updateTVModalTagsDisplay() {
-  // No longer used - tags removed from TV modal
-}
-
-function openTVTagPicker(mode = 'include') {
-  if (!currentTVId) return;
-
-  const tv = allTVs.find(t => t.id === currentTVId);
-  if (!tv) return;
-
-  ensureTVCollections(tv);
-  currentTVTagPickerMode = mode === 'exclude' ? 'exclude' : 'include';
-  const property = currentTVTagPickerMode === 'exclude' ? 'notTags' : 'tags';
-  const selectedTags = tv[property] || [];
-  const listContainer = document.getElementById('tv-tag-picker-list');
-  const title = document.getElementById('tv-tag-picker-title');
-
-  if (title) {
-    title.textContent = currentTVTagPickerMode === 'exclude' ? 'Select Excluded Tags' : 'Select Display Tags';
-  }
-
-  if (!Array.isArray(allTags)) {
-    // Fallback: ensure tags are loaded before rendering list
-    loadTags().then(() => openTVTagPicker(currentTVTagPickerMode)).catch(() => {});
-    return;
-  }
-
-  listContainer.innerHTML = allTags.map(tag => {
-    const safeId = `tv-tag-picker-${tag.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-    const checked = selectedTags.includes(tag) ? 'checked' : '';
-    const isDisplayTag = tv.tags.includes(tag);
-    const isExcludeTag = tv.notTags.includes(tag);
-    const isLocked = currentTVTagPickerMode === 'exclude' ? isDisplayTag : isExcludeTag;
-    const disabled = isLocked ? 'disabled' : '';
-    const annotation = isLocked
-      ? currentTVTagPickerMode === 'exclude'
-        ? ' (display tag)'
-        : ' (excluded)'
-      : '';
-    return `
-      <div class="tag-picker-item">
-        <input type="checkbox" id="${safeId}" value="${tag}" ${checked} ${disabled} class="tv-tag-picker-checkbox" />
-        <label for="${safeId}">${tag}${annotation}</label>
-      </div>
-    `;
-  }).join('');
-
-  // Show modal
-  const modal = document.getElementById('tv-tag-picker-modal');
-  modal.classList.add('active');
-  modal.style.display = 'flex';
-
-  // Focus search input
-  setTimeout(() => {
-    const searchInput = document.getElementById('tv-tag-picker-search');
-    if (searchInput) searchInput.focus();
-  }, 0);
-}
-
-function closeTVTagPicker() {
-  const modal = document.getElementById('tv-tag-picker-modal');
-  modal.classList.remove('active');
-  modal.style.display = 'none';
-  currentTVTagPickerMode = 'include';
-  
-  // Clear search
-  const searchInput = document.getElementById('tv-tag-picker-search');
-  if (searchInput) searchInput.value = '';
-  
-  // Reset visibility of all items
-  document.querySelectorAll('.tag-picker-item').forEach(item => {
-    item.style.display = 'flex';
-  });
-}
-
-function saveTVTagPickerSelection() {
-  if (!currentTVId) return;
-
-  const tv = allTVs.find(t => t.id === currentTVId);
-  if (!tv) return;
-
-  ensureTVCollections(tv);
-
-  const checkboxes = document.querySelectorAll('.tv-tag-picker-checkbox');
-  const selectedTags = Array.from(checkboxes)
-    .filter(cb => cb.checked && !cb.disabled)
-    .map(cb => cb.value);
-
-  const property = currentTVTagPickerMode === 'exclude' ? 'notTags' : 'tags';
-  const oppositeProperty = property === 'tags' ? 'notTags' : 'tags';
-
-  tv[property] = selectedTags;
-  tv[oppositeProperty] = (tv[oppositeProperty] || []).filter(tag => !selectedTags.includes(tag));
-
-  renderTVModalTagPills(tv[property], property === 'notTags' ? 'exclude' : 'include');
-  renderTVModalTagPills(tv[oppositeProperty], oppositeProperty === 'notTags' ? 'exclude' : 'include');
-
-  closeTVTagPicker();
-}
-
-async function saveTVModal() {
-  if (!currentTVId) return;
-  
-  const name = document.getElementById('tv-modal-name').value.trim();
-  const ip = document.getElementById('tv-modal-ip').value.trim();
-  const mac = document.getElementById('tv-modal-mac').value.trim();
-  
-  // Validate name
-  if (!name) {
-    alert('TV name cannot be blank');
-    return;
-  }
-  
-  // Validate IP address
-  if (!ip) {
-    alert('IP address is required');
-    return;
-  }
-  
-  if (!isValidIPAddress(ip)) {
-    alert('Invalid IP address format. Please use format like 192.168.1.100');
-    return;
-  }
-  
-  // Validate MAC address
-  if (!mac) {
-    alert('MAC address is required');
-    return;
-  }
-  
-  if (!isValidMacAddress(mac)) {
-    alert('Invalid MAC address. Please use format like AA:BB:CC:DD:EE:FF (12 hex characters)');
-    return;
-  }
-  
-  // Get selected tags and home from local TV object
-  const tv = allTVs.find(t => t.id === currentTVId);
-  const tags = tv ? (tv.tags || []) : [];
-  const notTags = tv ? (tv.notTags || []) : [];
-  const home = tv ? (tv.home || 'Madrone') : 'Madrone';
-  
-  try {
-    // Update TV basic info (including home and mac)
-    const response = await fetch(`${API_BASE}/tvs/${currentTVId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, ip, mac, home })
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      // Update tags
-      const tagsResponse = await fetch(`${API_BASE}/tvs/${currentTVId}/tags`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags, notTags })
-      });
-      
-      const tagsResult = await tagsResponse.json();
-      
-      if (tagsResult.success) {
-        // Update local data
-        const tvIndex = allTVs.findIndex(t => t.id === currentTVId);
-        if (tvIndex !== -1) {
-          allTVs[tvIndex] = ensureTVCollections(tagsResult.tv);
-        }
-        
-        renderTVList();
-        loadTagsForFilter(); // Update TV shortcuts in filter dropdown
-        closeTVModal();
-      }
-    } else {
-      alert(result.error || 'Failed to save TV changes');
-    }
-  } catch (error) {
-    console.error('Error saving TV:', error);
-    alert('Failed to save TV changes');
-  }
-}
-
-async function deleteTVFromModal() {
-  if (!currentTVId) return;
-  
-  if (!confirm('Are you sure you want to delete this TV?')) return;
-  
-  try {
-    await fetch(`${API_BASE}/tvs/${currentTVId}`, { method: 'DELETE' });
-    loadTVs();
-    closeTVModal();
-  } catch (error) {
-    console.error('Error deleting TV:', error);
-    alert('Failed to delete TV');
-  }
-}
-
-async function testTV(tvId) {
-  try {
-    const response = await fetch(`${API_BASE}/tvs/${tvId}/test`, { method: 'POST' });
-    const result = await response.json();
-    alert(result.message || 'Connection test completed');
-  } catch (error) {
-    console.error('Error testing TV:', error);
-    alert('Connection test failed');
-  }
-}
-
 // Tag Management
 async function loadTags() {
   try {
@@ -2677,126 +2210,30 @@ async function loadTagsForFilter() {
   try {
     const response = await fetch(`${API_BASE}/tags`);
     allTags = await response.json();
-    
-    // Sort tags alphabetically
+
     allTags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-    
-    // Populate TV shortcuts section
-    const tvShortcutsContainer = document.getElementById('tv-shortcuts');
-    
-    // Calculate tags that are not part of any TV
-    const allTVTags = new Set();
-    if (allTVs && allTVs.length > 0) {
-      allTVs.forEach(tv => {
-        if (tv.tags && tv.tags.length > 0) {
-          tv.tags.forEach(tag => allTVTags.add(tag));
-        }
-      });
-    }
-    const nonTVTags = allTags.filter(tag => !allTVTags.has(tag));
-    
-    if (allTVs && allTVs.length > 0) {
-      const normalizedTVs = allTVs.map(ensureTVCollections);
-      
-      // Sort TVs alphabetically by name
-      normalizedTVs.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-      
-      const shouldRenderShortcuts = normalizedTVs.length > 0 || nonTVTags.length > 0;
 
-      if (shouldRenderShortcuts) {
-        tvShortcutsContainer.innerHTML = `
-          <div class="tv-shortcuts-header">TV Shortcuts</div>
-          ${nonTVTags.length > 0 ? `
-            <div class="multiselect-option">
-              <input type="checkbox" id="tv-shortcut-no-tvs" value="no-tvs" class="tv-shortcut-checkbox" data-tv-tags='${serializeTagsForDataAttribute(nonTVTags)}'>
-              <label for="tv-shortcut-no-tvs">*No TVs</label>
-            </div>
-          ` : ''}
-          ${normalizedTVs.map(tv => `
-            <div class="multiselect-option">
-              <input type="checkbox" id="tv-shortcut-${tv.id}" value="${tv.id}" class="tv-shortcut-checkbox" data-tv-tags='${serializeTagsForDataAttribute(tv.tags)}'>
-              <label for="tv-shortcut-${tv.id}">${tv.name}${tv.tags.length === 0 ? ' (no display tags)' : ''}</label>
-            </div>
-          `).join('')}
-          <div class="tv-shortcuts-divider"></div>
-        `;
-
-        const tvCheckboxes = tvShortcutsContainer.querySelectorAll('.tv-shortcut-checkbox');
-        tvCheckboxes.forEach(checkbox => {
-          checkbox.addEventListener('change', handleTVShortcutChange);
-        });
-      } else {
-        tvShortcutsContainer.innerHTML = '';
-      }
-    } else if (nonTVTags.length > 0) {
-      // No TVs exist, but we have tags - show "No TVs" option
-      tvShortcutsContainer.innerHTML = `
-        <div class="tv-shortcuts-header">TV Shortcuts</div>
-        <div class="multiselect-option">
-          <input type="checkbox" id="tv-shortcut-no-tvs" value="no-tvs" class="tv-shortcut-checkbox" data-tv-tags='${serializeTagsForDataAttribute(nonTVTags)}'>
-          <label for="tv-shortcut-no-tvs">*No TVs</label>
-        </div>
-        <div class="tv-shortcuts-divider"></div>
-      `;
-      
-      // Add event listener
-      const noTVsCheckbox = tvShortcutsContainer.querySelector('.tv-shortcut-checkbox');
-      if (noTVsCheckbox) {
-        noTVsCheckbox.addEventListener('change', handleTVShortcutChange);
-      }
-    } else {
-      tvShortcutsContainer.innerHTML = '';
-    }
-    
-    // Populate custom dropdown with checkboxes
     const dropdownOptions = document.querySelector('.multiselect-options');
+    if (!dropdownOptions) {
+      return;
+    }
+
     dropdownOptions.innerHTML = allTags.map(tag => `
       <div class="multiselect-option">
         <input type="checkbox" id="tag-${tag}" value="${tag}" class="tag-checkbox">
         <label for="tag-${tag}">${tag}</label>
       </div>
     `).join('');
-    
-    // Add event listeners to checkboxes
+
     const checkboxes = dropdownOptions.querySelectorAll('.tag-checkbox');
     checkboxes.forEach(checkbox => {
       checkbox.addEventListener('change', updateTagFilterDisplay);
     });
+
+    updateTagFilterDisplay();
   } catch (error) {
-    console.error('Error loading tags:', error);
+    console.error('Error loading tags for filter:', error);
   }
-}
-
-function handleTVShortcutChange(event) {
-  const checkbox = event.target;
-  const tvTags = JSON.parse(checkbox.dataset.tvTags || '[]');
-  const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
-
-  if (checkbox.checked) {
-    // Apply the exact tag set represented by this shortcut
-    const tagsToSelect = new Set(tvTags);
-    allTagCheckboxes.forEach(tagCheckbox => {
-      tagCheckbox.checked = tagsToSelect.has(tagCheckbox.value);
-    });
-
-    // Deselect other shortcuts explicitly before state reconciliation
-    document.querySelectorAll('.tv-shortcut-checkbox').forEach(tvCheckbox => {
-      if (tvCheckbox !== checkbox) {
-        tvCheckbox.checked = false;
-      }
-    });
-  } else {
-    // Removing this shortcut clears its tags from the selection
-    tvTags.forEach(tag => {
-      const tagCheckbox = document.getElementById(`tag-${tag}`);
-      if (tagCheckbox) {
-        tagCheckbox.checked = false;
-      }
-    });
-  }
-
-  // Recalculate shortcut state and gallery based on the new tag selection
-  updateTagFilterDisplay();
 }
 
 function updateTagFilterDisplay() {
@@ -2816,27 +2253,7 @@ function updateTagFilterDisplay() {
     clearBtn.style.display = 'block';
   }
   
-  // Update TV shortcut checkboxes to reflect current tag selection
-  updateTVShortcutStates();
-  
   renderGallery();
-}
-
-function updateTVShortcutStates() {
-  const tvCheckboxes = document.querySelectorAll('.tv-shortcut-checkbox');
-  const selectedTagCheckboxes = document.querySelectorAll('.tag-checkbox:checked');
-  const selectedTags = Array.from(selectedTagCheckboxes).map(cb => cb.value);
-  const selectedTagsSet = new Set(selectedTags);
-
-  tvCheckboxes.forEach(tvCheckbox => {
-    const shortcutTags = JSON.parse(tvCheckbox.dataset.tvTags || '[]');
-    const shortcutTagSet = new Set(shortcutTags);
-    const sameSize = selectedTagsSet.size === shortcutTagSet.size;
-    const exactMatch = sameSize && [...shortcutTagSet].every(tag => selectedTagsSet.has(tag));
-
-    tvCheckbox.checked = exactMatch;
-    tvCheckbox.indeterminate = false;
-  });
 }
 
 function renderTagList() {
@@ -4919,98 +4336,5 @@ async function deleteBulkImages() {
   const status = await fetch(`${API_BASE}/sync/status`).then(r => r.json());
   if (status.success && status.status.hasChanges) {
     await manualSync();
-  }
-}
-
-// TV Modal Functions
-function initTVModal() {
-  const saveBtn = document.getElementById('tv-modal-save-btn');
-  const deleteBtn = document.getElementById('tv-modal-delete-btn');
-  const cancelBtn = document.getElementById('tv-modal-cancel-btn');
-  const closeBtn = document.getElementById('tv-modal-close');
-  const addTagBtn = document.getElementById('tv-modal-add-tag-btn');
-  const addNotTagBtn = document.getElementById('tv-modal-add-not-tag-btn');
-  const madroneBtn = document.getElementById('tv-home-madrone');
-  const mauiBtn = document.getElementById('tv-home-maui');
-  
-  if (saveBtn) {
-    saveBtn.addEventListener('click', saveTVModal);
-  }
-  if (deleteBtn) {
-    deleteBtn.addEventListener('click', deleteTVFromModal);
-  }
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', closeTVModal);
-  }
-  if (closeBtn) {
-    closeBtn.addEventListener('click', closeTVModal);
-  }
-  if (addTagBtn) {
-    addTagBtn.addEventListener('click', () => openTVTagPicker('include'));
-  }
-  if (addNotTagBtn) {
-    addNotTagBtn.addEventListener('click', () => openTVTagPicker('exclude'));
-  }
-  // Home toggle handlers
-  function setHome(value) {
-    if (madroneBtn && mauiBtn) {
-      madroneBtn.classList.toggle('active', value === 'Madrone');
-      mauiBtn.classList.toggle('active', value === 'Maui');
-    }
-    const tv = allTVs.find(t => t.id === currentTVId);
-    if (tv) tv.home = value;
-  }
-  if (madroneBtn) madroneBtn.addEventListener('click', () => setHome('Madrone'));
-  if (mauiBtn) mauiBtn.addEventListener('click', () => setHome('Maui'));
-  
-  // Close modal on outside click
-  const modal = document.getElementById('tv-modal');
-  if (modal) {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        closeTVModal();
-      }
-    });
-  }
-}
-
-// TV Tag Picker Modal Functions
-function initTVTagPickerModal() {
-  const doneBtn = document.getElementById('tv-tag-picker-done-btn');
-  const cancelBtn = document.getElementById('tv-tag-picker-cancel-btn');
-  const closeBtn = document.getElementById('tv-tag-picker-close');
-  const searchInput = document.getElementById('tv-tag-picker-search');
-  
-  if (doneBtn) {
-    doneBtn.addEventListener('click', saveTVTagPickerSelection);
-  }
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', closeTVTagPicker);
-  }
-  if (closeBtn) {
-    closeBtn.addEventListener('click', closeTVTagPicker);
-  }
-  
-  // Search/filter functionality
-  if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
-      const term = e.target.value.toLowerCase();
-      document.querySelectorAll('.tag-picker-item').forEach(item => {
-        const label = item.querySelector('label');
-        if (!label) return;
-        const match = label.textContent.toLowerCase().includes(term);
-        item.style.display = match ? 'flex' : 'none';
-      });
-    });
-  }
-  
-  // Close modal on outside click
-  const modal = document.getElementById('tv-tag-picker-modal');
-  if (modal) {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        closeTVTagPicker();
-      }
-    });
   }
 }

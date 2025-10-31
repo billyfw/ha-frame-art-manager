@@ -14,38 +14,17 @@
       <div class="gallery-toolbar">
         <button type="button" id="open-upload-btn" class="btn-primary btn-add">Add</button>
         <button type="button" id="open-batch-upload-btn" class="btn-primary btn-add" title="Bulk upload new images with default metadata (max 5MB per image)">Batch Add</button>
-        <div class="controls">
-          <div class="control-item control-search">
-            <span class="control-icon">🔍</span>
-            <input type="text" id="search-input" placeholder="Search images..." />
-          </div>
-        <div class="control-item control-filter">
-          <button type="button" id="clear-tag-filter-btn" class="clear-filter-btn" style="display: none;" title="Clear filter">✕</button>
-          <div class="custom-multiselect">
-            <button type="button" id="tag-filter-btn" class="multiselect-button">
-              <span id="tag-filter-text">All Tags</span>
-              <span class="dropdown-arrow">▼</span>
-            </button>
-            <div id="tag-filter-dropdown" class="multiselect-dropdown">
-              <div id="tv-shortcuts" class="tv-shortcuts">
-                <!-- TV shortcut checkboxes will be populated here -->
-              </div>
-              <div class="tags-header">TAGS</div>
-              <div class="multiselect-options">
-                <!-- Tag checkboxes will be populated here -->
-              </div>
+          <div class="subsection">
+            <h3>Manage Tags</h3>
+            <form id="tag-form" class="inline-form">
+              <input type="text" id="tag-name" placeholder="New Tag" required />
+              <button type="submit" class="btn-primary">Add Tag</button>
+            </form>
+
+            <div id="tag-list" class="tag-cloud">
+              <!-- Tag list will be loaded here -->
             </div>
           </div>
-        </div>
-        <div class="control-item control-sort">
-          <button type="button" id="sort-direction-btn" class="sort-direction-btn" title="Toggle sort direction">
-            <span id="sort-direction-icon">⬆</span>
-          </button>
-          <span class="sort-label">Sort:</span>
-          <select id="sort-order">
-            <option value="name">Name</option>
-            <option value="date">Date Added</option>
-          </select>
         </div>
         <div class="control-item control-settings">
           <button type="button" id="open-advanced-btn" class="btn-icon btn-settings" title="Advanced settings">⚙</button>
@@ -176,24 +155,6 @@
               <!-- Tag list will be loaded here -->
             </div>
           </div>
-
-          <div class="subsection">
-            <h3>Manage TVs</h3>
-            <form id="tv-form" class="inline-form">
-              <input type="text" id="tv-name" placeholder="TV Name" required />
-              <input type="text" id="tv-ip" placeholder="IP Address (e.g., 192.168.1.100)" required />
-              <input type="text" id="tv-mac" placeholder="MAC Address (e.g., AA:BB:CC:DD:EE:FF)" required />
-              <select id="tv-home" title="Home">
-                <option value="Madrone">Madrone</option>
-                <option value="Maui">Maui</option>
-              </select>
-              <button type="submit" class="btn-primary">Add TV</button>
-            </form>
-
-            <div id="tv-list" class="list">
-              <!-- TV list will be loaded here -->
-            </div>
-          </div>
         </div>
 
         <!-- Metadata Sub-tab -->
@@ -237,7 +198,6 @@
     </div>
   </div>
 
-  <!-- Image Detail Modal -->
   <div id="image-modal" class="modal">
       <div class="modal-content">
         <button class="close close-simple" id="image-modal-close">✕</button>
@@ -361,74 +321,6 @@
           <div class="crop-preset-row">
             <button class="crop-preset" data-crop="free">Free</button>
             <button class="crop-preset" data-crop="original">Original</button>
-            <button class="crop-preset" data-crop="1:1">1:1</button>
-            <button class="crop-preset" data-crop="4:3">4:3</button>
-            <button class="crop-preset" data-crop="16:9">16:9</button>
-            <button class="crop-preset" data-crop="3:2">3:2</button>
-          </div>
-          <div class="crop-hint">Drag the selection or handles to fine tune.</div>
-        </div>
-      </div>
-      <div class="modal-details">
-        <div class="modal-header-section">
-          <div class="modal-info-left">
-            <div class="modal-filename-container">
-              <h3 id="modal-filename"></h3>
-              <button id="edit-filename-btn" class="btn-icon" title="Edit name">✏️</button>
-            </div>
-            <div id="edit-filename-form" class="edit-filename-form" style="display: none;">
-              <input type="text" id="edit-filename-input" placeholder="Enter new name" />
-              <button id="save-filename-btn" class="btn-primary btn-small">Save</button>
-              <button id="cancel-filename-btn" class="btn-secondary btn-small">Cancel</button>
-            </div>
-            <p class="modal-actual-filename">
-              <small>File: <code id="modal-actual-filename"></code></small>
-            </p>
-            <p class="modal-dimensions">
-              <small>Resolution: <strong id="modal-resolution"></strong> <span id="modal-aspect-badge"></span></small>
-            </p>
-            <div class="form-group form-group-compact">
-              <label>Matte:</label>
-              <select id="modal-matte">
-                <option value="none">none</option>
-                <option value="modernthin">modernthin</option>
-                <option value="modern">modern</option>
-                <option value="modernwide">modernwide</option>
-                <option value="flexible">flexible</option>
-                <option value="shadowbox">shadowbox</option>
-                <option value="panoramic">panoramic</option>
-                <option value="triptych">triptych</option>
-                <option value="mix">mix</option>
-                <option value="squares">squares</option>
-              </select>
-            </div>
-            <div class="form-group form-group-compact">
-              <label>Filter:</label>
-              <select id="modal-filter">
-                <option value="None">None</option>
-                <option value="Aqua">Aqua</option>
-                <option value="ArtDeco">Art Deco</option>
-                <option value="Ink">Ink</option>
-                <option value="Wash">Wash</option>
-                <option value="Pastel">Pastel</option>
-                <option value="Feuve">Feuve</option>
-              </select>
-            </div>
-            <div class="image-edit-entry">
-              <button id="open-edit-panel-btn" class="btn-secondary">Edit Image</button>
-            </div>
-          </div>
-          <div class="modal-info-center">
-            <div class="image-tag-section">
-              <div class="form-group form-group-compact">
-                <label>Add tags:</label>
-                <div class="inline-input-group">
-                  <input type="text" id="modal-tags-input" placeholder="tag1, tag2, tag3" />
-                  <button id="modal-add-tags-btn" class="btn-primary">Add Tags</button>
-                </div>
-              </div>
-            </div>
-            <div class="image-tag-section image-tag-section-fill">
               <div class="image-tag-section-header">
                 <strong>Tags</strong>
               </div>
@@ -552,79 +444,6 @@
           <div class="bulk-modal-actions">
             <button id="cancel-bulk-tags-btn" class="btn-done">Done</button>
           </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- TV Detail Modal -->
-  <div id="tv-modal" class="modal">
-    <div class="modal-content tv-modal">
-      <button class="close close-simple" id="tv-modal-close">✕</button>
-      <div class="modal-details">
-        <h3>TV Details</h3>
-        <div class="form-group">
-          <label>TV Name:</label>
-          <input type="text" id="tv-modal-name" placeholder="TV Name" />
-        </div>
-        <div class="form-group">
-          <label>IP Address:</label>
-          <input type="text" id="tv-modal-ip" placeholder="192.168.1.100" />
-        </div>
-        <div class="form-group">
-          <label>MAC Address:</label>
-          <input type="text" id="tv-modal-mac" placeholder="AA:BB:CC:DD:EE:FF" required />
-        </div>
-        <div class="form-group">
-          <label>Home:</label>
-          <div class="toggle-group" role="group" aria-label="Home">
-            <button type="button" id="tv-home-madrone" class="toggle-btn" data-value="Madrone">Madrone</button>
-            <button type="button" id="tv-home-maui" class="toggle-btn" data-value="Maui">Maui</button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Display Tags:</label>
-          <div id="tv-modal-tag-pills" class="tag-pills-container">
-            <!-- Tag pills will be populated here -->
-          </div>
-          <button type="button" id="tv-modal-add-tag-btn" class="btn-secondary btn-sm">+ Add Tag</button>
-        </div>
-        <div class="form-group">
-          <label>Exclude Tags:</label>
-          <div id="tv-modal-not-tag-pills" class="tag-pills-container">
-            <!-- Not-tag pills will be populated here -->
-          </div>
-          <button type="button" id="tv-modal-add-not-tag-btn" class="btn-secondary btn-sm">+ Add Exclusion</button>
-        </div>
-        <div class="modal-info">
-          <p><small>Added: <span id="tv-modal-date"></span></small></p>
-        </div>
-        <div class="tv-modal-actions">
-          <button id="tv-modal-delete-btn" class="btn-danger">Delete TV</button>
-          <div class="tv-modal-actions-right">
-            <button id="tv-modal-cancel-btn" class="btn-secondary">Cancel</button>
-            <button id="tv-modal-save-btn" class="btn-primary">Save Changes</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- TV Tag Picker Modal -->
-  <div id="tv-tag-picker-modal" class="modal">
-    <div class="modal-content tv-tag-picker-modal">
-      <span class="close" id="tv-tag-picker-close">&times;</span>
-      <div class="modal-details">
-  <h3 id="tv-tag-picker-title">Select Tags for TV</h3>
-        <div class="tag-picker-search">
-          <input type="text" id="tv-tag-picker-search" placeholder="Search tags..." />
-        </div>
-        <div id="tv-tag-picker-list" class="tag-picker-list">
-          <!-- Tag checkboxes will be populated here -->
-        </div>
-        <div class="modal-actions">
-          <button id="tv-tag-picker-done-btn" class="btn-primary">Done</button>
-          <button id="tv-tag-picker-cancel-btn" class="btn-secondary">Cancel</button>
         </div>
       </div>
     </div>

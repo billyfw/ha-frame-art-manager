@@ -2,7 +2,7 @@
 
 ## Overview
 
-Frame Art Manager helps you organize and manage artwork for your Samsung Frame TV. Upload images, organize them with tags, and assign them to specific TVs for display.
+Frame Art Manager helps you organize and manage artwork for your Samsung Frame displays. Upload images, organize them with tags, and sync changes to your shared library. TV discovery, assignment, and display automation now live in the Home Assistant integration rather than the add-on UI.
 
 ## Accessing the Add-on
 
@@ -29,12 +29,11 @@ To add Frame Art Manager to any dashboard:
 
 ## Interface Overview
 
-The web interface has 5 main tabs:
+The web interface has 4 main areas:
 - **Gallery**: Browse and manage your images
 - **Upload**: Add new images to your library
-- **TVs**: Configure your Frame TV devices
 - **Tags**: Manage your tag library
-- **Advanced**: System information and settings
+- **Advanced**: System information and settings (including metadata viewer and sync details)
 
 ## Configuration
 

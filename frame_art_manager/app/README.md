@@ -8,11 +8,12 @@ This is the web application component of the Frame Art Manager Home Assistant ad
 - **Image Upload** - Upload new artwork images with metadata
 - **Tag Management** - Create and manage tags for organizing artwork
 - **Matte/Filter Selection** - Choose mattes and filters per image
-- **TV Management** - Add and manage multiple Samsung Frame TV IPs
 - **Image Gallery** - View all artwork with thumbnails and infinite scroll support
 - **Image Delete** - Remove unwanted images from library
 - **Search & Filter** - Find images by name or tag
 - **Sync Verification** - Check consistency between files and metadata
+
+> **Note:** TV discovery, assignment, and scheduling now live inside the Home Assistant integration. The add-on focuses solely on library management (images, tags, sync).
 
 ## 🎨 Curated Filter Set (October 2025)
 
@@ -37,11 +38,6 @@ The editor now ships with a focused collection of filters tuned specifically for
 - `DELETE /api/images/:filename` - Delete image
 - `POST /api/images/:filename/thumbnail` - Generate thumbnail
 - `GET /api/images/verify` - Verify sync status
-
-- `GET /api/tvs` - Get all TVs
-- `POST /api/tvs` - Add new TV
-- `DELETE /api/tvs/:tvId` - Remove TV
-- `POST /api/tvs/:tvId/test` - Test TV connection
 
 - `GET /api/tags` - Get all tags
 - `POST /api/tags` - Add new tag
@@ -114,7 +110,6 @@ The app will automatically create these directories if they don't exist.
 
 - [ ] Implement Git LFS sync operations
 - [ ] Add AppDaemon service integration (display, shuffle)
-- [ ] Implement TV connection testing
 - [ ] Add batch operations
 - [ ] Add image preview with matte/filter simulation
 - [ ] Add drag-and-drop upload
