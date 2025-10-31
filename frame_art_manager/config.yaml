@@ -20,10 +20,7 @@ options:
   git_remote_host_alias: "github-billy"
   ssh_private_key: []
 schema:
-  home:
-    type: str?
-    name: Home
-    description: (e.g. Madrone)
+  home: str?
   frame_art_path: str
   port: int
   git_remote_host_alias: str?
