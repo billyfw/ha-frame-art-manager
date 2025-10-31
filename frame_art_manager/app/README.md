@@ -84,6 +84,7 @@ npm run dev
 ### Environment Variables
 
 - `FRAME_ART_PATH` - Path to the frame art library (required for development)
+- `FRAME_ART_HOME` - Optional label for the physical location (e.g., `Madrone`)
 - `PORT` - Server port (default: `8099`)
 
 ### Directory Structure
