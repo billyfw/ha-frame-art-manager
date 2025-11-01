@@ -25,12 +25,16 @@ if bashio::config.has_value 'ssh_private_key'; then
     KEY_PATH=/root/.ssh/id_ed25519
     rm -f "${KEY_PATH}"
     
-    # Get SSH key from config - it's an array, so we need to iterate and join with newlines
-    # bashio::config returns the array as separate lines when used in a loop
-    while IFS= read -r line; do
-        echo "$line" >> "${KEY_PATH}"
-    done < <(bashio::config 'ssh_private_key | .[]')
+    # Get SSH key from config (bashio returns it as a plain string with the array joined)
+    RAW_CONFIG=$(bashio::config 'ssh_private_key' 2>&1)
     
+    if [ $? -ne 0 ]; then
+        bashio::log.error "Failed to read SSH key configuration"
+        bashio::exit.nok "Cannot read SSH key configuration"
+    fi
+    
+    # Write the key to file
+    echo "${RAW_CONFIG}" > "${KEY_PATH}"
     chmod 600 "${KEY_PATH}"
     
     # Validate the SSH key
