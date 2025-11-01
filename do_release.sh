@@ -34,9 +34,8 @@ show_usage() {
     echo "  6. Pushes code and tags to GitHub"
     echo "  7. SSHs into Home Assistant"
     echo "  8. Auto-detects add-on slug"
-    echo "  9. Uninstalls old version of add-on (if exists)"
-    echo "  10. Reinstalls fresh from GitHub with new version"
-    echo "  11. Starts the add-on"
+    echo "  9. Updates add-on to new version from GitHub"
+    echo "  10. Prompts to manually restore SSH key configuration"
 }
 
 # Parse arguments
@@ -162,6 +161,13 @@ INSTALLED=\$(ha addons --raw-json | jq -r '.data.addons[] | select(.slug == "'\$
 
 if [ -n "\$INSTALLED" ]; then
     echo "Add-on already installed, updating to version $NEW_VERSION..."
+    echo ""
+    echo "⚠️  WARNING: 'ha addons update' resets configuration to defaults!"
+    echo "    After update completes, you must manually restore the SSH key"
+    echo "    in Home Assistant → Settings → Add-ons → Frame Art Manager → Configuration"
+    echo ""
+    read -p "Press Enter to continue with update..."
+    
     ha addons update "\$GITHUB_SLUG"
     sleep 3
 else
