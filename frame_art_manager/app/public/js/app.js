@@ -3696,28 +3696,17 @@ function openImageModal(filename) {
   if (modalImageEl) {
     modalImageEl.src = `library/${filename}?v=${cacheBuster}`;
   }
-  const modalFilenameEl = document.getElementById('modal-filename');
-  if (modalFilenameEl) {
-    modalFilenameEl.textContent = getDisplayName(filename);
-  }
-  const modalActualFilenameEl = document.getElementById('modal-actual-filename');
-  if (modalActualFilenameEl) {
-    modalActualFilenameEl.textContent = filename;
-  }
+  document.getElementById('modal-filename').textContent = getDisplayName(filename);
+  document.getElementById('modal-actual-filename').textContent = filename;
   
   renderModalResolutionFromMetadata(imageData);
 
   // Set form values
   const metadataMatte = imageData.matte || METADATA_DEFAULT_MATTE;
   const metadataFilter = imageData.filter || METADATA_DEFAULT_FILTER;
-  const modalMatteSelect = document.getElementById('modal-matte');
-  if (modalMatteSelect) {
-    modalMatteSelect.value = metadataMatte;
-  }
-  const modalFilterSelect = document.getElementById('modal-filter');
-  if (modalFilterSelect) {
-    modalFilterSelect.value = metadataFilter;
-  }
+
+  document.getElementById('modal-matte').value = metadataMatte;
+  document.getElementById('modal-filter').value = metadataFilter;
 
   if (allImages[currentImage]) {
     allImages[currentImage].matte = metadataMatte;
