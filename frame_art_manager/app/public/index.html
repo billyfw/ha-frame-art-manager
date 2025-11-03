@@ -343,6 +343,74 @@
           <div class="crop-preset-row">
             <button class="crop-preset" data-crop="free">Free</button>
             <button class="crop-preset" data-crop="original">Original</button>
+            <button class="crop-preset" data-crop="1:1">1:1</button>
+            <button class="crop-preset" data-crop="4:3">4:3</button>
+            <button class="crop-preset" data-crop="16:9">16:9</button>
+            <button class="crop-preset" data-crop="3:2">3:2</button>
+          </div>
+          <div class="crop-hint">Drag the selection or handles to fine tune.</div>
+        </div>
+      </div>
+      <div class="modal-details">
+        <div class="modal-header-section">
+          <div class="modal-info-left">
+            <div class="modal-filename-container">
+              <h3 id="modal-filename"></h3>
+              <button id="edit-filename-btn" class="btn-icon" title="Edit name">✏️</button>
+            </div>
+            <div id="edit-filename-form" class="edit-filename-form" style="display: none;">
+              <input type="text" id="edit-filename-input" placeholder="Enter new name" />
+              <button id="save-filename-btn" class="btn-primary btn-small">Save</button>
+              <button id="cancel-filename-btn" class="btn-secondary btn-small">Cancel</button>
+            </div>
+            <p class="modal-actual-filename">
+              <small>File: <code id="modal-actual-filename"></code></small>
+            </p>
+            <p class="modal-dimensions">
+              <small>Resolution: <strong id="modal-resolution"></strong> <span id="modal-aspect-badge"></span></small>
+            </p>
+            <div class="form-group form-group-compact">
+              <label>Matte:</label>
+              <select id="modal-matte">
+                <option value="none">none</option>
+                <option value="modernthin">modernthin</option>
+                <option value="modern">modern</option>
+                <option value="modernwide">modernwide</option>
+                <option value="flexible">flexible</option>
+                <option value="shadowbox">shadowbox</option>
+                <option value="panoramic">panoramic</option>
+                <option value="triptych">triptych</option>
+                <option value="mix">mix</option>
+                <option value="squares">squares</option>
+              </select>
+            </div>
+            <div class="form-group form-group-compact">
+              <label>Filter:</label>
+              <select id="modal-filter">
+                <option value="None">None</option>
+                <option value="Aqua">Aqua</option>
+                <option value="ArtDeco">Art Deco</option>
+                <option value="Ink">Ink</option>
+                <option value="Wash">Wash</option>
+                <option value="Pastel">Pastel</option>
+                <option value="Feuve">Feuve</option>
+              </select>
+            </div>
+            <div class="image-edit-entry">
+              <button id="open-edit-panel-btn" class="btn-secondary">Edit Image</button>
+            </div>
+          </div>
+          <div class="modal-info-center">
+            <div class="image-tag-section">
+              <div class="form-group form-group-compact">
+                <label>Add tags:</label>
+                <div class="inline-input-group">
+                  <input type="text" id="modal-tags-input" placeholder="tag1, tag2, tag3" />
+                  <button id="modal-add-tags-btn" class="btn-primary">Add Tags</button>
+                </div>
+              </div>
+            </div>
+            <div class="image-tag-section image-tag-section-fill">
               <div class="image-tag-section-header">
                 <strong>Tags</strong>
               </div>
@@ -352,6 +420,7 @@
             </div>
           </div>
         </div>
+      </div>
         <div id="modal-edit-panel" class="modal-edit-panel hidden">
           <div class="edit-preview-wrapper">
             <canvas id="edit-preview-canvas" width="640" height="360"></canvas>
