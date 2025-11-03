@@ -161,12 +161,7 @@ INSTALLED=\$(ha addons --raw-json | jq -r '.data.addons[] | select(.slug == "'\$
 
 if [ -n "\$INSTALLED" ]; then
     echo "Add-on already installed, updating to version $NEW_VERSION..."
-    echo ""
-    echo "⚠️  WARNING: 'ha addons update' resets configuration to defaults!"
-    echo "    After update completes, you must manually restore the SSH key"
-    echo "    in Home Assistant → Settings → Add-ons → Frame Art Manager → Configuration"
-    echo ""
-    read -p "Press Enter to continue with update..."
+    echo "(Configuration will be preserved across update)"
     
     ha addons update "\$GITHUB_SLUG"
     sleep 3
