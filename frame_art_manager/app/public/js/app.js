@@ -1577,8 +1577,8 @@ async function addImageTags() {
       document.getElementById('modal-tags-input').value = '';
       renderImageTagBadges(newTags);
       
-      // Reload gallery and tags in background
-      loadGallery();
+      // Reload tags list in background (but not gallery - causes jitter)
+      // Gallery will be reloaded when modal closes if there are changes
       loadTags();
       
       // Update sync status since metadata changed
@@ -2474,6 +2474,9 @@ function initImageEditor() {
     });
   });
 
+  // Prevent text/image selection during crop interactions
+  const preventSelection = (e) => e.preventDefault();
+  
   editControls.crop.box?.addEventListener('pointerdown', (event) => {
     if (!editState.active || editState.activeTool !== 'crop') return;
     startCropInteraction('move', 'move', event);
@@ -2485,6 +2488,10 @@ function initImageEditor() {
       startCropInteraction('resize', handle.dataset.handle, event);
     });
   });
+
+  // Prevent selection on the modal image during any crop interaction
+  modalImage.addEventListener('selectstart', preventSelection);
+  modalImage.addEventListener('dragstart', preventSelection);
 
   modalImage.addEventListener('load', handleModalImageLoad);
   modalImage.addEventListener('error', handleModalImageError);
@@ -2965,10 +2972,10 @@ function computeInsetsForRatio(ratio) {
 }
 
 function setCropInsets(insets, options = {}) {
-  const { silent = false } = options;
+  const { silent = false, skipNormalize = false } = options;
   let next = clampInsets(insets);
   const ratio = getPresetRatio(editState.cropPreset);
-  if (ratio) {
+  if (ratio && !skipNormalize) {
     next = normalizeInsetsForRatio(next, ratio);
   }
   editState.crop = next;
@@ -3117,6 +3124,17 @@ function detectInitialCropPreset(imageData) {
     return 'free';
   }
 
+  // If image has no crop applied (all insets are 0), use 'free' preset
+  // This prevents aspect ratio enforcement when user hasn't cropped yet
+  if (imageData.crop) {
+    const { top = 0, right = 0, bottom = 0, left = 0 } = imageData.crop;
+    if (top === 0 && right === 0 && bottom === 0 && left === 0) {
+      return 'free';
+    }
+  } else {
+    return 'free';
+  }
+
   const toNumeric = (value) => {
     if (typeof value === 'number' && Number.isFinite(value)) {
       return value;
@@ -3196,8 +3214,16 @@ function startCropInteraction(type, handle, event) {
     startHeight: 100 - editState.crop.top - editState.crop.bottom,
     aspectRatio: getPresetRatio(editState.cropPreset),
     bounds: rect,
-    pendingInsets: { ...editState.crop }
+    pendingInsets: { ...editState.crop },
+    targetElement: event.target // Save for releasing pointer capture
   };
+
+  // Capture pointer to prevent text selection and ensure all events come to us
+  try {
+    event.target.setPointerCapture(event.pointerId);
+  } catch (e) {
+    console.error('Failed to capture pointer for crop interaction:', e);
+  }
 
   editControls.crop.box.classList.add('dragging');
   document.addEventListener('pointermove', handleCropPointerMove);
@@ -3247,59 +3273,148 @@ function handleCropPointerMove(event) {
   }
 
   cropInteraction.pendingInsets = nextInsets;
-  setCropInsets(nextInsets, { silent: true });
+  // Skip normalization because enforceAspectRatio already handled it
+  setCropInsets(nextInsets, { silent: true, skipNormalize: !!aspectRatio });
 }
 
 function handleCropPointerUp() {
   if (!cropInteraction) return;
+  
+  // Release pointer capture
+  if (cropInteraction.targetElement && cropInteraction.pointerId !== undefined) {
+    try {
+      cropInteraction.targetElement.releasePointerCapture(cropInteraction.pointerId);
+    } catch (e) {
+      console.error('Failed to release pointer for crop interaction:', e);
+    }
+  }
+  
   editControls?.crop?.box?.classList.remove('dragging');
   document.removeEventListener('pointermove', handleCropPointerMove);
   document.removeEventListener('pointerup', handleCropPointerUp, { once: false });
   document.removeEventListener('pointercancel', handleCropPointerUp, { once: false });
 
   const finalInsets = cropInteraction.pendingInsets || editState.crop;
-  setCropInsets(finalInsets, { silent: false });
+  const aspectRatio = cropInteraction.aspectRatio;
+  // Skip normalization if aspect ratio was already enforced during drag
+  setCropInsets(finalInsets, { silent: false, skipNormalize: !!aspectRatio });
 
   cropInteraction = null;
 }
 
 function enforceAspectRatio(insets, handle, aspectRatio) {
-  let { top, right, bottom, left } = insets;
-  let width = 100 - left - right;
-  let height = 100 - top - bottom;
+  const naturalWidth = editState.naturalWidth || 1;
+  const naturalHeight = editState.naturalHeight || 1;
+  const naturalRatio = naturalWidth / naturalHeight || 1;
 
-  if (width <= 0 || height <= 0) {
+  let { top, right, bottom, left } = insets;
+  let widthPercent = 100 - left - right;
+  let heightPercent = 100 - top - bottom;
+
+  if (widthPercent <= 0 || heightPercent <= 0) {
     return clampInsets(insets);
   }
 
-  const startWidth = cropInteraction?.startWidth || width;
-  const startHeight = cropInteraction?.startHeight || height;
-  const widthDelta = Math.abs(width - startWidth);
-  const heightDelta = Math.abs(height - startHeight);
+  const centerX = left + widthPercent / 2;
+  const centerY = top + heightPercent / 2;
 
-  if (widthDelta > heightDelta) {
-    const targetHeight = width / aspectRatio;
-    const diff = targetHeight - height;
-    if (handle.includes('n') && !handle.includes('s')) {
-      top = clamp(top - diff, 0, 100 - bottom - MIN_CROP_PERCENT);
-    } else if (handle.includes('s') && !handle.includes('n')) {
-      bottom = clamp(bottom - diff, 0, 100 - top - MIN_CROP_PERCENT);
+  const actualRatio = (widthPercent / heightPercent) * naturalRatio;
+  const ratioDiff = actualRatio - aspectRatio;
+  const tolerance = CROP_RATIO_TOLERANCE;
+
+  const applyWidth = (targetWidthPercent, anchor) => {
+    targetWidthPercent = clamp(targetWidthPercent, MIN_CROP_PERCENT, 100);
+
+    if (anchor === 'left') {
+      right = clamp(100 - targetWidthPercent - left, 0, 100 - left - MIN_CROP_PERCENT);
+    } else if (anchor === 'right') {
+      left = clamp(100 - targetWidthPercent - right, 0, 100 - right - MIN_CROP_PERCENT);
     } else {
-      const half = diff / 2;
-      top = clamp(top - half, 0, 100 - bottom - MIN_CROP_PERCENT);
-      bottom = clamp(bottom - half, 0, 100 - top - MIN_CROP_PERCENT);
+      const newLeft = clamp(centerX - targetWidthPercent / 2, 0, 100 - targetWidthPercent);
+      left = newLeft;
+      right = clamp(100 - targetWidthPercent - left, 0, 100 - left - MIN_CROP_PERCENT);
     }
-  } else {
-    const targetWidth = height * aspectRatio;
-    const diff = targetWidth - width;
-    if (handle.includes('w') && !handle.includes('e')) {
-      left = clamp(left - diff, 0, 100 - right - MIN_CROP_PERCENT);
-    } else if (handle.includes('e') && !handle.includes('w')) {
-      right = clamp(right - diff, 0, 100 - left - MIN_CROP_PERCENT);
+
+    widthPercent = 100 - left - right;
+  };
+
+  const applyHeight = (targetHeightPercent, anchor) => {
+    targetHeightPercent = clamp(targetHeightPercent, MIN_CROP_PERCENT, 100);
+
+    if (anchor === 'top') {
+      bottom = clamp(100 - targetHeightPercent - top, 0, 100 - top - MIN_CROP_PERCENT);
+    } else if (anchor === 'bottom') {
+      top = clamp(100 - targetHeightPercent - bottom, 0, 100 - bottom - MIN_CROP_PERCENT);
     } else {
-      const half = diff / 2;
-      left = clamp(left - half, 0, 100 - right - MIN_CROP_PERCENT);
-      right = clamp(right - half, 0, 100 - left - MIN_CROP_PERCENT);
+      const newTop = clamp(centerY - targetHeightPercent / 2, 0, 100 - targetHeightPercent);
+      top = newTop;
+      bottom = clamp(100 - targetHeightPercent - top, 0, 100 - top - MIN_CROP_PERCENT);
+    }
+
+    heightPercent = 100 - top - bottom;
+  };
+
+  const cornerAnchors = {
+    ne: { horizontal: 'left', vertical: 'bottom' },
+    nw: { horizontal: 'right', vertical: 'bottom' },
+    se: { horizontal: 'left', vertical: 'top' },
+    sw: { horizontal: 'right', vertical: 'top' }
+  };
+
+  const isCornerHandle = Object.prototype.hasOwnProperty.call(cornerAnchors, handle);
+
+  if (isCornerHandle) {
+    const anchors = cornerAnchors[handle];
+
+    if (ratioDiff > tolerance) {
+      const targetWidthPercent = heightPercent * (aspectRatio / naturalRatio);
+      applyWidth(targetWidthPercent, anchors.horizontal);
+    } else if (ratioDiff < -tolerance) {
+      const targetHeightPercent = widthPercent * (naturalRatio / aspectRatio);
+      applyHeight(targetHeightPercent, anchors.vertical);
+    }
+
+    // If constraints prevented us from hitting the ratio exactly, fall back to adjusting the
+    // opposite dimension so we stay as close as possible without drifting the anchored corner.
+    widthPercent = 100 - left - right;
+    heightPercent = 100 - top - bottom;
+    const adjustedRatio = (widthPercent / heightPercent) * naturalRatio;
+    const adjustedDiff = adjustedRatio - aspectRatio;
+
+    if (adjustedDiff > tolerance) {
+      const targetHeightPercent = widthPercent * (naturalRatio / aspectRatio);
+      applyHeight(targetHeightPercent, anchors.vertical);
+    } else if (adjustedDiff < -tolerance) {
+      const targetWidthPercent = heightPercent * (aspectRatio / naturalRatio);
+      applyWidth(targetWidthPercent, anchors.horizontal);
+    }
+  } else if (handle === 'n' || handle === 's') {
+    const targetWidthPercent = heightPercent * (aspectRatio / naturalRatio);
+    applyWidth(targetWidthPercent, 'center');
+
+    widthPercent = 100 - left - right;
+    heightPercent = 100 - top - bottom;
+    const adjustedRatio = (widthPercent / heightPercent) * naturalRatio;
+    const adjustedDiff = adjustedRatio - aspectRatio;
+
+    if (Math.abs(adjustedDiff) > tolerance) {
+      const targetHeightPercent = widthPercent * (naturalRatio / aspectRatio);
+      const verticalAnchor = handle === 'n' ? 'bottom' : 'top';
+      applyHeight(targetHeightPercent, verticalAnchor);
+    }
+  } else if (handle === 'e' || handle === 'w') {
+    const targetHeightPercent = widthPercent * (naturalRatio / aspectRatio);
+    applyHeight(targetHeightPercent, 'center');
+
+    widthPercent = 100 - left - right;
+    heightPercent = 100 - top - bottom;
+    const adjustedRatio = (widthPercent / heightPercent) * naturalRatio;
+    const adjustedDiff = adjustedRatio - aspectRatio;
+
+    if (Math.abs(adjustedDiff) > tolerance) {
+      const targetWidthPercent = heightPercent * (aspectRatio / naturalRatio);
+      const horizontalAnchor = handle === 'w' ? 'right' : 'left';
+      applyWidth(targetWidthPercent, horizontalAnchor);
     }
   }
 
@@ -3721,6 +3836,13 @@ function openImageModal(filename) {
   exitEditMode();
   const initialPreset = detectInitialCropPreset(imageData);
   resetEditState({ hasBackup: false, keepDimensions: false, silent: true, initialPreset });
+  
+  // Load existing crop values if present
+  if (imageData.crop && typeof imageData.crop === 'object') {
+    const { top = 0, right = 0, bottom = 0, left = 0 } = imageData.crop;
+    setCropInsets({ top, right, bottom, left }, { silent: true });
+  }
+  
   clearToolbarStatus();
   updateToolbarState();
   updateCropOverlay();
