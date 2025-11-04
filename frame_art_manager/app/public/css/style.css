@@ -998,7 +998,6 @@ body {
   margin-left: 6px;
   white-space: nowrap;
   vertical-align: middle;
-  cursor: help;
 }
 
 .aspect-badge {
@@ -1054,7 +1053,6 @@ body {
   letter-spacing: 0.5px;
   margin-left: 6px;
   white-space: nowrap;
-  cursor: help;
 }
 
 .image-tags {
