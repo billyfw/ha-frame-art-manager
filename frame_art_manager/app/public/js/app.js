@@ -3831,11 +3831,11 @@ async function saveImageChanges() {
 
     if (result.success) {
       // Update local cache
-  allImages[currentImage].matte = matte;
-  allImages[currentImage].filter = filter;
+      allImages[currentImage].matte = matte;
+      allImages[currentImage].filter = filter;
       
-      // Reload gallery in background
-      loadGallery();
+      // Don't reload gallery on every dropdown change - it causes visual jitter
+      // Gallery will be reloaded when modal closes if there are changes
       
       // Update sync status since metadata changed
       await updateSyncStatus();
