@@ -1655,6 +1655,13 @@ function renderGallery(filter = '') {
     // Check if image is 16:9 (aspect ratio ~1.78)
     const is16x9 = data.aspectRatio && Math.abs(data.aspectRatio - 1.78) < 0.05;
     
+    // Check if image meets "sam" criteria: 3840x2160 and <= 5MB
+    const width = data.dimensions?.width || 0;
+    const height = data.dimensions?.height || 0;
+    const fileSize = data.fileSize || 0;
+    const fileSizeMB = fileSize / (1024 * 1024);
+    const isSam = width === 3840 && height === 2160 && fileSizeMB <= 5;
+    
     // Format date
     const dateAdded = formatDate(data.added);
     
@@ -1666,13 +1673,14 @@ function renderGallery(filter = '') {
         <img src="thumbs/thumb_${filename}" 
              onerror="this.src='library/${filename}'" 
              alt="${getDisplayName(filename)}" />
+        ${isSam ? '<span class="sam-badge" title="Image resolution and size (<5MB) is correct target for Frame TVs">sam</span>' : ''}
+        ${is16x9 ? '<span class="aspect-badge">16:9</span>' : ''}
         <button class="select-badge" data-filename="${filename}" data-index="${index}" title="Select image">
           <span class="select-icon">☑</span>
         </button>
       </div>
       <div class="image-info">
         <div class="image-filename">${getDisplayName(filename)}</div>
-        ${is16x9 ? '<span class="aspect-badge">16:9</span>' : ''}
         <div class="image-tags">
           ${(data.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}
         </div>
@@ -3630,6 +3638,7 @@ async function revertImageToOriginal() {
 function renderModalResolutionFromMetadata(imageData) {
   const resolutionEl = document.getElementById('modal-resolution');
   const aspectBadgeEl = document.getElementById('modal-aspect-badge');
+  const fileSizeEl = document.getElementById('modal-file-size');
 
   if (!resolutionEl || !aspectBadgeEl) return;
 
@@ -3637,15 +3646,34 @@ function renderModalResolutionFromMetadata(imageData) {
     const { width, height } = imageData.dimensions;
     const aspectRatio = imageData.aspectRatio || (width / height);
     const is16x9 = Math.abs(aspectRatio - 1.78) < 0.05;
+    const fileSize = imageData.fileSize || 0;
+    const fileSizeMB = fileSize / (1024 * 1024);
+    
+    // Check if image meets "sam" criteria: 3840x2160 and <= 5MB
+    const isSam = width === 3840 && height === 2160 && fileSizeMB <= 5;
+    
     resolutionEl.textContent = `${width} × ${height}`;
-    if (is16x9) {
-      aspectBadgeEl.innerHTML = '<span class="aspect-badge-inline">16:9</span>';
-    } else {
-      aspectBadgeEl.innerHTML = '';
+    
+    let badgesHtml = '';
+    if (isSam) {
+      badgesHtml += '<span class="sam-badge-inline" title="Image resolution and size (<5MB) is correct target for Frame TVs">sam</span>';
     }
+    if (is16x9) {
+      badgesHtml += '<span class="aspect-badge-inline">16:9</span>';
+    }
+    aspectBadgeEl.innerHTML = badgesHtml;
   } else {
     resolutionEl.textContent = 'Unknown';
     aspectBadgeEl.innerHTML = '';
+  }
+  
+  // Display file size
+  if (fileSizeEl) {
+    if (imageData?.fileSize) {
+      fileSizeEl.textContent = formatFileSize(imageData.fileSize);
+    } else {
+      fileSizeEl.textContent = 'Unknown';
+    }
   }
 }
 
