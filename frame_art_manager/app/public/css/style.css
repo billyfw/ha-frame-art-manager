@@ -2351,6 +2351,7 @@ body {
   align-items: center;
   gap: 10px;
   margin-top: 20px;
+  padding: 0 20px 20px 20px; /* Add padding to match modal-details */
 }
 
 .modal-actions-left {
