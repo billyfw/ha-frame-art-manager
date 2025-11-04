@@ -234,7 +234,24 @@ class MetadataHelper {
    */
   async getAllImages() {
     const metadata = await this.readMetadata();
-    return metadata.images;
+    
+    // Enrich each image with file size from disk
+    const enrichedImages = {};
+    for (const [filename, imageData] of Object.entries(metadata.images)) {
+      const imagePath = path.join(this.libraryPath, filename);
+      try {
+        const stats = await fs.stat(imagePath);
+        enrichedImages[filename] = {
+          ...imageData,
+          fileSize: stats.size // Add file size in bytes
+        };
+      } catch (error) {
+        // If file doesn't exist on disk, just use metadata
+        enrichedImages[filename] = imageData;
+      }
+    }
+    
+    return enrichedImages;
   }
 
   /**
