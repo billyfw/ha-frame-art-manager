@@ -107,8 +107,8 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 0 0 12px;
-  padding: 10px 14px;
+  margin: 0 0 8px;
+  padding: 8px 14px;
   background: #f3f5f8;
   border: 1px solid #dbe1ea;
   border-radius: 0;
@@ -972,6 +972,35 @@ body {
   text-overflow: ellipsis;
 }
 
+.aspect-badge-card {
+  display: inline-block;
+  background: #27ae60;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-left: 6px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.sam-badge-card {
+  display: inline-block;
+  background: #27ae60;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-left: 6px;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: help;
+}
+
 .aspect-badge {
   position: absolute;
   top: 8px;
@@ -1495,7 +1524,7 @@ body {
   border-radius: 8px;
   max-width: 750px;
   width: 90%;
-  max-height: 90vh;
+  max-height: 95vh;
   overflow-y: hidden;
   position: relative;
   display: flex;
@@ -1593,7 +1622,7 @@ body {
 }
 
 .modal-body-scroll .modal-details {
-  padding: 20px 0 0;
+  padding: 12px 0 0;
 }
 
 .modal-body-scroll .modal-edit-panel {
@@ -1601,7 +1630,7 @@ body {
 }
 
 .modal-actions {
-  padding: 0 0 20px;
+  padding: 0 0 16px;
 }
 
 .expand-image-btn {
@@ -1709,7 +1738,7 @@ body {
 
 .modal-dimensions {
   margin-top: 0;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   color: #7f8c8d;
 }
 
@@ -1721,7 +1750,7 @@ body {
 
 .modal-file-size {
   margin-top: 0;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   color: #7f8c8d;
 }
 
@@ -1735,7 +1764,7 @@ body {
   display: grid;
   grid-template-columns: minmax(240px, 280px) 1fr;
   column-gap: 20px;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
   align-items: flex-start;
 }
 

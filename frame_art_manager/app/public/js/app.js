@@ -1665,6 +1665,15 @@ function renderGallery(filter = '') {
     // Format date
     const dateAdded = formatDate(data.added);
     
+    // Build badges HTML for bottom of card
+    let badgesHtml = '';
+    if (isSam) {
+      badgesHtml += '<span class="sam-badge-card" title="Image resolution and size (<5MB) is correct target for Frame TVs">sam</span>';
+    }
+    if (is16x9) {
+      badgesHtml += '<span class="aspect-badge-card">16:9</span>';
+    }
+    
     return `
     <div class="image-card ${isSelected ? 'selected' : ''}" 
          data-filename="${filename}" 
@@ -1673,14 +1682,12 @@ function renderGallery(filter = '') {
         <img src="thumbs/thumb_${filename}" 
              onerror="this.src='library/${filename}'" 
              alt="${getDisplayName(filename)}" />
-        ${isSam ? '<span class="sam-badge" title="Image resolution and size (<5MB) is correct target for Frame TVs">sam</span>' : ''}
-        ${is16x9 ? '<span class="aspect-badge">16:9</span>' : ''}
         <button class="select-badge" data-filename="${filename}" data-index="${index}" title="Select image">
           <span class="select-icon">☑</span>
         </button>
       </div>
       <div class="image-info">
-        <div class="image-filename">${getDisplayName(filename)}</div>
+        <div class="image-filename">${getDisplayName(filename)}${badgesHtml ? ' ' + badgesHtml : ''}</div>
         <div class="image-tags">
           ${(data.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}
         </div>
