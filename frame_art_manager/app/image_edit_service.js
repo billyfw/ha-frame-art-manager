@@ -19,6 +19,25 @@ function formatAspectRatio(width, height) {
   return Math.round((width / height) * 100) / 100;
 }
 
+function normalizeTargetResolution(target) {
+  if (!target || typeof target !== 'object') {
+    return null;
+  }
+
+  const width = Math.round(Number(target.width));
+  const height = Math.round(Number(target.height));
+
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return { width, height };
+}
+
+const PRESET_TARGET_RESOLUTIONS = {
+  '16:9sam': { width: 3840, height: 2160 }
+};
+
 function getBackupFilename(filename) {
   const ext = path.extname(filename);
   const nameWithoutExt = filename.slice(0, filename.length - ext.length);
@@ -443,6 +462,13 @@ class ImageEditService {
     const crop = operations.crop || {};
     const adjustments = operations.adjustments || {};
     const filter = typeof operations.filter === 'string' ? operations.filter : 'none';
+    const cropPreset = typeof operations.cropPreset === 'string' ? operations.cropPreset : null;
+    let targetResolution = normalizeTargetResolution(operations.targetResolution);
+
+    if (!targetResolution && cropPreset && PRESET_TARGET_RESOLUTIONS[cropPreset]) {
+      const fallback = PRESET_TARGET_RESOLUTIONS[cropPreset];
+      targetResolution = { width: fallback.width, height: fallback.height };
+    }
 
     const sanitizedCrop = {
       top: toPercent(crop.top),
@@ -467,7 +493,9 @@ class ImageEditService {
     return {
       crop: sanitizedCrop,
       adjustments: sanitizedAdjustments,
-      filter: normalizedFilter
+      filter: normalizedFilter,
+      cropPreset: cropPreset || null,
+      targetResolution
     };
   }
 
@@ -931,6 +959,18 @@ class ImageEditService {
 
     transformer = this.applyAdjustments(transformer, sanitized.adjustments);
     transformer = await this.applyFilter(transformer, sanitized.filter);
+
+    if (sanitized.targetResolution) {
+      const targetWidth = sanitized.targetResolution.width;
+      const targetHeight = sanitized.targetResolution.height;
+
+      if (Number.isFinite(targetWidth) && Number.isFinite(targetHeight)) {
+        transformer = transformer.resize(targetWidth, targetHeight, {
+          fit: sharp.fit.fill,
+          kernel: sharp.kernel.lanczos3
+        });
+      }
+    }
 
     if (metadata.format) {
       transformer = transformer.toFormat(metadata.format);

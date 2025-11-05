@@ -164,6 +164,29 @@ test('INTEGRATION: applyEdits reuses backup on subsequent edits', async () => {
   assert.ok(await fileExists(backupPath), 'Existing backup should remain');
 });
 
+test('INTEGRATION: 16:9SAM preset resizes image to 3840x2160', async () => {
+  const filename = 'edit-subject-samtest.jpg';
+
+  await createSampleImage(filename, 6000, 3375);
+  await helper.addImage(filename, 'none', 'none', []);
+
+  const result = await service.applyEdits(filename, {
+    crop: { top: 0, right: 0, bottom: 0, left: 0 },
+    adjustments: { brightness: 0, contrast: 0 },
+    filter: 'none',
+    cropPreset: '16:9sam'
+  });
+
+  assert.strictEqual(result.dimensions.width, 3840, 'Width should resize to 3840');
+  assert.strictEqual(result.dimensions.height, 2160, 'Height should resize to 2160');
+
+  const metadata = await helper.getAllImages();
+  const updated = metadata[filename];
+  assert.ok(updated, 'Metadata entry should exist after edit');
+  assert.strictEqual(updated.dimensions.width, 3840, 'Metadata width should match resized width');
+  assert.strictEqual(updated.dimensions.height, 2160, 'Metadata height should match resized height');
+});
+
 test('INTEGRATION: revert restores original file and metadata', async () => {
   const filename = 'edit-subject-cccccccc.jpg';
 
