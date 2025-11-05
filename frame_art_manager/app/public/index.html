@@ -340,16 +340,18 @@
         </div>
         <div id="crop-popover" class="edit-popover hidden">
           <div class="popover-header">Crop Presets</div>
-          <div class="crop-preset-row">
-            <button class="crop-preset" data-crop="free">Free</button>
-            <button class="crop-preset" data-crop="original">Original</button>
-            <button class="crop-preset" data-crop="1:1">1:1</button>
-            <button class="crop-preset" data-crop="4:3">4:3</button>
-            <button class="crop-preset" data-crop="3:2">3:2</button>
-            <button class="crop-preset" data-crop="16:9" title="Crop to 16:9 without resizing the image">16:9</button>
-            <button class="crop-preset" data-crop="16:9sam" title="Crop and resize to 3840x2160 for Samsung Frame TVs">16:9SAM</button>
+          <div class="crop-toolbar-row">
+            <div class="crop-preset-row">
+              <button class="crop-preset" data-crop="free">Free</button>
+              <button class="crop-preset" data-crop="original">Original</button>
+              <button class="crop-preset" data-crop="1:1">1:1</button>
+              <button class="crop-preset" data-crop="4:3">4:3</button>
+              <button class="crop-preset" data-crop="3:2">3:2</button>
+              <button class="crop-preset" data-crop="16:9" title="Crop to 16:9 without resizing the image">16:9</button>
+              <button class="crop-preset" data-crop="16:9sam" title="Crop and resize to 3840x2160 for Samsung Frame TVs">16:9SAM</button>
+            </div>
+            <div class="crop-warning" id="crop-upsampling-warning">Will upsample to 3840x2160 for 16:9SAM</div>
           </div>
-          <div class="crop-hint">Drag the selection or handles to fine tune.</div>
         </div>
       </div>
       <div class="modal-body-scroll">
