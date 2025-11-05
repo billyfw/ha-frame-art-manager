@@ -2441,7 +2441,8 @@ function initImageEditor() {
       overlay: document.getElementById('crop-overlay'),
       box: document.getElementById('crop-box'),
       handles: Array.from(document.querySelectorAll('#crop-box .crop-handle')),
-      presetButtons: Array.from(document.querySelectorAll('#crop-popover .crop-preset'))
+      presetButtons: Array.from(document.querySelectorAll('#crop-popover .crop-preset')),
+      warning: document.getElementById('crop-upsampling-warning')
     }
   };
 
@@ -2935,6 +2936,7 @@ function selectCropPreset(preset, options = {}) {
   }
   updateCropPresetButtons(preset);
   applyCropPreset(preset, { silent });
+  updateUpsamplingWarning();
   if (!silent) {
     markEditsDirty();
   }
@@ -3010,6 +3012,70 @@ function determinePresetForDimensions(width, height) {
   }
 
   return bestPreset;
+}
+
+function getNaturalDimensions() {
+  const imageData = currentImage ? allImages[currentImage] : null;
+  const width = editState.naturalWidth || imageData?.dimensions?.width || 0;
+  const height = editState.naturalHeight || imageData?.dimensions?.height || 0;
+  return {
+    width,
+    height
+  };
+}
+
+function calculateCropOutputSize() {
+  const { width: naturalWidth, height: naturalHeight } = getNaturalDimensions();
+  if (!naturalWidth || !naturalHeight) {
+    return { width: 0, height: 0 };
+  }
+
+  const widthPercent = Math.max(MIN_CROP_PERCENT, 100 - editState.crop.left - editState.crop.right);
+  const heightPercent = Math.max(MIN_CROP_PERCENT, 100 - editState.crop.top - editState.crop.bottom);
+
+  const outputWidth = Math.round((widthPercent / 100) * naturalWidth);
+  const outputHeight = Math.round((heightPercent / 100) * naturalHeight);
+
+  return {
+    width: Math.max(1, outputWidth),
+    height: Math.max(1, outputHeight)
+  };
+}
+
+function shouldShowUpsamplingWarning() {
+  if (editState.cropPreset !== '16:9sam') {
+    return false;
+  }
+
+  const target = getPresetTargetResolution(editState.cropPreset);
+  if (!target) {
+    return false;
+  }
+
+  const { width, height } = calculateCropOutputSize();
+  if (!width || !height) {
+    return false;
+  }
+
+  return width < target.width || height < target.height;
+}
+
+function updateUpsamplingWarning() {
+  const warningEl = editControls?.crop?.warning;
+  if (!warningEl) {
+    return;
+  }
+
+  if (!editState.active || editState.activeTool !== 'crop') {
+    warningEl.style.display = 'none';
+    return;
+  }
+
+  if (shouldShowUpsamplingWarning()) {
+    warningEl.style.display = 'flex';
+  } else {
+    warningEl.style.display = 'none';
+  }
 }
 
 function autoSelectCropPresetForCurrentImage() {
@@ -3104,6 +3170,7 @@ function setCropInsets(insets, options = {}) {
   }
   editState.crop = next;
   updateCropOverlay();
+  updateUpsamplingWarning();
   if (!silent) {
     markEditsDirty();
   }
@@ -3328,6 +3395,8 @@ function updateCropOverlay() {
   box.style.left = `${left}%`;
   box.style.width = `${widthPercent}%`;
   box.style.height = `${heightPercent}%`;
+
+  updateUpsamplingWarning();
 }
 
 function startCropInteraction(type, handle, event) {
