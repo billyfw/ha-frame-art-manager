@@ -78,6 +78,9 @@ const createDefaultEditState = () => ({
   naturalWidth: 0,
   naturalHeight: 0,
   cropPreset: 'free',
+  targetResolution: null,
+  userSelectedCropPreset: false,
+  autoPresetApplied: false,
   activeTool: null,
   isDirty: false,
   previewEnabled: true
@@ -2375,12 +2378,19 @@ async function removeTag(tagName) {
 const MIN_CROP_PERCENT = 4;
 const CROP_RATIO_TOLERANCE = 0.001;
 const CROP_PRESET_MATCH_TOLERANCE = 0.02;
-const CROP_PRESET_RATIOS = {
-  '1:1': 1,
-  '4:3': 4 / 3,
-  '16:9': 16 / 9,
-  '3:2': 3 / 2
+const CROP_PRESET_DETAILS = {
+  '1:1': { ratio: 1 },
+  '4:3': { ratio: 4 / 3 },
+  '3:2': { ratio: 3 / 2 },
+  '16:9': { ratio: 16 / 9 },
+  '16:9sam': { ratio: 16 / 9, targetResolution: { width: 3840, height: 2160 } }
 };
+
+const CROP_PRESET_RATIOS = Object.fromEntries(
+  Object.entries(CROP_PRESET_DETAILS).map(([preset, detail]) => [preset, detail.ratio])
+);
+
+const CROP_INSET_EPSILON = 0.0001;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -2591,7 +2601,11 @@ function resetEditState(options = {}) {
   }
   if (targetPreset) {
     editState.cropPreset = targetPreset;
+    editState.targetResolution = getPresetTargetResolution(targetPreset);
   }
+
+  editState.userSelectedCropPreset = false;
+  editState.autoPresetApplied = false;
 
   editState.isDirty = false;
 
@@ -2762,6 +2776,9 @@ function setActiveTool(tool, options = {}) {
     btn.classList.toggle('active', btn.dataset.tool === tool);
   });
   showPopover(tool);
+  if (tool === 'crop') {
+    autoSelectCropPresetForCurrentImage();
+  }
   updateCropOverlay();
 
   if (!silent) {
@@ -2910,8 +2927,12 @@ function updateFilterButtons(activeFilter) {
 }
 
 function selectCropPreset(preset, options = {}) {
-  const { silent = false } = options;
+  const { silent = false, suppressUserTracking = false } = options;
   editState.cropPreset = preset;
+  editState.targetResolution = getPresetTargetResolution(preset);
+  if (!suppressUserTracking) {
+    editState.userSelectedCropPreset = true;
+  }
   updateCropPresetButtons(preset);
   applyCropPreset(preset, { silent });
   if (!silent) {
@@ -2934,6 +2955,94 @@ function getPresetRatio(preset) {
     return null;
   }
   return CROP_PRESET_RATIOS[preset] || null;
+}
+
+function getPresetTargetResolution(preset) {
+  const detail = CROP_PRESET_DETAILS[preset];
+  if (!detail?.targetResolution) {
+    return null;
+  }
+  const { width, height } = detail.targetResolution;
+  if (!Number.isFinite(width) || !Number.isFinite(height)) {
+    return null;
+  }
+  return {
+    width,
+    height
+  };
+}
+
+function isZeroCropInsets(insets = {}) {
+  const { top = 0, right = 0, bottom = 0, left = 0 } = insets;
+  return (
+    Math.abs(top) <= CROP_INSET_EPSILON &&
+    Math.abs(right) <= CROP_INSET_EPSILON &&
+    Math.abs(bottom) <= CROP_INSET_EPSILON &&
+    Math.abs(left) <= CROP_INSET_EPSILON
+  );
+}
+
+function determinePresetForDimensions(width, height) {
+  const roundedWidth = Math.round(Number(width) || 0);
+  const roundedHeight = Math.round(Number(height) || 0);
+
+  if (roundedWidth <= 0 || roundedHeight <= 0) {
+    return null;
+  }
+
+  if (roundedWidth === 3840 && roundedHeight === 2160) {
+    return '16:9sam';
+  }
+
+  const aspect = roundedWidth / roundedHeight;
+  let bestPreset = null;
+  let bestDiff = Infinity;
+
+  for (const [preset, presetRatio] of Object.entries(CROP_PRESET_RATIOS)) {
+    if (preset === '16:9sam') {
+      continue; // Only select 16:9sam on exact resolution match
+    }
+    const diff = Math.abs(aspect - presetRatio);
+    if (diff < bestDiff && diff <= CROP_PRESET_MATCH_TOLERANCE) {
+      bestDiff = diff;
+      bestPreset = preset;
+    }
+  }
+
+  return bestPreset;
+}
+
+function autoSelectCropPresetForCurrentImage() {
+  if (!currentImage) {
+    return;
+  }
+
+  if (editState.autoPresetApplied || editState.userSelectedCropPreset) {
+    return;
+  }
+
+  const hasCustomCrop = !isZeroCropInsets(editState.crop);
+  if (hasCustomCrop) {
+    editState.autoPresetApplied = true;
+    return;
+  }
+
+  const imageData = allImages[currentImage];
+  const width = editState.naturalWidth || imageData?.dimensions?.width;
+  const height = editState.naturalHeight || imageData?.dimensions?.height;
+
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return;
+  }
+
+  const candidate = determinePresetForDimensions(width, height);
+  editState.autoPresetApplied = true;
+
+  if (!candidate || candidate === editState.cropPreset) {
+    return;
+  }
+
+  selectCropPreset(candidate, { silent: true, suppressUserTracking: true });
 }
 
 function applyCropPreset(preset, options = {}) {
@@ -3120,6 +3229,9 @@ function findPresetForAspectRatio(aspect) {
   let bestDiff = Infinity;
 
   for (const [preset, presetRatio] of Object.entries(CROP_PRESET_RATIOS)) {
+    if (preset === '16:9sam') {
+      continue;
+    }
     const diff = Math.abs(aspect - presetRatio);
     if (diff < bestDiff) {
       bestDiff = diff;
@@ -3148,6 +3260,14 @@ function detectInitialCropPreset(imageData) {
     }
   } else {
     return 'free';
+  }
+
+  const exactResolutionPreset = determinePresetForDimensions(
+    imageData.dimensions?.width,
+    imageData.dimensions?.height
+  );
+  if (exactResolutionPreset === '16:9sam') {
+    return exactResolutionPreset;
   }
 
   const toNumeric = (value) => {
@@ -3507,10 +3627,14 @@ function applyPreviewFilters() {
 }
 
 function buildEditPayload() {
+  const targetResolution = getPresetTargetResolution(editState.cropPreset);
+
   return {
     crop: { ...editState.crop },
     adjustments: { ...editState.adjustments },
-    filter: editState.filter
+    filter: editState.filter,
+    cropPreset: editState.cropPreset,
+    targetResolution
   };
 }
 

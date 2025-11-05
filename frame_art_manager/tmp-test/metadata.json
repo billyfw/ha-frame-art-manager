@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "images": {
+    "tmp-test.jpg": {
+      "matte": "none",
+      "filter": "None",
+      "tags": [],
+      "dimensions": {
+        "width": 3840,
+        "height": 2160
+      },
+      "aspectRatio": 1.78,
+      "added": "2025-11-04T15:02:01.558Z",
+      "updated": "2025-11-04T15:02:01.603Z"
+    }
+  },
+  "tags": []
+}
