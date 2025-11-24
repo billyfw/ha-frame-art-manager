@@ -80,7 +80,7 @@ router.get('/tvs', requireHA, async (req, res) => {
           
           {% for entity in entities %}
             {% if entity.startswith('text.') %}
-              {% set fname = state_attr(entity, 'friendly_name')|lower %}
+              {% set fname = (state_attr(entity, 'friendly_name') or '')|lower %}
               {% if 'tags' in fname and 'include' in fname %}
                  {% set state = states(entity) %}
                  {% if state and state != 'unknown' and state != 'unavailable' and state != '' %}
@@ -124,7 +124,16 @@ router.get('/tvs', requireHA, async (req, res) => {
 
     res.json({ success: true, tvs });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch TVs from Home Assistant' });
+    console.error('Error in /tvs route:', error.message);
+    if (error.response) {
+      console.error('HA Response status:', error.response.status);
+      console.error('HA Response data:', JSON.stringify(error.response.data));
+    }
+    res.status(500).json({ 
+      error: 'Failed to fetch TVs from Home Assistant', 
+      details: error.message,
+      haError: error.response ? error.response.data : null
+    });
   }
 });
 

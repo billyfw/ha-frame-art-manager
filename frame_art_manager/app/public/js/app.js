@@ -4962,11 +4962,13 @@ function initTvModal() {
       if (data.success && Array.isArray(data.tvs)) {
         renderTvList(data.tvs);
       } else {
-        tvListContainer.innerHTML = '<div class="error-message">Failed to load TVs. Ensure the integration is installed.</div>';
+        const errorMsg = data.details || data.error || 'Unknown error';
+        console.error('TV Load Error:', data);
+        tvListContainer.innerHTML = `<div class="error-message">Failed to load TVs: ${escapeHtml(errorMsg)}<br><br>Ensure the integration is installed and check Add-on logs.</div>`;
       }
     } catch (error) {
       console.error('Error fetching TVs:', error);
-      tvListContainer.innerHTML = '<div class="error-message">Error connecting to Home Assistant.</div>';
+      tvListContainer.innerHTML = `<div class="error-message">Error connecting to Home Assistant: ${escapeHtml(error.message)}</div>`;
     }
   });
 
