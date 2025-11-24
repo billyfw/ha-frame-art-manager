@@ -20,16 +20,13 @@
             <input type="search" id="search-input" placeholder="Search images" aria-label="Search images" autocomplete="off" />
           </div>
           <div class="control-item control-filter">
+            <button type="button" id="clear-tag-filter-btn" class="clear-filter-btn-toolbar" title="Clear tag filter">×</button>
             <div class="custom-multiselect">
               <button type="button" id="tag-filter-btn" class="multiselect-button" aria-haspopup="listbox" aria-expanded="false">
                 <span id="tag-filter-text">All Tags</span>
                 <span class="dropdown-arrow">▾</span>
               </button>
               <div id="tag-filter-dropdown" class="multiselect-dropdown" role="menu">
-                <div class="multiselect-header">
-                  <span>Filter by tag</span>
-                  <button type="button" id="clear-tag-filter-btn" class="clear-filter-btn" title="Clear tag filter">×</button>
-                </div>
                 <div class="multiselect-options">
                   <!-- Tag options injected here -->
                 </div>
