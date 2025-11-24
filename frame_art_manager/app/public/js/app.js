@@ -4084,6 +4084,7 @@ function initModal() {
       cancelEdits();
     }
     modal.classList.remove('active');
+    renderGallery();
     resetEditState({ hasBackup: false, keepDimensions: false, silent: true });
     clearToolbarStatus();
     try {
