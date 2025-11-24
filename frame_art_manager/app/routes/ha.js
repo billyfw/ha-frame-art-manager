@@ -72,7 +72,7 @@ router.get('/tvs', requireHA, async (req, res) => {
       {% set ns = namespace(tvs=[]) %}
       {% set devices = integration_entities('frame_art_shuffler') | map('device_id') | unique | list %}
       {% for device_id in devices %}
-        {% if device_id %}
+        {% if device_id and device_id != 'None' %}
           {% set device_name = device_attr(device_id, 'name') %}
           {% set entities = device_entities(device_id) %}
           {% set ns.tags = [] %}
@@ -83,12 +83,12 @@ router.get('/tvs', requireHA, async (req, res) => {
               {% set fname = state_attr(entity, 'friendly_name')|lower %}
               {% if 'tags' in fname and 'include' in fname %}
                  {% set state = states(entity) %}
-                 {% if state and state != 'unknown' and state != 'unavailable' %}
+                 {% if state and state != 'unknown' and state != 'unavailable' and state != '' %}
                    {% set ns.tags = state.split(',') | map('trim') | list %}
                  {% endif %}
               {% elif 'tags' in fname and 'exclude' in fname %}
                  {% set state = states(entity) %}
-                 {% if state and state != 'unknown' and state != 'unavailable' %}
+                 {% if state and state != 'unknown' and state != 'unavailable' and state != '' %}
                    {% set ns.exclude_tags = state.split(',') | map('trim') | list %}
                  {% endif %}
               {% endif %}
