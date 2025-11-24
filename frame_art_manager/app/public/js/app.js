@@ -4,6 +4,7 @@ const API_BASE = 'api';
 // Global state
 let libraryPath = null; // Store library path for tooltips
 let isSyncInProgress = false; // Track if a sync operation is currently running
+let appEnvironment = 'development'; // 'development' or 'production'
 
 // State
 const navigationContext = detectNavigationContext();
@@ -990,8 +991,9 @@ async function loadLibraryPath() {
     const data = await response.json();
     const pathValue = data.frameArtPath || 'Unknown';
     
-    // Store globally for use in tooltips
+    // Store globally
     libraryPath = pathValue;
+    appEnvironment = data.env || 'development';
     
     // Update advanced tab path display
     const advancedPathElement = document.getElementById('advanced-path-value');
@@ -5049,11 +5051,22 @@ window.displayOnTv = async function(id, type) {
     
     const result = await response.json();
     
+    // Check if modal is still open - if user closed it, suppress all feedback
+    if (!tvModal.classList.contains('active')) {
+      console.log('Modal closed by user during send. Suppressing result.');
+      return;
+    }
+
     if (result.success) {
+      if (btn) btn.textContent = 'Sent!';
+      
       // Close modal after short delay
       setTimeout(() => {
         tvModal.classList.remove('active');
-        alert('Image sent to TV!');
+        // Only show alert in development
+        if (appEnvironment === 'development') {
+          alert('Image sent to TV!');
+        }
       }, 500);
     } else {
       alert(`Failed to send image: ${result.error}`);
@@ -5061,7 +5074,10 @@ window.displayOnTv = async function(id, type) {
     }
   } catch (error) {
     console.error('Error sending to TV:', error);
-    alert('Error sending command to TV.');
-    if (btn) btn.textContent = originalText;
+    // Only alert if modal is still open
+    if (tvModal.classList.contains('active')) {
+      alert('Error sending command to TV.');
+      if (btn) btn.textContent = originalText;
+    }
   }
 };

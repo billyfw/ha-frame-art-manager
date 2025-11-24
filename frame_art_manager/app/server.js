@@ -71,6 +71,7 @@ app.get('/api/health', (req, res) => {
     status: 'ok', 
     frameArtPath: FRAME_ART_PATH,
     home: FRAME_ART_HOME || null,
+    env: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString()
   });
 });
