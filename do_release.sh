@@ -137,8 +137,11 @@ echo "Waiting for GitHub to process..."
 sleep 3
 
 # Update Home Assistant add-on
+# NOTE: This assumes an SSH config entry for 'ha.mad' exists in ~/.ssh/config
+# with the correct hostname, user (typically 'hassio'), port (typically 2222),
+# and identity file configured for Home Assistant SSH access.
 echo "Updating Home Assistant add-on..."
-ssh root@ha.mad << ENDSSH
+ssh ha.mad << ENDSSH
 # The GitHub repo slug should be e2a3b0cb_frame_art_manager
 GITHUB_SLUG="e2a3b0cb_frame_art_manager"
 
