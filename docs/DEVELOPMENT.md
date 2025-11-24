@@ -84,7 +84,6 @@ frame_art_manager/app/
 ├── git_helper.js                # Git/LFS operations
 ├── routes/                      # API endpoints
 │   ├── images.js               # Image CRUD
-│   ├── tvs.js                  # TV management
 │   ├── tags.js                 # Tag operations
 │   └── sync.js                 # Git sync
 ├── public/                      # Frontend
@@ -190,16 +189,6 @@ FRAME_ART_PATH/
       "added": "2025-10-15T10:30:00.000Z"
     }
   },
-  "tvs": [
-    {
-      "id": "1234567890",
-      "name": "Living Room TV",
-      "ip": "192.168.1.100",
-      "home": "Madrone",
-      "tags": ["landscape"],
-      "added": "2025-10-15T09:00:00.000Z"
-    }
-  ],
   "tags": ["landscape", "portrait", "nature"]
 }
 ```
@@ -310,52 +299,6 @@ Content-Type: application/json
 #### Get Images by Tag
 ```http
 GET /api/images/tag/:tagName
-```
-
-### TVs
-
-#### Get All TVs
-```http
-GET /api/tvs
-```
-
-#### Add TV
-```http
-POST /api/tvs
-Content-Type: application/json
-
-{
-  "name": "Living Room TV",
-  "ip": "192.168.1.100",
-  "home": "Madrone"
-}
-```
-
-#### Update TV
-```http
-PUT /api/tvs/:tvId
-Content-Type: application/json
-
-{
-  "name": "Living Room TV",
-  "ip": "192.168.1.101",
-  "home": "Maui"
-}
-```
-
-#### Update TV Tags
-```http
-PUT /api/tvs/:tvId/tags
-Content-Type: application/json
-
-{
-  "tags": ["landscape", "nature"]
-}
-```
-
-#### Delete TV
-```http
-DELETE /api/tvs/:tvId
 ```
 
 ### Tags

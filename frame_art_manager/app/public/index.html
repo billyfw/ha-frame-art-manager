@@ -241,6 +241,7 @@
       <div id="image-edit-toolbar" class="image-edit-toolbar">
         <div class="toolbar-group toolbar-group-primary">
           <button id="toolbar-edit-btn" class="toolbar-btn">Edit</button>
+          <button id="revert-original-btn" class="toolbar-btn" disabled>Revert to Original Unedited</button>
         </div>
         <div class="toolbar-divider"></div>
         <div class="toolbar-group toolbar-group-tools">
@@ -284,7 +285,7 @@
         </div>
         <div class="toolbar-flex"></div>
         <div class="toolbar-group toolbar-group-secondary">
-          <button id="revert-original-btn" class="toolbar-btn" disabled>Revert to Original Unedited</button>
+          <button id="modal-show-tv-btn" class="toolbar-btn" style="margin-right: 8px;">Show on TV</button>
           <button id="toolbar-cancel-btn" class="toolbar-btn" disabled>Cancel</button>
           <button id="toolbar-apply-btn" class="btn-primary toolbar-apply" disabled>Apply</button>
         </div>
@@ -538,6 +539,27 @@
           </div>
           <div class="bulk-modal-actions">
             <button id="cancel-bulk-tags-btn" class="btn-done">Done</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TV Selection Modal -->
+  <div id="tv-select-modal" class="modal">
+    <div class="modal-content tv-modal">
+      <button class="close close-simple" id="tv-modal-close">✕</button>
+      <div class="modal-details">
+        <h3>Show on TV</h3>
+        <p>Select a Frame TV to display this image:</p>
+        
+        <div id="tv-list-container" class="tv-list">
+          <div class="loading-indicator">Loading TVs...</div>
+        </div>
+
+        <div class="modal-actions">
+          <div class="modal-actions-right">
+            <button id="tv-modal-cancel-btn" class="btn-secondary">Cancel</button>
           </div>
         </div>
       </div>
