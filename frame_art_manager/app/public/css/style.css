@@ -735,24 +735,24 @@ body {
 }
 
 /* Custom Multi-Select Dropdown */
-.clear-filter-btn {
+.clear-filter-btn-toolbar {
   display: none;
   background: none;
   color: #95a5a6;
   border: none;
-  width: 20px;
-  height: 20px;
-  font-size: 18px;
+  width: 24px;
+  height: 24px;
+  font-size: 20px;
   line-height: 1;
   cursor: pointer;
   padding: 0;
-  margin-right: 8px;
+  margin-right: 4px;
   flex-shrink: 0;
   transition: color 0.2s;
 }
 
-.clear-filter-btn:hover {
-  color: #7f8c8d;
+.clear-filter-btn-toolbar:hover {
+  color: #e74c3c;
 }
 
 .custom-multiselect {
