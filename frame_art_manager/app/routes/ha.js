@@ -13,7 +13,6 @@ const requireHA = (req, res, next) => {
   if (!SUPERVISOR_TOKEN) {
     // For development/testing outside HA, you might want to mock this or error
     if (process.env.NODE_ENV === 'development') {
-      console.warn('Mocking HA request in development');
       return next();
     }
     return res.status(503).json({ error: 'Home Assistant Supervisor token not found. Are we running as an Add-on?' });
