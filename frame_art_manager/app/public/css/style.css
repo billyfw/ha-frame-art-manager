@@ -399,7 +399,7 @@ body {
 /* Gallery Toolbar */
 .gallery-toolbar {
   display: flex;
-  gap: 10px;
+  gap: 6px;
   margin-bottom: 20px;
   align-items: center;
   flex-wrap: wrap;
@@ -436,9 +436,9 @@ body {
 /* Sync Button/Indicator */
 .btn-sync {
   flex-shrink: 0;
-  padding: 4px 8px;
+  padding: 4px 0;
   height: 42px;
-  min-width: 60px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -614,6 +614,7 @@ body {
 .control-settings {
   flex: 0 0 auto;
   border-right: none !important;
+  padding: 0;
 }
 
 .control-icon {
@@ -1713,7 +1714,7 @@ body {
   border: none;
   font-size: 18px;
   cursor: pointer;
-  padding: 5px;
+  padding: 0 4px;
   border-radius: 4px;
   transition: background-color 0.2s;
   line-height: 1;
