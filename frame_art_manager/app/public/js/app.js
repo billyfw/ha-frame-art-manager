@@ -4948,6 +4948,7 @@ function initTvModal() {
   const showTvBtn = document.getElementById('modal-show-tv-btn');
   const closeBtn = document.getElementById('tv-modal-close');
   const tvListContainer = document.getElementById('tv-list-container');
+  const logContainer = document.getElementById('tv-upload-logs');
 
   if (!tvModal || !showTvBtn) return;
 
@@ -4956,6 +4957,10 @@ function initTvModal() {
     
     tvModal.classList.add('active');
     tvListContainer.innerHTML = '<div class="loading-indicator">Loading TVs...</div>';
+    if (logContainer) {
+      logContainer.style.display = 'none';
+      logContainer.textContent = '';
+    }
     
     try {
       const response = await fetch(`${API_BASE}/ha/tvs`);
@@ -5029,11 +5034,36 @@ window.displayOnTv = async function(id, type) {
   const tvModal = document.getElementById('tv-select-modal');
   const safeId = id.replace(/['"\\]/g, '');
   const btn = document.getElementById(`btn-${safeId}`);
+  const logContainer = document.getElementById('tv-upload-logs');
   
   // Show loading state
   const originalText = btn ? btn.textContent : 'Show';
   if (btn) btn.textContent = 'Sending...';
   
+  // Start log polling
+  let pollInterval;
+  if (logContainer) {
+    logContainer.style.display = 'block';
+    logContainer.textContent = 'Initializing upload...';
+    
+    const pollLogs = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/ha/upload-log`);
+        const data = await res.json();
+        if (data.success && data.logs) {
+          logContainer.textContent = data.logs;
+          logContainer.scrollTop = logContainer.scrollHeight;
+        }
+      } catch (e) {
+        console.error('Log poll error:', e);
+      }
+    };
+
+    // Poll immediately then every second
+    pollLogs();
+    pollInterval = setInterval(pollLogs, 1000);
+  }
+
   try {
     const payload = {
       filename: currentImage
@@ -5065,6 +5095,9 @@ window.displayOnTv = async function(id, type) {
     
     const result = await response.json();
     
+    // Stop polling
+    if (pollInterval) clearInterval(pollInterval);
+
     // Check if modal is still open - if user closed it, suppress all feedback
     if (!tvModal.classList.contains('active')) {
       console.log('Modal closed by user during send. Suppressing result.');
@@ -5081,12 +5114,13 @@ window.displayOnTv = async function(id, type) {
         if (appEnvironment === 'development') {
           alert('Image sent to TV!');
         }
-      }, 500);
+      }, 2000); // Increased delay so user can see final logs
     } else {
       alert(`Failed to send image: ${result.error}`);
       if (btn) btn.textContent = originalText;
     }
   } catch (error) {
+    if (pollInterval) clearInterval(pollInterval);
     console.error('Error sending to TV:', error);
     // Only alert if modal is still open
     if (tvModal.classList.contains('active')) {
