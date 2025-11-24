@@ -1658,12 +1658,12 @@ function renderGallery(filter = '') {
     // Check if image is 16:9 (aspect ratio ~1.78)
     const is16x9 = data.aspectRatio && Math.abs(data.aspectRatio - 1.78) < 0.05;
     
-    // Check if image meets "sam" criteria: 3840x2160 and <= 5MB
+    // Check if image meets "sam" criteria: 3840x2160 and <= 20MB
     const width = data.dimensions?.width || 0;
     const height = data.dimensions?.height || 0;
     const fileSize = data.fileSize || 0;
     const fileSizeMB = fileSize / (1024 * 1024);
-    const isSam = width === 3840 && height === 2160 && fileSizeMB <= 5;
+    const isSam = width === 3840 && height === 2160 && fileSizeMB <= 20;
     
     // Format date
     const dateAdded = formatDate(data.added);
@@ -1671,7 +1671,7 @@ function renderGallery(filter = '') {
     // Build badges HTML for bottom of card
     let badgesHtml = '';
     if (isSam) {
-      badgesHtml += '<span class="sam-badge-card" title="Image resolution and size (<5MB) is correct target for Frame TVs">sam</span>';
+      badgesHtml += '<span class="sam-badge-card" title="Image resolution and size (<20MB) is correct target for Frame TVs">sam</span>';
     }
     if (is16x9) {
       badgesHtml += '<span class="aspect-badge-card">16:9</span>';
@@ -2141,7 +2141,7 @@ function formatFileSize(bytes) {
 }
 
 async function uploadBatchImages(files) {
-  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+  const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB in bytes
   let successCount = 0;
   let errorCount = 0;
   let skippedCount = 0;
@@ -2169,7 +2169,7 @@ async function uploadBatchImages(files) {
         name: file.name,
         size: formatFileSize(file.size)
       });
-      console.warn(`Skipped ${file.name}: ${formatFileSize(file.size)} exceeds 5MB limit`);
+      console.warn(`Skipped ${file.name}: ${formatFileSize(file.size)} exceeds 20MB limit`);
       
       // Update progress
       const completedCount = i + 1;
@@ -2216,7 +2216,7 @@ async function uploadBatchImages(files) {
   }
   
   if (skippedCount > 0) {
-    summaryParts.push(`${skippedCount} skipped (over 5MB limit)`);
+    summaryParts.push(`${skippedCount} skipped (over 20MB limit)`);
   }
   
   if (errorCount > 0) {
@@ -2228,7 +2228,7 @@ async function uploadBatchImages(files) {
     let message = 'Batch upload completed:\n\n' + summaryParts.join('\n');
     
     if (skippedFiles.length > 0) {
-      message += '\n\nSkipped files (over 5MB):';
+      message += '\n\nSkipped files (over 20MB):';
       skippedFiles.forEach(file => {
         message += `\n• ${file.name} (${file.size})`;
       });
@@ -3849,14 +3849,14 @@ function renderModalResolutionFromMetadata(imageData) {
     const fileSize = imageData.fileSize || 0;
     const fileSizeMB = fileSize / (1024 * 1024);
     
-    // Check if image meets "sam" criteria: 3840x2160 and <= 5MB
-    const isSam = width === 3840 && height === 2160 && fileSizeMB <= 5;
+    // Check if image meets "sam" criteria: 3840x2160 and <= 20MB
+    const isSam = width === 3840 && height === 2160 && fileSizeMB <= 20;
     
     resolutionEl.textContent = `${width} × ${height}`;
     
     let badgesHtml = '';
     if (isSam) {
-      badgesHtml += '<span class="sam-badge-inline" title="Image resolution and size (<5MB) is correct target for Frame TVs">sam</span>';
+      badgesHtml += '<span class="sam-badge-inline" title="Image resolution and size (<20MB) is correct target for Frame TVs">sam</span>';
     }
     if (is16x9) {
       badgesHtml += '<span class="aspect-badge-inline">16:9</span>';
