@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const path = require('path');
+const fs = require('fs');
 
 // Supervisor API configuration
 const SUPERVISOR_TOKEN = process.env.SUPERVISOR_TOKEN;
@@ -40,6 +41,12 @@ const haRequest = async (method, endpoint, data = null) => {
         }
       ];
     }
+    
+    // Add delay for display_image to simulate upload time
+    if (endpoint.includes('display_image')) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+    
     return { success: true };
   }
 
@@ -174,6 +181,36 @@ router.post('/display', requireHA, async (req, res) => {
     res.json({ success: true, message: 'Command sent to TV' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to send command to TV' });
+  }
+});
+
+// GET /api/ha/upload-log - Get upload progress log
+router.get('/upload-log', requireHA, async (req, res) => {
+  // Mock logs for development if no token
+  if (!SUPERVISOR_TOKEN && process.env.NODE_ENV === 'development') {
+    const mockLogs = [
+      "[10:00:01] Starting process for 192.168.1.50...",
+      "[10:00:02] Checking Art Mode connection and listing current images...",
+      "[10:00:03] Art Mode connection OK. Images on TV: 5",
+      "[10:00:04] Uploading image to 192.168.1.50 (attempt 1/3)...",
+      "[10:00:08] Upload successful, content_id=12345",
+      "[10:00:10] Art 12345 successfully displayed on 192.168.1.50",
+      "[10:00:11] Upload complete for 192.168.1.50 (content_id=12345)"
+    ].join('\n');
+    return res.json({ success: true, logs: mockLogs });
+  }
+
+  const logPath = '/config/frame_art_upload.log';
+  try {
+    if (fs.existsSync(logPath)) {
+      const logs = fs.readFileSync(logPath, 'utf8');
+      res.json({ success: true, logs });
+    } else {
+      res.json({ success: true, logs: 'Waiting for logs...' });
+    }
+  } catch (error) {
+    console.error('Error reading upload log:', error);
+    res.status(500).json({ error: 'Failed to read upload log' });
   }
 });
 
