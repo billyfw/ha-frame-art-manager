@@ -5005,7 +5005,6 @@ function renderTvList(tvs) {
     <div class="tv-item" onclick="displayOnTv('${safeId}', '${idType}')" style="display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s;">
       <div class="tv-info" style="flex: 1;">
         <div class="tv-name" style="font-weight: bold; font-size: 1.1em;">${tv.name}</div>
-        <div class="tv-entity" style="color: #666; font-size: 0.9em;">${id}</div>
       </div>
       <button class="btn-primary btn-small" id="btn-${safeId}">Show</button>
     </div>
