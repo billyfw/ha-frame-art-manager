@@ -4995,14 +4995,17 @@ function renderTvList(tvs) {
     return;
   }
 
-  container.innerHTML = tvs.map(tv => {
+  container.innerHTML = tvs.map((tv, index) => {
     const id = tv.device_id || tv.entity_id;
     const idType = tv.device_id ? 'device_id' : 'entity_id';
     // Escape ID for use in onclick and selector
     const safeId = id.replace(/['"\\]/g, '');
     
+    // Only add border if not the last item
+    const borderStyle = index === tvs.length - 1 ? '' : 'border-bottom: 1px solid #eee;';
+    
     return `
-    <div class="tv-item" onclick="displayOnTv('${safeId}', '${idType}')" style="display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s;">
+    <div class="tv-item" onclick="displayOnTv('${safeId}', '${idType}')" style="display: flex; align-items: center; padding: 15px; ${borderStyle} cursor: pointer; transition: background 0.2s;">
       <div class="tv-info" style="flex: 1;">
         <div class="tv-name" style="font-weight: bold; font-size: 1.1em;">${tv.name}</div>
       </div>
