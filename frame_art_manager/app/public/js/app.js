@@ -62,6 +62,7 @@ let sortAscending = typeof storedSortPreference?.ascending === 'boolean' ? store
 
 let allImages = {};
 let allTags = [];
+let allTVs = [];
 let currentImage = null;
 let selectedImages = new Set();
 let lastClickedIndex = null;
@@ -488,6 +489,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load UI first so user can start working immediately
   loadGallery();
   loadTags();
+  loadTVs();
   initUploadForm();
   initBatchUploadForm(); // Initialize batch upload
   initTagForm();
@@ -497,6 +499,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initBulkActions();
   initSettingsNavigation();
   initUploadNavigation();
+  initTvModal();
   
   // Handle initial route
   handleRoute();
@@ -2162,6 +2165,7 @@ async function uploadBatchImages(files) {
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     
+       
     // Check file size before uploading
     if (file.size > MAX_FILE_SIZE) {
       skippedCount++;
@@ -2250,6 +2254,23 @@ async function uploadBatchImages(files) {
 }
 
 // Tag Management
+async function loadTVs() {
+  try {
+    const response = await fetch(`${API_BASE}/ha/tvs`);
+    const data = await response.json();
+    if (data.success && Array.isArray(data.tvs)) {
+      allTVs = data.tvs;
+      // Refresh filter dropdown if it's already rendered
+      const dropdownOptions = document.querySelector('.multiselect-options');
+      if (dropdownOptions && dropdownOptions.children.length > 0) {
+        loadTagsForFilter();
+      }
+    }
+  } catch (error) {
+    console.error('Error loading TVs:', error);
+  }
+}
+
 async function loadTags() {
   try {
     const response = await fetch(`${API_BASE}/tags`);
@@ -2272,22 +2293,178 @@ async function loadTagsForFilter() {
       return;
     }
 
-    dropdownOptions.innerHTML = allTags.map(tag => `
-      <div class="multiselect-option">
-        <input type="checkbox" id="tag-${tag}" value="${tag}" class="tag-checkbox">
-        <label for="tag-${tag}">${tag}</label>
-      </div>
-    `).join('');
+    let html = '';
 
+    // TV Shortcuts Section
+    if (allTVs.length > 0) {
+      html += `<div class="tv-shortcuts-header">TVs</div>`;
+      html += allTVs.map(tv => {
+        const safeTags = JSON.stringify(tv.tags || []).replace(/"/g, '&quot;');
+        const id = tv.device_id || tv.entity_id;
+        
+        let subtitleHtml = '';
+        if (tv.tags && tv.tags.length > 0) {
+          subtitleHtml += `<div class="tv-tags-subtitle">+ ${tv.tags.join(', ')}</div>`;
+        }
+        if (tv.exclude_tags && tv.exclude_tags.length > 0) {
+          subtitleHtml += `<div class="tv-tags-subtitle">- ${tv.exclude_tags.join(', ')}</div>`;
+        }
+
+        return `
+        <div class="multiselect-option tv-shortcut">
+          <input type="checkbox" id="tv-shortcut-${id}" 
+                 value="${id}" 
+                 class="tv-checkbox"
+                 data-tags="${safeTags}">
+          <label for="tv-shortcut-${id}">
+            <div class="tv-name">${escapeHtml(tv.name)}</div>
+            ${subtitleHtml}
+          </label>
+        </div>
+      `}).join('');
+      html += `<div class="tv-shortcuts-divider"></div>`;
+      html += `<div class="tags-header">Tags</div>`;
+    }
+
+    // Tags Section
+    html += allTags.map(tag => {
+      const safeValue = tag.replace(/"/g, '&quot;');
+      return `
+      <div class="multiselect-option">
+        <input type="checkbox" value="${safeValue}" class="tag-checkbox">
+        <label>${escapeHtml(tag)}</label>
+      </div>
+    `}).join('');
+
+    dropdownOptions.innerHTML = html;
+
+    // Add listeners for tags
     const checkboxes = dropdownOptions.querySelectorAll('.tag-checkbox');
     checkboxes.forEach(checkbox => {
-      checkbox.addEventListener('change', updateTagFilterDisplay);
+      // Toggle checkbox when label is clicked (since we removed ID association)
+      const label = checkbox.nextElementSibling;
+      if (label) {
+        label.addEventListener('click', (e) => {
+          e.preventDefault();
+          checkbox.checked = !checkbox.checked;
+          checkbox.dispatchEvent(new Event('change'));
+        });
+      }
+      
+      checkbox.addEventListener('change', () => {
+        updateTagFilterDisplay();
+        updateTVShortcutStates();
+      });
+    });
+
+    // Add listeners for TV shortcuts
+    const tvCheckboxes = dropdownOptions.querySelectorAll('.tv-checkbox');
+    tvCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', (e) => handleTVShortcutChange(e));
     });
 
     updateTagFilterDisplay();
+    updateTVShortcutStates();
   } catch (error) {
     console.error('Error loading tags for filter:', error);
   }
+}
+
+function getTagCheckbox(tagName) {
+  // Case-insensitive search for tag checkbox by value
+  const checkboxes = Array.from(document.querySelectorAll('.tag-checkbox'));
+  return checkboxes.find(cb => cb.value.toLowerCase() === tagName.toLowerCase());
+}
+
+function handleTVShortcutChange(event) {
+  const tvCheckbox = event.target;
+  const tagsJson = tvCheckbox.dataset.tags;
+  
+  if (!tagsJson) return;
+  
+  let tags = [];
+  try {
+    tags = JSON.parse(tagsJson);
+  } catch (e) {
+    console.error('Failed to parse tags JSON:', e);
+    return;
+  }
+  
+  const isChecked = tvCheckbox.checked;
+  
+  if (isChecked) {
+    // When selecting a TV, enforce exact match by clearing other tags first
+    const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
+    allTagCheckboxes.forEach(cb => cb.checked = false);
+    
+    tags.forEach(tag => {
+      const tagCheckbox = getTagCheckbox(tag);
+      if (tagCheckbox) {
+        tagCheckbox.checked = true;
+      }
+    });
+  } else {
+    // When deselecting, just uncheck the TV's tags
+    tags.forEach(tag => {
+      const tagCheckbox = getTagCheckbox(tag);
+      if (tagCheckbox) {
+        tagCheckbox.checked = false;
+      }
+    });
+  }
+  
+  updateTagFilterDisplay();
+  updateTVShortcutStates(); 
+}
+
+function updateTVShortcutStates() {
+  // Get all currently selected tags (lowercase for comparison)
+  const selectedTagCheckboxes = document.querySelectorAll('.tag-checkbox:checked');
+  const selectedTagsSet = new Set(Array.from(selectedTagCheckboxes).map(cb => cb.value.toLowerCase()));
+
+  // Create a Set of all available tags (lowercase)
+  const availableTagsSet = new Set(
+    Array.from(document.querySelectorAll('.tag-checkbox')).map(cb => cb.value.toLowerCase())
+  );
+
+  const tvCheckboxes = document.querySelectorAll('.tv-checkbox');
+  
+  tvCheckboxes.forEach(tvCheckbox => {
+    const tagsJson = tvCheckbox.dataset.tags;
+    if (!tagsJson) {
+      tvCheckbox.checked = false;
+      tvCheckbox.indeterminate = false;
+      return;
+    }
+    
+    let tvTags = [];
+    try {
+      tvTags = JSON.parse(tagsJson);
+    } catch (e) {
+      return;
+    }
+    
+    // Filter TV tags to only those that exist in the system (case-insensitive check)
+    const existingTvTags = tvTags.filter(tag => availableTagsSet.has(tag.toLowerCase()));
+    
+    if (existingTvTags.length === 0) {
+      tvCheckbox.checked = false;
+      tvCheckbox.indeterminate = false;
+      return;
+    }
+    
+    // Check for exact match: same size and all EXISTING TV tags are present in selection
+    const isExactMatch = (existingTvTags.length === selectedTagsSet.size) && 
+                         existingTvTags.every(tag => selectedTagsSet.has(tag.toLowerCase()));
+
+    if (isExactMatch) {
+      tvCheckbox.checked = true;
+      tvCheckbox.indeterminate = false;
+    } else {
+      tvCheckbox.checked = false;
+      tvCheckbox.indeterminate = false;
+    }
+  });
 }
 
 function updateTagFilterDisplay() {
@@ -2410,6 +2587,7 @@ function initImageEditor() {
       editBtn: document.getElementById('toolbar-edit-btn'),
       applyBtn: document.getElementById('toolbar-apply-btn'),
       cancelBtn: document.getElementById('toolbar-cancel-btn'),
+      showTvBtn: document.getElementById('modal-show-tv-btn'),
       toolButtons: Array.from(toolbar.querySelectorAll('.toolbar-icon-btn[data-tool]')),
       toolGroup: toolbar.querySelector('.toolbar-group-tools'),
       divider: toolbar.querySelector('.toolbar-divider'),
@@ -2626,8 +2804,12 @@ function resetEditState(options = {}) {
 
 function updateToolbarState() {
   if (!editControls?.toolbar) return;
-  const { editBtn, applyBtn, cancelBtn, toolButtons, previewToggleBtn } = editControls.toolbar;
+  const { editBtn, applyBtn, cancelBtn, toolButtons, previewToggleBtn, showTvBtn } = editControls.toolbar;
   const isActive = editState.active;
+
+  if (showTvBtn) {
+    showTvBtn.classList.toggle('hidden', isActive);
+  }
 
   if (editBtn) {
     const shouldDisable = !currentImage || isActive;
@@ -3225,8 +3407,10 @@ function normalizeInsetsForRatio(insets, ratio) {
   let heightPercent = Math.max(MIN_CROP_PERCENT, 100 - top - bottom);
 
   const actualRatio = (widthPercent / heightPercent) * naturalRatio;
-  if (Math.abs(actualRatio - ratio) <= CROP_RATIO_TOLERANCE) {
-    return { top, right, bottom, left };
+  const adjustedDiff = actualRatio - ratio;
+
+  if (Math.abs(adjustedDiff) <= CROP_RATIO_TOLERANCE) {
+    return clamped;
   }
 
   const widthActual = (widthPercent / 100) * naturalWidth;
@@ -3240,14 +3424,10 @@ function normalizeInsetsForRatio(insets, ratio) {
   const minWidthAllowed = Math.max(minWidthActual, minHeightActual * ratio);
   const maxWidthAllowed = Math.min(naturalWidth, naturalHeight * ratio);
 
-  if (minHeightAllowed >= maxHeightAllowed || minWidthAllowed >= maxWidthAllowed) {
-    return clamped;
-  }
-
   let targetWidthActual;
   let targetHeightActual;
 
-  if (actualRatio > ratio) {
+  if (adjustedDiff > 0) {
     const candidateHeight = clamp(widthActual / ratio, minHeightAllowed, maxHeightAllowed);
     targetHeightActual = candidateHeight;
     targetWidthActual = ratio * candidateHeight;
@@ -4758,3 +4938,130 @@ async function deleteBulkImages() {
     await manualSync();
   }
 }
+
+// TV Selection Modal
+function initTvModal() {
+  const tvModal = document.getElementById('tv-select-modal');
+  const showTvBtn = document.getElementById('modal-show-tv-btn');
+  const closeBtn = document.getElementById('tv-modal-close');
+  const cancelBtn = document.getElementById('tv-modal-cancel-btn');
+  const tvListContainer = document.getElementById('tv-list-container');
+
+  if (!tvModal || !showTvBtn) return;
+
+  showTvBtn.addEventListener('click', async () => {
+    if (!currentImage) return;
+    
+    tvModal.classList.add('active');
+    tvListContainer.innerHTML = '<div class="loading-indicator">Loading TVs...</div>';
+    
+    try {
+      const response = await fetch(`${API_BASE}/ha/tvs`);
+      const data = await response.json();
+      
+      if (data.success && Array.isArray(data.tvs)) {
+        renderTvList(data.tvs);
+      } else {
+        tvListContainer.innerHTML = '<div class="error-message">Failed to load TVs. Ensure the integration is installed.</div>';
+      }
+    } catch (error) {
+      console.error('Error fetching TVs:', error);
+      tvListContainer.innerHTML = '<div class="error-message">Error connecting to Home Assistant.</div>';
+    }
+  });
+
+  const closeModal = () => {
+    tvModal.classList.remove('active');
+  };
+
+  closeBtn?.addEventListener('click', closeModal);
+  cancelBtn?.addEventListener('click', closeModal);
+  
+  window.addEventListener('click', (event) => {
+    if (event.target === tvModal) {
+      closeModal();
+    }
+  });
+}
+
+function renderTvList(tvs) {
+  const container = document.getElementById('tv-list-container');
+  if (!container) return;
+
+  if (tvs.length === 0) {
+    container.innerHTML = '<div class="empty-state">No Frame TVs found.</div>';
+    return;
+  }
+
+  container.innerHTML = tvs.map(tv => {
+    const id = tv.device_id || tv.entity_id;
+    const idType = tv.device_id ? 'device_id' : 'entity_id';
+    // Escape ID for use in onclick and selector
+    const safeId = id.replace(/['"\\]/g, '');
+    
+    return `
+    <div class="tv-item" onclick="displayOnTv('${safeId}', '${idType}')" style="display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s;">
+      <div class="tv-icon" style="font-size: 24px; margin-right: 15px;">📺</div>
+      <div class="tv-info" style="flex: 1;">
+        <div class="tv-name" style="font-weight: bold; font-size: 1.1em;">${tv.name}</div>
+        <div class="tv-entity" style="color: #666; font-size: 0.9em;">${id}</div>
+      </div>
+      <button class="btn-primary btn-small" id="btn-${safeId}">Show</button>
+    </div>
+  `}).join('');
+  
+  // Add hover effect via JS since we're using inline styles for speed
+  const items = container.querySelectorAll('.tv-item');
+  items.forEach(item => {
+    item.addEventListener('mouseenter', () => item.style.background = '#f5f5f5');
+    item.addEventListener('mouseleave', () => item.style.background = 'transparent');
+  });
+}
+
+// Make displayOnTv globally available since it's called from onclick
+window.displayOnTv = async function(id, type) {
+  if (!currentImage) return;
+  
+  const tvModal = document.getElementById('tv-select-modal');
+  const safeId = id.replace(/['"\\]/g, '');
+  const btn = document.getElementById(`btn-${safeId}`);
+  
+  // Show loading state
+  const originalText = btn ? btn.textContent : 'Show';
+  if (btn) btn.textContent = 'Sending...';
+  
+  try {
+    const payload = {
+      filename: currentImage
+    };
+    
+    if (type === 'device_id') {
+      payload.device_id = id;
+    } else {
+      payload.entity_id = id;
+    }
+
+    const response = await fetch(`${API_BASE}/ha/display`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // Close modal after short delay
+      setTimeout(() => {
+        tvModal.classList.remove('active');
+        alert('Image sent to TV!');
+      }, 500);
+    } else {
+      alert(`Failed to send image: ${result.error}`);
+      if (btn) btn.textContent = originalText;
+    }
+  } catch (error) {
+    console.error('Error sending to TV:', error);
+    alert('Error sending command to TV.');
+    if (btn) btn.textContent = originalText;
+  }
+};

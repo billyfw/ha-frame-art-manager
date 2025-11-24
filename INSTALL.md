@@ -176,7 +176,7 @@ aspect_ratio: 100%
 
 After installation:
 1. Upload some artwork via the **Upload** tab
-2. Add your Frame TVs via the **TVs** tab
+2. Add your Frame TVs via Home Assistant **Settings** → **Devices & Services** → **Integrations** (search for "Samsung Frame Art Shuffler")
 3. Organize with tags via the **Tags** tab
 4. Set up Git sync for backup (see main README)
 

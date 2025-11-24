@@ -168,6 +168,12 @@ body {
   border-color: #8fa1c1;
 }
 
+#modal-show-tv-btn:not(:disabled):hover {
+  background-color: #eef4fa;
+  border-color: #3498db;
+  color: #2980b9;
+}
+
 .toolbar-icon-btn {
   width: 34px;
   height: 34px;
@@ -507,7 +513,8 @@ body {
 
 .btn-sync.error {
   color: #e74c3c;
-  border-color: #e74c3c;
+  border-color: #e1e4e8;
+  background: white;
 }
 
 /* Spinning animation for syncing state */
@@ -926,6 +933,37 @@ body {
   display: block;
   font-weight: normal;
   color: inherit;
+}
+
+/* TV Shortcuts Subtitle */
+.tv-tags-subtitle {
+  font-size: 0.7rem;
+  color: #95a5a6;
+  line-height: 1;
+  margin-top: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.multiselect-option.tv-shortcut {
+  align-items: flex-start;
+}
+
+.multiselect-option.tv-shortcut input[type="checkbox"] {
+  margin-top: 4px; /* Align with text baseline approx */
+}
+
+.multiselect-option.tv-shortcut label {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  white-space: normal; /* Allow wrapping for subtitle */
+}
+
+.tv-name {
+  font-weight: normal;
+  line-height: 1.1;
+  margin-bottom: 0;
 }
 
 .filter-count {

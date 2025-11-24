@@ -11,6 +11,7 @@ const os = require('os');
 const imagesRouter = require('./routes/images');
 const tagsRouter = require('./routes/tags');
 const syncRouter = require('./routes/sync');
+const haRouter = require('./routes/ha');
 
 const app = express();
 const PORT = process.env.PORT || 8099;
@@ -62,6 +63,7 @@ app.use((req, res, next) => {
 app.use('/api/images', imagesRouter);
 app.use('/api/tags', tagsRouter);
 app.use('/api/sync', syncRouter);
+app.use('/api/ha', haRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -78,7 +80,14 @@ app.get('/api/metadata', async (req, res) => {
   try {
     const metadataPath = path.join(FRAME_ART_PATH, 'metadata.json');
     const data = await fs.readFile(metadataPath, 'utf8');
-    res.json(JSON.parse(data));
+    const parsed = JSON.parse(data);
+    
+    // Deprecate 'tvs' array - remove it if present
+    if (parsed.tvs) {
+      delete parsed.tvs;
+    }
+    
+    res.json(parsed);
   } catch (error) {
     console.error('Error reading metadata:', error);
     res.status(500).json({ error: 'Failed to read metadata' });

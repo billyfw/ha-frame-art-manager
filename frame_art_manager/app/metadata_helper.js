@@ -45,7 +45,14 @@ class MetadataHelper {
   async readMetadata() {
     try {
       const data = await fs.readFile(this.metadataPath, 'utf8');
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      
+      // Deprecate 'tvs' array - remove it if present
+      if (parsed.tvs) {
+        delete parsed.tvs;
+      }
+      
+      return parsed;
     } catch (error) {
       console.error('Error reading metadata:', error);
       return { version: "1.0", images: {}, tags: [] };
