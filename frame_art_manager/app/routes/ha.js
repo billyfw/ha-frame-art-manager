@@ -5,7 +5,8 @@ const path = require('path');
 
 // Supervisor API configuration
 const SUPERVISOR_TOKEN = process.env.SUPERVISOR_TOKEN;
-const HA_API_BASE = 'http://supervisor/core/api';
+// Allow overriding HA_URL for local development (e.g. http://192.168.1.100:8123/api)
+const HA_API_BASE = process.env.HA_URL || 'http://supervisor/core/api';
 
 // Middleware to check if we're running in HA environment
 const requireHA = (req, res, next) => {
@@ -125,6 +126,9 @@ router.get('/tvs', requireHA, async (req, res) => {
     res.json({ success: true, tvs });
   } catch (error) {
     console.error('Error in /tvs route:', error.message);
+    if (error.config) {
+      console.error('HA Request URL:', error.config.url);
+    }
     if (error.response) {
       console.error('HA Response status:', error.response.status);
       console.error('HA Response data:', JSON.stringify(error.response.data));
