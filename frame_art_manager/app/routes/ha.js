@@ -143,7 +143,7 @@ router.get('/tvs', requireHA, async (req, res) => {
 
 // POST /api/ha/display - Display image on TV
 router.post('/display', requireHA, async (req, res) => {
-  const { device_id, entity_id, filename } = req.body;
+  const { device_id, entity_id, filename, matte, filter } = req.body;
 
   if ((!device_id && !entity_id) || !filename) {
     return res.status(400).json({ error: 'Missing device_id/entity_id or filename' });
@@ -160,6 +160,9 @@ router.post('/display', requireHA, async (req, res) => {
       image_url: imageUrl,
       filename: filename
     };
+
+    if (matte) payload.matte = matte;
+    if (filter) payload.filter = filter;
 
     if (device_id) {
       payload.device_id = device_id;

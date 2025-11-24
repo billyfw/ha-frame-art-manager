@@ -4946,7 +4946,6 @@ function initTvModal() {
   const tvModal = document.getElementById('tv-select-modal');
   const showTvBtn = document.getElementById('modal-show-tv-btn');
   const closeBtn = document.getElementById('tv-modal-close');
-  const cancelBtn = document.getElementById('tv-modal-cancel-btn');
   const tvListContainer = document.getElementById('tv-list-container');
 
   if (!tvModal || !showTvBtn) return;
@@ -4979,7 +4978,6 @@ function initTvModal() {
   };
 
   closeBtn?.addEventListener('click', closeModal);
-  cancelBtn?.addEventListener('click', closeModal);
   
   window.addEventListener('click', (event) => {
     if (event.target === tvModal) {
@@ -5036,6 +5034,18 @@ window.displayOnTv = async function(id, type) {
     const payload = {
       filename: currentImage
     };
+
+    // Add matte and filter if selected in the modal
+    const matteSelect = document.getElementById('modal-matte');
+    const filterSelect = document.getElementById('modal-filter');
+    
+    if (matteSelect && matteSelect.value && matteSelect.value !== 'none') {
+      payload.matte = matteSelect.value;
+    }
+    
+    if (filterSelect && filterSelect.value && filterSelect.value !== 'None') {
+      payload.filter = filterSelect.value;
+    }
     
     if (type === 'device_id') {
       payload.device_id = id;
