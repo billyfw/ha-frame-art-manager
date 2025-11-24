@@ -429,11 +429,40 @@ router.get('/check', async (req, res) => {
     const git = new GitHelper(req.frameArtPath);
     const result = await git.checkAndPullIfBehind();
     
+    // Log check failures to sync logs so they appear in the Advanced page
+    if (!result.success && result.error) {
+      try {
+        await logSyncOperation(req.frameArtPath, {
+          operation: 'sync-check',
+          status: 'failure',
+          message: `Sync check failed: ${result.error}`,
+          error: result.error,
+          branch: 'main'
+        });
+      } catch (logError) {
+        console.warn('Failed to log sync check error:', logError.message);
+      }
+    }
+    
     // Return the result directly - it has all the info we need
     res.json(result);
     
   } catch (error) {
     console.error('Sync check error:', error);
+    
+    // Log the exception to sync logs
+    try {
+      await logSyncOperation(req.frameArtPath, {
+        operation: 'sync-check',
+        status: 'failure',
+        message: `Sync check failed: ${error.message}`,
+        error: error.message,
+        branch: 'main'
+      });
+    } catch (logError) {
+      console.warn('Failed to log sync check error:', logError.message);
+    }
+    
     res.status(500).json({ 
       success: false, 
       synced: false,
