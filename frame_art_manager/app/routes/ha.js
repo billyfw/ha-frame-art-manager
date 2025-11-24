@@ -200,7 +200,7 @@ router.get('/upload-log', requireHA, async (req, res) => {
     return res.json({ success: true, logs: mockLogs });
   }
 
-  const logPath = '/config/frame_art_upload.log';
+  const logPath = '/config/frame_art_shuffler/upload.log';
   try {
     if (fs.existsSync(logPath)) {
       const logs = fs.readFileSync(logPath, 'utf8');
