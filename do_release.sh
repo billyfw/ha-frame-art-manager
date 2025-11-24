@@ -138,7 +138,7 @@ sleep 3
 
 # Update Home Assistant add-on
 echo "Updating Home Assistant add-on..."
-ssh root@homeassistant.local << ENDSSH
+ssh root@ha.mad << ENDSSH
 # The GitHub repo slug should be e2a3b0cb_frame_art_manager
 GITHUB_SLUG="e2a3b0cb_frame_art_manager"
 
