@@ -1,6 +1,6 @@
 # Frame Art Manager Add-on Configuration
 name: Frame Art Manager
-version: "0.11.4"
+version: "0.11.5"
 slug: frame_art_manager
 description: Manage Frame TV artwork library
 url: https://github.com/billyfw/ha-frame-art-manager
@@ -36,7 +36,7 @@ ingress_stream: false
 panel_icon: mdi:image-frame
 panel_title: Frame Art Manager
 webui: http://[HOST]:[PORT:8099]
-homeassistant_api: false
+homeassistant_api: true
 auth_api: false
 hassio_api: true
 hassio_role: default
