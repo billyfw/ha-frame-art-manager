@@ -5036,9 +5036,15 @@ window.displayOnTv = async function(id, type) {
   const btn = document.getElementById(`btn-${safeId}`);
   const logContainer = document.getElementById('tv-upload-logs');
   
+  // Prevent double-clicks if button is already disabled
+  if (btn && btn.disabled) return;
+
   // Show loading state
   const originalText = btn ? btn.textContent : 'Show';
-  if (btn) btn.textContent = 'Sending...';
+  if (btn) {
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+  }
   
   // UX: Create a local "Initializing" log line immediately so the user sees instant feedback.
   // We format it to match the backend log style ([HH:MM:SS] Message) so it looks seamless
@@ -5135,17 +5141,27 @@ window.displayOnTv = async function(id, type) {
         if (appEnvironment === 'development') {
           alert('Image sent to TV!');
         }
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
       }, 2000); // Increased delay so user can see final logs
     } else {
       // Failure - logs are already displayed
-      if (btn) btn.textContent = originalText;
+      if (btn) {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
     }
   } catch (error) {
     if (pollInterval) clearInterval(pollInterval);
     console.error('Error sending to TV:', error);
     // Only alert if modal is still open
     if (tvModal.classList.contains('active')) {
-      if (btn) btn.textContent = originalText;
+      if (btn) {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
     }
   }
 };
