@@ -5122,21 +5122,21 @@ window.displayOnTv = async function(id, type) {
         }
       }, 2000); // Increased delay so user can see final logs
     } else {
-      // Use setTimeout to allow the DOM to update with the final logs before the alert blocks the UI
+      // Failure - logs are already displayed
+      if (btn) btn.textContent = 'Failed';
       setTimeout(() => {
-        alert(`Failed to send image: ${result.error}`);
         if (btn) btn.textContent = originalText;
-      }, 100);
+      }, 2000);
     }
   } catch (error) {
     if (pollInterval) clearInterval(pollInterval);
     console.error('Error sending to TV:', error);
     // Only alert if modal is still open
     if (tvModal.classList.contains('active')) {
+      if (btn) btn.textContent = 'Error';
       setTimeout(() => {
-        alert('Error sending command to TV.');
         if (btn) btn.textContent = originalText;
-      }, 100);
+      }, 2000);
     }
   }
 };
