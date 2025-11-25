@@ -5040,16 +5040,30 @@ window.displayOnTv = async function(id, type) {
   const originalText = btn ? btn.textContent : 'Show';
   if (btn) btn.textContent = 'Sending...';
   
+  // UX: Create a local "Initializing" log line immediately so the user sees instant feedback.
+  // We format it to match the backend log style ([HH:MM:SS] Message) so it looks seamless
+  // when the real logs are appended below it later.
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-GB', { hour12: false });
+  const initMsg = `[${timeStr}] Initializing upload...`;
+
   // Define pollLogs helper
   const pollLogs = async () => {
     if (!logContainer) return;
     try {
       const res = await fetch(`${API_BASE}/ha/upload-log`);
       const data = await res.json();
-      if (data.success && data.logs) {
-        console.log('Logs updated:', data.logs.length, 'chars');
-        logContainer.textContent = data.logs;
-        logContainer.scrollTop = logContainer.scrollHeight;
+      if (data.success) {
+        const remoteLogs = data.logs || '';
+        // UX: Prepend our local init message to the remote logs.
+        // This prevents the "Initializing..." message from disappearing when the first
+        // real log arrives, creating a smooth, continuous log history for the user.
+        const fullLogs = remoteLogs ? `${initMsg}\n${remoteLogs}` : initMsg;
+        
+        if (logContainer.textContent !== fullLogs) {
+          logContainer.textContent = fullLogs;
+          logContainer.scrollTop = logContainer.scrollHeight;
+        }
       }
     } catch (e) {
       console.error('Log poll error:', e);
@@ -5060,10 +5074,11 @@ window.displayOnTv = async function(id, type) {
   let pollInterval;
   if (logContainer) {
     logContainer.style.display = 'block';
-    logContainer.textContent = 'Initializing upload...';
+    logContainer.textContent = initMsg;
     
-    // Wait 1s before first poll to allow backend to clear the log file
-    // This prevents displaying logs from the previous run
+    // UX: Wait 1s before first poll to allow backend to clear the log file.
+    // If we poll immediately, we might fetch the logs from the *previous* run
+    // before the backend has a chance to truncate the file, causing a confusing flash of old data.
     pollInterval = setInterval(pollLogs, 1000);
   }
 
