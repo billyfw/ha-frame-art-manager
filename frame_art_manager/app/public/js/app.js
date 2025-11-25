@@ -5040,25 +5040,28 @@ window.displayOnTv = async function(id, type) {
   const originalText = btn ? btn.textContent : 'Show';
   if (btn) btn.textContent = 'Sending...';
   
+  // Define pollLogs helper
+  const pollLogs = async () => {
+    if (!logContainer) return;
+    try {
+      const res = await fetch(`${API_BASE}/ha/upload-log`);
+      const data = await res.json();
+      if (data.success && data.logs) {
+        console.log('Logs updated:', data.logs.length, 'chars');
+        logContainer.textContent = data.logs;
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+    } catch (e) {
+      console.error('Log poll error:', e);
+    }
+  };
+
   // Start log polling
   let pollInterval;
   if (logContainer) {
     logContainer.style.display = 'block';
     logContainer.textContent = 'Initializing upload...';
     
-    const pollLogs = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/ha/upload-log`);
-        const data = await res.json();
-        if (data.success && data.logs) {
-          logContainer.textContent = data.logs;
-          logContainer.scrollTop = logContainer.scrollHeight;
-        }
-      } catch (e) {
-        console.error('Log poll error:', e);
-      }
-    };
-
     // Poll immediately then every second
     pollLogs();
     pollInterval = setInterval(pollLogs, 1000);
@@ -5097,6 +5100,9 @@ window.displayOnTv = async function(id, type) {
     
     // Stop polling
     if (pollInterval) clearInterval(pollInterval);
+    
+    // Fetch logs one last time to ensure we see the final message
+    await pollLogs();
 
     // Check if modal is still open - if user closed it, suppress all feedback
     if (!tvModal.classList.contains('active')) {
@@ -5116,16 +5122,21 @@ window.displayOnTv = async function(id, type) {
         }
       }, 2000); // Increased delay so user can see final logs
     } else {
-      alert(`Failed to send image: ${result.error}`);
-      if (btn) btn.textContent = originalText;
+      // Use setTimeout to allow the DOM to update with the final logs before the alert blocks the UI
+      setTimeout(() => {
+        alert(`Failed to send image: ${result.error}`);
+        if (btn) btn.textContent = originalText;
+      }, 100);
     }
   } catch (error) {
     if (pollInterval) clearInterval(pollInterval);
     console.error('Error sending to TV:', error);
     // Only alert if modal is still open
     if (tvModal.classList.contains('active')) {
-      alert('Error sending command to TV.');
-      if (btn) btn.textContent = originalText;
+      setTimeout(() => {
+        alert('Error sending command to TV.');
+        if (btn) btn.textContent = originalText;
+      }, 100);
     }
   }
 };
