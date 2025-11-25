@@ -5062,8 +5062,8 @@ window.displayOnTv = async function(id, type) {
     logContainer.style.display = 'block';
     logContainer.textContent = 'Initializing upload...';
     
-    // Poll immediately then every second
-    pollLogs();
+    // Wait 1s before first poll to allow backend to clear the log file
+    // This prevents displaying logs from the previous run
     pollInterval = setInterval(pollLogs, 1000);
   }
 
@@ -5123,20 +5123,14 @@ window.displayOnTv = async function(id, type) {
       }, 2000); // Increased delay so user can see final logs
     } else {
       // Failure - logs are already displayed
-      if (btn) btn.textContent = 'Failed';
-      setTimeout(() => {
-        if (btn) btn.textContent = originalText;
-      }, 2000);
+      if (btn) btn.textContent = originalText;
     }
   } catch (error) {
     if (pollInterval) clearInterval(pollInterval);
     console.error('Error sending to TV:', error);
     // Only alert if modal is still open
     if (tvModal.classList.contains('active')) {
-      if (btn) btn.textContent = 'Error';
-      setTimeout(() => {
-        if (btn) btn.textContent = originalText;
-      }, 2000);
+      if (btn) btn.textContent = originalText;
     }
   }
 };
