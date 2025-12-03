@@ -55,15 +55,16 @@
     },
     "c8ccf4ab214d260070c3c44cace66419": {
       "name": "Office Frame",
-      "total_display_seconds": 195000,
-      "event_count": 46,
-      "share_of_tracked": 10.6,
+      "total_display_seconds": 231000,
+      "event_count": 56,
+      "share_of_tracked": 12.5,
       "per_image": [
-        {"filename": "mountain-vista.jpg", "seconds": 43200, "event_count": 12, "share": 22.2},
-        {"filename": "city-skyline.jpg", "seconds": 36000, "event_count": 10, "share": 18.5},
-        {"filename": "abstract-art-1.jpg", "seconds": 28800, "event_count": 8, "share": 14.8},
-        {"filename": "forest-morning.jpg", "seconds": 25200, "event_count": 7, "share": 12.9},
-        {"filename": "minimalist-desk.jpg", "seconds": 21600, "event_count": 6, "share": 11.1}
+        {"filename": "mountain-vista.jpg", "seconds": 43200, "event_count": 12, "share": 18.7},
+        {"filename": "sunset-beach.jpg", "seconds": 36000, "event_count": 10, "share": 15.6},
+        {"filename": "city-skyline.jpg", "seconds": 36000, "event_count": 10, "share": 15.6},
+        {"filename": "abstract-art-1.jpg", "seconds": 28800, "event_count": 8, "share": 12.5},
+        {"filename": "forest-morning.jpg", "seconds": 25200, "event_count": 7, "share": 10.9},
+        {"filename": "minimalist-desk.jpg", "seconds": 21600, "event_count": 6, "share": 9.4}
       ],
       "per_tag": [
         {"tag": "landscape", "seconds": 78000, "event_count": 19, "share": 40.0},
@@ -76,11 +77,12 @@
   "images": {
     "sunset-beach.jpg": {
       "tags": ["nature", "landscape", "sunset", "beach"],
-      "total_display_seconds": 207000,
-      "event_count": 57,
+      "total_display_seconds": 243000,
+      "event_count": 67,
       "per_tv": [
-        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 162000, "event_count": 45, "share": 78.3},
-        {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 45000, "event_count": 12, "share": 21.7}
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 162000, "event_count": 45, "share": 66.7},
+        {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 45000, "event_count": 12, "share": 18.5},
+        {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 36000, "event_count": 10, "share": 14.8}
       ],
       "display_periods": {
         "a9eef6ac436f482090e5e66ecbe88641": [
@@ -93,6 +95,10 @@
         "b7ddf5bc325e371080d4d55dabe77530": [
           {"start": 1733184000000, "end": 1733198400000},
           {"start": 1733270400000, "end": 1733284800000}
+        ],
+        "c8ccf4ab214d260070c3c44cace66419": [
+          {"start": 1733200800000, "end": 1733215200000},
+          {"start": 1733301600000, "end": 1733316000000}
         ]
       }
     },
