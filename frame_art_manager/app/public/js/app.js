@@ -5174,7 +5174,17 @@ window.displayOnTv = async function(id, type) {
 let analyticsData = null;
 let selectedTag = null;
 let selectedImage = null;
-let selectedTimelineTv = null;
+let selectedTv = null;
+let selectedTimeRange = '1w'; // default to 1 week
+
+// Time range options in milliseconds
+const TIME_RANGES = {
+  '1h': 60 * 60 * 1000,
+  '1d': 24 * 60 * 60 * 1000,
+  '1w': 7 * 24 * 60 * 60 * 1000,
+  '1mo': 30 * 24 * 60 * 60 * 1000,
+  '6mo': 180 * 24 * 60 * 60 * 1000
+};
 
 // Chart colors for pie charts
 const CHART_COLORS = [
@@ -5233,7 +5243,7 @@ async function loadAnalytics() {
     // Render all sections
     renderAnalyticsSummary();
     renderOverallPieChart();
-    renderTVCards();
+    renderTVSelector();
     renderTagSelector();
     renderImageSelector();
     setupAnalyticsEventListeners();
@@ -5274,20 +5284,20 @@ function renderAnalyticsSummary() {
   
   tvSummaryList.innerHTML = tvIds.map(tvId => {
     const tv = tvs[tvId];
-    const hours = formatHours(tv.total_display_seconds || 0);
+    const hours = formatHoursNice(tv.total_display_seconds || 0);
     // Derive unique image count from per_image array length
     const imageCount = Array.isArray(tv.per_image) ? tv.per_image.length : 0;
     return `
       <div class="tv-summary-item">
         <span class="tv-summary-name">${escapeHtml(tv.name || 'Unknown TV')}</span>
-        <span class="tv-summary-stats">${hours}h / ${imageCount} images</span>
+        <span class="tv-summary-stats">${hours} / ${imageCount} images</span>
       </div>
     `;
   }).join('');
 }
 
 function renderOverallPieChart() {
-  const container = document.getElementById('analytics-overall-pie');
+  const container = document.getElementById('analytics-image-pie');
   if (!container || !analyticsData) return;
   
   const images = analyticsData.images || {};
@@ -5309,98 +5319,261 @@ function renderOverallPieChart() {
     return;
   }
   
-  // Take top 7, combine rest into "other"
-  const topImages = sortedImages.slice(0, 7);
-  const otherSeconds = sortedImages.slice(7).reduce((sum, img) => sum + img.seconds, 0);
+  // Take top 20 for vertical bar chart (use horizontal space)
+  const topImages = sortedImages.slice(0, 20);
+  const maxSeconds = topImages[0]?.seconds || 1;
   
-  if (otherSeconds > 0) {
-    topImages.push({ name: 'other', seconds: otherSeconds });
-  }
-  
-  // Build conic gradient
-  let gradientStops = [];
-  let currentPct = 0;
-  
-  topImages.forEach((img, index) => {
-    const pct = (img.seconds / totalSeconds) * 100;
-    const color = img.name === 'other' ? CHART_COLORS[7] : CHART_COLORS[index % (CHART_COLORS.length - 1)];
-    gradientStops.push(`${color} ${currentPct}% ${currentPct + pct}%`);
-    currentPct += pct;
-  });
-  
-  // Fill remaining if needed
-  if (currentPct < 100) {
-    gradientStops.push(`#e9ecef ${currentPct}% 100%`);
-  }
-  
-  const gradient = `conic-gradient(${gradientStops.join(', ')})`;
-  
-  // Build legend
-  const legendItems = topImages.map((img, index) => {
-    const color = img.name === 'other' ? CHART_COLORS[7] : CHART_COLORS[index % (CHART_COLORS.length - 1)];
-    const pct = ((img.seconds / totalSeconds) * 100).toFixed(0);
-    const displayName = img.name === 'other' ? '(other)' : truncateFilename(img.name, 20);
+  // Build vertical bar chart
+  const barItems = topImages.map((img, index) => {
+    const color = CHART_COLORS[index % CHART_COLORS.length];
+    const heightPct = (img.seconds / maxSeconds) * 100;
+    const displayName = truncateFilename(img.name, 12);
+    const hours = formatHoursNice(img.seconds);
     
     return `
-      <div class="pie-legend-item" data-filename="${escapeHtml(img.name)}" title="${img.name !== 'other' ? 'Click to view image details' : ''}">
-        <span class="pie-legend-color" style="background: ${color}"></span>
-        <span class="pie-legend-label">${escapeHtml(displayName)}</span>
-        <span class="pie-legend-pct">${pct}%</span>
+      <div class="vbar-item" data-filename="${escapeHtml(img.name)}" title="${escapeHtml(img.name)} - ${hours}">
+        <div class="vbar-value">${hours}</div>
+        <div class="vbar-track">
+          <div class="vbar-fill" style="height: ${heightPct}%; background: ${color}"></div>
+        </div>
+        <div class="vbar-label">${escapeHtml(displayName)}</div>
       </div>
     `;
   }).join('');
   
+  // Show count if there are more images
+  const moreCount = sortedImages.length - 20;
+  const moreHtml = moreCount > 0 
+    ? `<div class="vbar-more">+ ${moreCount} more</div>` 
+    : '';
+  
   container.innerHTML = `
-    <div class="overall-pie-chart-container">
-      <div class="pie-chart pie-chart-large" style="background: ${gradient}"></div>
-      <div class="pie-legend pie-legend-vertical">${legendItems}</div>
+    <div class="vbar-chart">
+      ${barItems}
+      ${moreHtml}
     </div>
   `;
   
-  // Add click handlers for legend items
-  container.querySelectorAll('.pie-legend-item').forEach(item => {
+  // Add click handlers for bar items
+  container.querySelectorAll('.vbar-item').forEach(item => {
     item.addEventListener('click', () => {
       const filename = item.dataset.filename;
-      if (filename && filename !== 'other') {
+      if (filename) {
         selectAnalyticsImage(filename);
       }
     });
   });
 }
 
-function renderTVCards() {
-  const container = document.getElementById('analytics-tv-list');
-  if (!container || !analyticsData) return;
+function renderTVSelector() {
+  const select = document.getElementById('analytics-tv-select');
+  if (!select || !analyticsData) return;
   
   const tvs = analyticsData.tvs || {};
   const tvIds = Object.keys(tvs);
   
-  if (tvIds.length === 0) {
-    container.innerHTML = '<div class="empty-state-small">No TV data available</div>';
-    return;
-  }
-  
   // Sort by display time descending
   tvIds.sort((a, b) => (tvs[b].total_display_seconds || 0) - (tvs[a].total_display_seconds || 0));
   
-  container.innerHTML = tvIds.map(tvId => {
-    const tv = tvs[tvId];
-    const tags = tv.per_tag || [];
+  select.innerHTML = tvIds.map(tvId => {
+      const tv = tvs[tvId];
+      return `<option value="${escapeHtml(tvId)}">${escapeHtml(tv.name || 'Unknown TV')}</option>`;
+    }).join('');
+  
+  // Auto-select first TV
+  if (tvIds.length > 0) {
+    selectedTv = tvIds[0];
+    select.value = selectedTv;
+    renderTVDetail(selectedTv);
+  }
+}
+
+function renderTVDetail(tvId) {
+  const container = document.getElementById('analytics-tv-detail');
+  const statsContainer = document.getElementById('analytics-tv-stats');
+  if (!container || !analyticsData) return;
+  
+  if (!tvId) {
+    container.innerHTML = '<div class="empty-state-small">Select a TV to view details</div>';
+    if (statsContainer) statsContainer.innerHTML = '';
+    return;
+  }
+  
+  const tvData = analyticsData.tvs?.[tvId];
+  if (!tvData) {
+    container.innerHTML = '<div class="empty-state-small">TV not found in analytics data</div>';
+    if (statsContainer) statsContainer.innerHTML = '';
+    return;
+  }
+  
+  const perImage = tvData.per_image || [];
+  const perTag = tvData.per_tag || [];
+  
+  // Calculate stats for selected time range
+  const tvStats = calculateTVStatsForRange(tvId);
+  
+  // Render stats in header area
+  if (statsContainer) {
+    statsContainer.innerHTML = `
+      <div class="stat-row-inline">
+        <span class="stat-inline"><strong>${formatHoursNice(tvStats.totalSeconds)}</strong> on</span>
+        <span class="stat-sep">·</span>
+        <span class="stat-inline"><strong>${tvStats.eventCount}</strong> displays</span>
+        <span class="stat-sep">·</span>
+        <span class="stat-inline"><strong>${formatPercent(tvStats.shareOfTotal)}</strong> of total</span>
+      </div>
+    `;
+  }
+  
+  let html = '';
+  
+  // Activity timeline (when TV was displaying vs not)
+  html += renderTVActivityTimeline(tvId);
+  
+  // Top images breakdown - simple table
+  if (perImage.length > 0) {
+    html += `
+      <div class="top-images-table">
+        <div class="top-images-title">Top Images</div>
+        <div class="top-images-rows">
+          ${perImage.slice(0, 5).map(img => `
+            <div class="top-images-row clickable" data-filename="${escapeHtml(img.filename)}">
+              <span class="top-images-name">${escapeHtml(truncateFilename(img.filename, 22))}</span>
+              <span class="top-images-hours">${formatHoursNice(img.seconds || 0)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  // Event log for this TV
+  html += renderTVEventLog(tvId);
+  
+  container.innerHTML = html;
+  
+  // Add click handlers for images
+  container.querySelectorAll('.top-images-row.clickable').forEach(item => {
+    item.addEventListener('click', () => {
+      const filename = item.dataset.filename;
+      if (filename) selectAnalyticsImage(filename);
+    });
+  });
+}
+
+// Render activity timeline for a TV (showing when it was on/displaying) with image tooltips
+function renderTVActivityTimeline(tvId) {
+  const tvData = analyticsData?.tvs?.[tvId];
+  if (!tvData) return '';
+  
+  // Collect all display periods from all images for this TV (with image names)
+  const allPeriods = [];
+  const images = analyticsData.images || {};
+  
+  for (const [filename, imageData] of Object.entries(images)) {
+    const periods = imageData.display_periods?.[tvId] || [];
+    for (const period of periods) {
+      allPeriods.push({ start: period.start, end: period.end, filename });
+    }
+  }
+  
+  if (allPeriods.length === 0) {
+    return '<div class="tv-timeline"><div class="inline-timeline-empty">No timeline data available</div></div>';
+  }
+  
+  // Sort by start time
+  allPeriods.sort((a, b) => a.start - b.start);
+  
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  // Build timeline segments with tooltips showing image name and time
+  const segments = allPeriods
+    .filter(p => p.end > rangeStart)
+    .map(period => {
+      const start = Math.max(period.start, rangeStart);
+      const end = Math.min(period.end, now);
+      const leftPct = ((start - rangeStart) / rangeMs) * 100;
+      const widthPct = Math.max(((end - start) / rangeMs) * 100, 0.3);
+      const startTime = new Date(period.start).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      const duration = formatHoursNice((period.end - period.start) / 1000);
+      const tooltip = `${period.filename} (${startTime}, ${duration})`;
+      return `<div class="tv-timeline-segment" style="left: ${leftPct}%; width: ${widthPct}%" title="${escapeHtml(tooltip)}"></div>`;
+    })
+    .join('');
+  
+  return `
+    <div class="tv-timeline">
+      <div class="tv-timeline-label">Activity</div>
+      <div class="tv-timeline-track">${segments || '<div class="tv-timeline-empty">No activity</div>'}</div>
+    </div>
+  `;
+}
+
+// Render event log for a specific TV
+function renderTVEventLog(tvId) {
+  const images = analyticsData?.images || {};
+  const tvName = analyticsData?.tvs?.[tvId]?.name || 'Unknown TV';
+  
+  // Collect all events for this TV
+  const allEvents = [];
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  for (const [filename, imageData] of Object.entries(images)) {
+    const periods = imageData.display_periods?.[tvId] || [];
+    for (const period of periods) {
+      if (period.end > rangeStart) {
+        allEvents.push({
+          filename,
+          start: period.start,
+          end: period.end,
+          duration: period.end - period.start
+        });
+      }
+    }
+  }
+  
+  if (allEvents.length === 0) {
+    return '<div class="event-log"><div class="event-log-title">Display Events</div><div class="event-log-empty">No events in selected time range</div></div>';
+  }
+  
+  // Sort by start time descending
+  allEvents.sort((a, b) => b.start - a.start);
+  
+  const eventRows = allEvents.map(evt => {
+    const startDate = new Date(evt.start);
+    // duration is in ms, convert to seconds for formatHoursNice
+    const durationFormatted = formatHoursNice(evt.duration / 1000);
+    const dateStr = startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const timeStr = startDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
     
     return `
-      <div class="analytics-tv-card" data-tv-id="${tvId}">
-        <div class="tv-card-header">
-          <span class="tv-card-name">${escapeHtml(tv.name || 'Unknown TV')}</span>
-          <span class="tv-card-share">${(tv.share_of_tracked || 0).toFixed(1)}% of total</span>
-        </div>
-        <div class="tv-card-stats">
-          <span class="tv-card-stat"><strong>${formatHours(tv.total_display_seconds || 0)}</strong> hours</span>
-          <span class="tv-card-stat"><strong>${Array.isArray(tv.per_image) ? tv.per_image.length : 0}</strong> images</span>
-        </div>
-        ${renderPieChart(tags, tvId)}
+      <div class="event-log-row clickable" data-filename="${escapeHtml(evt.filename)}">
+        <span class="event-log-date">${dateStr}</span>
+        <span class="event-log-time">${timeStr}</span>
+        <span class="event-log-image">${escapeHtml(truncateFilename(evt.filename, 18))}</span>
+        <span class="event-log-duration">${durationFormatted}</span>
       </div>
     `;
   }).join('');
+  
+  return `
+    <div class="event-log">
+      <div class="event-log-title">Display Events (${allEvents.length})</div>
+      <div class="event-log-header">
+        <span>Date</span>
+        <span>Time</span>
+        <span>Image</span>
+        <span>Duration</span>
+      </div>
+      <div class="event-log-scroll">
+        ${eventRows}
+      </div>
+    </div>
+  `;
 }
 
 function renderPieChart(tags, tvId) {
@@ -5477,12 +5650,17 @@ function renderTagSelector() {
   // Sort by display time descending
   tagNames.sort((a, b) => (tags[b].total_display_seconds || 0) - (tags[a].total_display_seconds || 0));
   
-  select.innerHTML = '<option value="">Select a tag...</option>' + 
-    tagNames.map(tag => {
-      const hours = formatHours(tags[tag].total_display_seconds || 0);
+  select.innerHTML = tagNames.map(tag => {
       const displayTag = tag === '<none>' ? '(untagged)' : tag;
-      return `<option value="${escapeHtml(tag)}">${escapeHtml(displayTag)} (${hours}h)</option>`;
+      return `<option value="${escapeHtml(tag)}">${escapeHtml(displayTag)}</option>`;
     }).join('');
+  
+  // Auto-select first tag
+  if (tagNames.length > 0) {
+    selectedTag = tagNames[0];
+    select.value = selectedTag;
+    renderTagDetail(selectedTag);
+  }
 }
 
 function renderImageSelector() {
@@ -5495,26 +5673,34 @@ function renderImageSelector() {
   // Sort by display time descending
   imageNames.sort((a, b) => (images[b].total_display_seconds || 0) - (images[a].total_display_seconds || 0));
   
-  select.innerHTML = '<option value="">Select an image...</option>' + 
-    imageNames.map(filename => {
-      const hours = formatHours(images[filename].total_display_seconds || 0);
+  select.innerHTML = imageNames.map(filename => {
       const displayName = truncateFilename(filename, 40);
-      return `<option value="${escapeHtml(filename)}">${escapeHtml(displayName)} (${hours}h)</option>`;
+      return `<option value="${escapeHtml(filename)}">${escapeHtml(displayName)}</option>`;
     }).join('');
+  
+  // Auto-select first image
+  if (imageNames.length > 0) {
+    selectedImage = imageNames[0];
+    select.value = selectedImage;
+    renderImageDetail(selectedImage);
+  }
 }
 
 function renderTagDetail(tagName) {
   const container = document.getElementById('analytics-tag-detail');
+  const statsContainer = document.getElementById('analytics-tag-stats');
   if (!container || !analyticsData) return;
   
   if (!tagName) {
     container.innerHTML = '<div class="empty-state-small">Select a tag to view details</div>';
+    if (statsContainer) statsContainer.innerHTML = '';
     return;
   }
   
   const tagData = analyticsData.tags?.[tagName];
   if (!tagData) {
     container.innerHTML = '<div class="empty-state-small">Tag not found</div>';
+    if (statsContainer) statsContainer.innerHTML = '';
     return;
   }
   
@@ -5522,63 +5708,80 @@ function renderTagDetail(tagName) {
   const perTv = tagData.per_tv || [];
   const topImages = tagData.top_images || [];
   
-  // Summary card
-  let html = `
-    <div class="tag-summary-card">
-      <div class="tag-summary-name">${escapeHtml(displayTag)}</div>
-      <div class="tag-summary-stats">
-        <span><strong>${formatHours(tagData.total_display_seconds || 0)}</strong> hours</span>
-        <span><strong>${(tagData.event_count || 0).toLocaleString()}</strong> sessions</span>
-      </div>
-    </div>
-  `;
+  // Calculate stats for selected time range
+  const tagStats = calculateTagStatsForRange(tagName);
   
-  // TV breakdown bar chart
-  if (perTv.length > 0) {
-    html += `
-      <div class="bar-chart">
-        <div class="bar-chart-title">Display by TV</div>
-        ${perTv.map(tv => {
-          // Look up TV name from tvs object
-          const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
-          return `
-          <div class="bar-chart-item">
-            <div class="bar-chart-label">
-              <span class="bar-chart-name">${escapeHtml(tvName)}</span>
-              <span class="bar-chart-value">${(tv.share || 0).toFixed(1)}%</span>
-            </div>
-            <div class="bar-chart-track">
-              <div class="bar-chart-fill" style="width: ${tv.share || 0}%"></div>
-            </div>
-            <div class="bar-chart-detail">${formatHours(tv.seconds || 0)}h</div>
-          </div>
-        `}).join('')}
+  // Render stats in header area
+  if (statsContainer) {
+    statsContainer.innerHTML = `
+      <div class="stat-row-inline">
+        <span class="stat-inline"><strong>${formatHoursNice(tagStats.totalSeconds)}</strong> displayed</span>
+        <span class="stat-sep">·</span>
+        <span class="stat-inline"><strong>${tagStats.eventCount}</strong> displays</span>
       </div>
     `;
   }
   
-  // Top images
+  let html = '';
+  
+  // TV breakdown - stacked horizontal bar
+  if (perTv.length > 0) {
+    const segments = perTv.map((tv, index) => {
+      const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
+      const color = CHART_COLORS[index % CHART_COLORS.length];
+      const pct = tv.share || 0;
+      return `<div class="stacked-bar-segment" style="width: ${pct}%; background: ${color}" title="${escapeHtml(tvName)} (${formatPercent(pct)}, ${formatHoursNice(tv.seconds || 0)})"></div>`;
+    }).join('');
+    
+    const legend = perTv.map((tv, index) => {
+      const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
+      const color = CHART_COLORS[index % CHART_COLORS.length];
+      return `<span class="stacked-bar-legend-item"><span class="stacked-bar-legend-color" style="background: ${color}"></span>${escapeHtml(tvName)}</span>`;
+    }).join('');
+    
+    html += `
+      <div class="stacked-bar-section">
+        <div class="stacked-bar-title">Display by TV</div>
+        <div class="stacked-bar-track">${segments}</div>
+        <div class="stacked-bar-legend">${legend}</div>
+      </div>
+    `;
+  }
+  
+  // Top images - simple table
   if (topImages.length > 0) {
     html += `
-      <div class="top-images-list">
+      <div class="top-images-table">
         <div class="top-images-title">Top Images</div>
-        ${topImages.slice(0, 10).map((img, idx) => `
-          <div class="top-image-item" data-filename="${escapeHtml(img.filename)}">
-            <span class="top-image-rank">${idx + 1}</span>
-            <span class="top-image-name">${escapeHtml(truncateFilename(img.filename, 30))}</span>
-            <span class="top-image-hours">${formatHours(img.seconds || 0)}h</span>
-          </div>
-        `).join('')}
+        <div class="top-images-rows">
+          ${topImages.slice(0, 5).map(img => `
+            <div class="top-images-row clickable" data-filename="${escapeHtml(img.filename)}">
+              <span class="top-images-name">${escapeHtml(truncateFilename(img.filename, 22))}</span>
+              <span class="top-images-hours">${formatHoursNice(img.seconds || 0)}</span>
+            </div>
+          `).join('')}
+        </div>
       </div>
     `;
   }
+  
+  // Event log for this tag
+  html += renderTagEventLog(tagName);
   
   container.innerHTML = html;
   
   // Add click handlers for top images
-  container.querySelectorAll('.top-image-item').forEach(item => {
+  container.querySelectorAll('.top-images-row.clickable').forEach(item => {
     item.addEventListener('click', () => {
       const filename = item.dataset.filename;
+      selectAnalyticsImage(filename);
+    });
+  });
+  
+  // Add click handlers for event log rows
+  container.querySelectorAll('.event-log-row.clickable').forEach(row => {
+    row.addEventListener('click', () => {
+      const filename = row.dataset.filename;
       selectAnalyticsImage(filename);
     });
   });
@@ -5586,105 +5789,193 @@ function renderTagDetail(tagName) {
 
 function renderImageDetail(filename) {
   const container = document.getElementById('analytics-image-detail');
-  const tvSelector = document.getElementById('analytics-timeline-tv-select');
-  const timelineContainer = document.getElementById('analytics-timeline-container');
+  const statsContainer = document.getElementById('analytics-image-stats');
+  const tagsContainer = document.getElementById('analytics-image-tags');
   
   if (!container || !analyticsData) return;
   
   if (!filename) {
     container.innerHTML = '<div class="empty-state-small">Select an image to view details</div>';
-    if (tvSelector) tvSelector.style.display = 'none';
-    if (timelineContainer) timelineContainer.style.display = 'none';
+    if (statsContainer) statsContainer.innerHTML = '';
+    if (tagsContainer) tagsContainer.innerHTML = '';
     return;
   }
   
   const imageData = analyticsData.images?.[filename];
   if (!imageData) {
     container.innerHTML = '<div class="empty-state-small">Image not found in analytics data</div>';
-    if (tvSelector) tvSelector.style.display = 'none';
-    if (timelineContainer) timelineContainer.style.display = 'none';
+    if (statsContainer) statsContainer.innerHTML = '';
+    if (tagsContainer) tagsContainer.innerHTML = '';
     return;
   }
   
   const perTv = imageData.per_tv || [];
   const tags = imageData.tags || [];
   
-  // Try to get thumbnail URL
-  const thumbUrl = `thumbs/${encodeURIComponent(filename)}`;
+  // Calculate stats for selected time range
+  const imageStats = calculateImageStatsForRange(filename);
   
-  let html = `
-    <div class="image-preview-card">
-      <img class="image-preview-thumb" src="${thumbUrl}" alt="${escapeHtml(filename)}" onerror="this.style.display='none'">
-      <div class="image-preview-name">${escapeHtml(filename)}</div>
-      <div class="image-preview-stats">
-        <strong>${formatHours(imageData.total_display_seconds || 0)}</strong> hours
-      </div>
-      <div class="image-preview-tags">
-        ${tags.length > 0 
-          ? tags.map(tag => `<span class="image-tag-pill">${escapeHtml(tag)}</span>`).join('')
-          : '<span class="image-tag-pill" style="background: #f0f0f0; color: #7f8c8d;">(untagged)</span>'
-        }
-      </div>
-    </div>
-  `;
+  // Render tags in header row (next to title)
+  if (tagsContainer) {
+    tagsContainer.innerHTML = tags.length > 0 
+      ? tags.map(tag => `<span class="image-tag-pill-small">${escapeHtml(tag)}</span>`).join('')
+      : '<span class="image-tag-pill-small untagged">(untagged)</span>';
+  }
   
-  // TV breakdown
+  // Render stats below dropdown
+  if (statsContainer) {
+    statsContainer.innerHTML = `
+      <div class="stat-row-inline">
+        <span class="stat-inline"><strong>${formatHoursNice(imageStats.totalSeconds)}</strong> displayed</span>
+        <span class="stat-sep">·</span>
+        <span class="stat-inline"><strong>${imageStats.tvCount}</strong> TVs</span>
+      </div>
+    `;
+  }
+  
+  let html = '';
+  
+  // TV breakdown with inline timelines
   if (perTv.length > 0) {
     html += `
       <div class="bar-chart">
         <div class="bar-chart-title">Display by TV</div>
         ${perTv.map(tv => {
-          // Look up TV name from tvs object
           const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
+          const timelineHtml = renderInlineTimeline(filename, tv.tv_id);
           return `
-          <div class="bar-chart-item">
-            <div class="bar-chart-label">
-              <span class="bar-chart-name">${escapeHtml(tvName)}</span>
-              <span class="bar-chart-value">${(tv.share || 0).toFixed(1)}%</span>
+          <div class="bar-chart-item-with-timeline">
+            <div class="bar-chart-item">
+              <div class="bar-chart-label">
+                <span class="bar-chart-name">${escapeHtml(tvName)}</span>
+                <span class="bar-chart-value">${formatPercent(tv.share || 0)}</span>
+              </div>
+              <div class="bar-chart-track">
+                <div class="bar-chart-fill" style="width: ${tv.share || 0}%"></div>
+              </div>
+              <div class="bar-chart-detail">${formatHoursNice(tv.seconds || 0)}</div>
             </div>
-            <div class="bar-chart-track">
-              <div class="bar-chart-fill" style="width: ${tv.share || 0}%"></div>
-            </div>
-            <div class="bar-chart-detail">${formatHours(tv.seconds || 0)}h</div>
+            ${timelineHtml}
           </div>
         `}).join('')}
       </div>
     `;
   }
   
-  container.innerHTML = html;
+  // Event log section
+  html += renderImageEventLog(filename);
   
-  // Setup TV selector for timeline
-  if (tvSelector && perTv.length > 0) {
-    const select = tvSelector.querySelector('select');
-    if (select) {
-      select.innerHTML = '<option value="">Select TV for timeline...</option>' +
-        perTv.map(tv => {
-          const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
-          return `<option value="${escapeHtml(tv.tv_id)}">${escapeHtml(tvName)}</option>`;
-        }).join('');
-      
-      tvSelector.style.display = 'block';
-      
-      // Reset timeline
-      if (timelineContainer) {
-        timelineContainer.style.display = 'none';
-        timelineContainer.innerHTML = '';
-      }
-      
-      // Set event handler
-      select.onchange = (e) => {
-        selectedTimelineTv = e.target.value || null;
-        if (selectedTimelineTv && selectedImage) {
-          renderImageTimeline(selectedImage, selectedTimelineTv);
-        } else if (timelineContainer) {
-          timelineContainer.style.display = 'none';
-        }
-      };
-    }
-  } else if (tvSelector) {
-    tvSelector.style.display = 'none';
+  container.innerHTML = html;
+}
+
+// Render inline timeline for a specific TV
+function renderInlineTimeline(filename, tvId) {
+  const imageData = analyticsData?.images?.[filename];
+  if (!imageData) return '';
+  
+  const displayPeriods = imageData.display_periods?.[tvId] || [];
+  
+  if (displayPeriods.length === 0) {
+    return '<div class="inline-timeline"><div class="inline-timeline-empty">No timeline data</div></div>';
   }
+  
+  // Calculate timeline using selected time range
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  // Build timeline segments with detailed tooltips
+  const segments = displayPeriods
+    .filter(p => p.end > rangeStart)
+    .map(period => {
+      const start = Math.max(period.start, rangeStart);
+      const end = Math.min(period.end, now);
+      const leftPct = ((start - rangeStart) / rangeMs) * 100;
+      const widthPct = Math.max(((end - start) / rangeMs) * 100, 0.5); // min width for visibility
+      const startTime = new Date(period.start).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      const duration = formatHoursNice((period.end - period.start) / 1000);
+      const tooltip = `${startTime} (${duration})`;
+      return `<div class="inline-timeline-segment" style="left: ${leftPct}%; width: ${widthPct}%" title="${escapeHtml(tooltip)}"></div>`;
+    })
+    .join('');
+  
+  if (!segments) {
+    return `<div class="inline-timeline"><div class="inline-timeline-empty">No displays in range</div></div>`;
+  }
+  
+  return `
+    <div class="inline-timeline">
+      <div class="inline-timeline-track">${segments}</div>
+    </div>
+  `;
+}
+
+// Render event log for an image (all events in selected time range)
+function renderImageEventLog(filename) {
+  const imageData = analyticsData?.images?.[filename];
+  if (!imageData || !imageData.display_periods) {
+    return '';
+  }
+  
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  // Collect all events from all TVs within time range
+  const allEvents = [];
+  for (const [tvId, periods] of Object.entries(imageData.display_periods)) {
+    const tvName = analyticsData.tvs?.[tvId]?.name || 'Unknown TV';
+    for (const period of periods) {
+      if (period.end > rangeStart) {
+        allEvents.push({
+          tvName,
+          tvId,
+          start: period.start,
+          end: period.end,
+          duration: period.end - period.start
+        });
+      }
+    }
+  }
+  
+  if (allEvents.length === 0) {
+    return '<div class="event-log"><div class="event-log-title">Display Events</div><div class="event-log-empty">No events in selected time range</div></div>';
+  }
+  
+  // Sort by start time descending (most recent first)
+  allEvents.sort((a, b) => b.start - a.start);
+  
+  const eventRows = allEvents.map(evt => {
+    const startDate = new Date(evt.start);
+    // duration is in ms, convert to seconds for formatHoursNice
+    const durationFormatted = formatHoursNice(evt.duration / 1000);
+    const dateStr = startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const timeStr = startDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    
+    return `
+      <div class="event-log-row">
+        <span class="event-log-date">${dateStr}</span>
+        <span class="event-log-time">${timeStr}</span>
+        <span class="event-log-tv">${escapeHtml(evt.tvName)}</span>
+        <span class="event-log-duration">${durationFormatted}</span>
+      </div>
+    `;
+  }).join('');
+  
+  return `
+    <div class="event-log">
+      <div class="event-log-title">Display Events (${allEvents.length})</div>
+      <div class="event-log-header">
+        <span>Date</span>
+        <span>Time</span>
+        <span>TV</span>
+        <span>Duration</span>
+      </div>
+      <div class="event-log-scroll">
+        ${eventRows}
+      </div>
+    </div>
+  `;
 }
 
 function renderImageTimeline(filename, tvId) {
@@ -5756,6 +6047,36 @@ function setupAnalyticsEventListeners() {
     retryBtn.onclick = () => loadAnalytics();
   }
   
+  // Time range buttons (time pills)
+  document.querySelectorAll('#analytics-time-range-buttons .time-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      // Update active state
+      document.querySelectorAll('#analytics-time-range-buttons .time-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      // Update selected range and re-render affected views
+      selectedTimeRange = btn.dataset.range;
+      updateDateRangeHint();
+      if (selectedTv) renderTVDetail(selectedTv);
+      if (selectedTag) renderTagDetail(selectedTag);
+      if (selectedImage) renderImageDetail(selectedImage);
+      // Re-render main chart too
+      renderOverallPieChart();
+    });
+  });
+  
+  // Initial date range hint
+  updateDateRangeHint();
+  
+  // TV selector
+  const tvSelect = document.getElementById('analytics-tv-select');
+  if (tvSelect) {
+    tvSelect.onchange = (e) => {
+      selectedTv = e.target.value || null;
+      renderTVDetail(selectedTv);
+    };
+  }
+  
   // Tag selector
   const tagSelect = document.getElementById('analytics-tag-select');
   if (tagSelect) {
@@ -5770,31 +6091,13 @@ function setupAnalyticsEventListeners() {
   if (imageSelect) {
     imageSelect.onchange = (e) => {
       selectedImage = e.target.value || null;
-      selectedTimelineTv = null; // Reset TV selection
       renderImageDetail(selectedImage);
     };
   }
-  
-  // Pie chart legend clicks (select tag)
-  document.querySelectorAll('#analytics-tv-list .pie-legend-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const tag = item.dataset.tag;
-      if (tag && tag !== 'other') {
-        // Update tag selector and show detail
-        const tagSelect = document.getElementById('analytics-tag-select');
-        if (tagSelect) {
-          tagSelect.value = tag;
-          selectedTag = tag;
-          renderTagDetail(tag);
-        }
-      }
-    });
-  });
 }
 
 function selectAnalyticsImage(filename) {
   selectedImage = filename;
-  selectedTimelineTv = null;
   
   // Update image dropdown
   const imageSelect = document.getElementById('analytics-image-select');
@@ -5821,7 +6124,239 @@ function truncateFilename(filename, maxLen) {
   return filename.substring(0, maxLen - 3) + '...';
 }
 
-// Helper: format seconds to hours (1 decimal)
+// Helper: format seconds to hours (1 decimal) - legacy
 function formatHours(seconds) {
   return (seconds / 3600).toFixed(1);
+}
+
+// Helper: format seconds to nice hours display (no unnecessary decimals)
+function formatHoursNice(seconds) {
+  const hours = seconds / 3600;
+  if (hours < 0.1) {
+    const mins = Math.round(seconds / 60);
+    return mins + 'm';
+  }
+  if (hours < 10) {
+    return hours.toFixed(1).replace(/\.0$/, '') + 'h';
+  }
+  return Math.round(hours) + 'h';
+}
+
+// Helper: format percentage nicely (no unnecessary decimals)
+function formatPercent(value) {
+  if (value >= 10 || value === 0) {
+    return Math.round(value) + '%';
+  }
+  return value.toFixed(1).replace(/\.0$/, '') + '%';
+}
+
+// Helper: calculate TV stats for the selected time range
+function calculateTVStatsForRange(tvId) {
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  const images = analyticsData?.images || {};
+  let totalSeconds = 0;
+  let eventCount = 0;
+  
+  // Sum up display time for this TV across all images in the time range
+  for (const [filename, imageData] of Object.entries(images)) {
+    const periods = imageData.display_periods?.[tvId] || [];
+    for (const period of periods) {
+      if (period.end > rangeStart) {
+        const start = Math.max(period.start, rangeStart);
+        const end = Math.min(period.end, now);
+        totalSeconds += (end - start) / 1000;
+        eventCount++;
+      }
+    }
+  }
+  
+  // Calculate share of total (all TVs in this time range)
+  let allTVsTotal = 0;
+  const tvIds = Object.keys(analyticsData?.tvs || {});
+  for (const otherTvId of tvIds) {
+    for (const [filename, imageData] of Object.entries(images)) {
+      const periods = imageData.display_periods?.[otherTvId] || [];
+      for (const period of periods) {
+        if (period.end > rangeStart) {
+          const start = Math.max(period.start, rangeStart);
+          const end = Math.min(period.end, now);
+          allTVsTotal += (end - start) / 1000;
+        }
+      }
+    }
+  }
+  
+  const shareOfTotal = allTVsTotal > 0 ? (totalSeconds / allTVsTotal) * 100 : 0;
+  
+  return { totalSeconds, eventCount, shareOfTotal };
+}
+
+// Helper: calculate tag stats for the selected time range
+function calculateTagStatsForRange(tagName) {
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  const images = analyticsData?.images || {};
+  let totalSeconds = 0;
+  let eventCount = 0;
+  
+  for (const [filename, imageData] of Object.entries(images)) {
+    const imageTags = imageData.tags || [];
+    const hasTag = tagName === '<none>' 
+      ? imageTags.length === 0 
+      : imageTags.includes(tagName);
+    
+    if (!hasTag) continue;
+    
+    for (const [tvId, periods] of Object.entries(imageData.display_periods || {})) {
+      for (const period of periods) {
+        if (period.end > rangeStart) {
+          const start = Math.max(period.start, rangeStart);
+          const end = Math.min(period.end, now);
+          totalSeconds += (end - start) / 1000;
+          eventCount++;
+        }
+      }
+    }
+  }
+  
+  return { totalSeconds, eventCount };
+}
+
+// Helper: calculate image stats for the selected time range
+function calculateImageStatsForRange(filename) {
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  const imageData = analyticsData?.images?.[filename];
+  if (!imageData) return { totalSeconds: 0, eventCount: 0, tvCount: 0 };
+  
+  let totalSeconds = 0;
+  let eventCount = 0;
+  const tvsWithActivity = new Set();
+  
+  for (const [tvId, periods] of Object.entries(imageData.display_periods || {})) {
+    for (const period of periods) {
+      if (period.end > rangeStart) {
+        const start = Math.max(period.start, rangeStart);
+        const end = Math.min(period.end, now);
+        totalSeconds += (end - start) / 1000;
+        eventCount++;
+        tvsWithActivity.add(tvId);
+      }
+    }
+  }
+  
+  return { totalSeconds, eventCount, tvCount: tvsWithActivity.size };
+}
+
+// Helper: format date range for display
+function formatDateRange(startMs, endMs) {
+  const startDate = new Date(startMs);
+  const startStr = startDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+  return `[data since ${startStr}]`;
+}
+
+// Update the date range hint in the header
+function updateDateRangeHint() {
+  const hintEl = document.getElementById('analytics-date-range');
+  if (!hintEl) return;
+  
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  // Map time range to human-readable label
+  const rangeLabels = {
+    '1h': 'hour',
+    '1d': 'day',
+    '1w': 'week',
+    '1mo': 'month',
+    '6mo': '6 months'
+  };
+  const rangeLabel = rangeLabels[selectedTimeRange] || 'week';
+  
+  const startDate = new Date(rangeStart);
+  const dateStr = startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  
+  hintEl.textContent = `Displaying last ${rangeLabel} of data (since ${dateStr})`;
+}
+
+// Render event log for a tag (all events for images with this tag)
+function renderTagEventLog(tagName) {
+  const images = analyticsData?.images || {};
+  const tvs = analyticsData?.tvs || {};
+  
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  // Collect all events for images with this tag
+  const allEvents = [];
+  
+  for (const [filename, imageData] of Object.entries(images)) {
+    const imageTags = imageData.tags || [];
+    const hasTag = tagName === '<none>' 
+      ? imageTags.length === 0 
+      : imageTags.includes(tagName);
+    
+    if (!hasTag) continue;
+    
+    for (const [tvId, periods] of Object.entries(imageData.display_periods || {})) {
+      const tvName = tvs[tvId]?.name || 'Unknown TV';
+      for (const period of periods) {
+        if (period.end > rangeStart) {
+          allEvents.push({
+            filename,
+            tvName,
+            start: period.start,
+            end: period.end,
+            duration: period.end - period.start
+          });
+        }
+      }
+    }
+  }
+  
+  if (allEvents.length === 0) {
+    return '<div class="event-log"><div class="event-log-title">Display Events</div><div class="event-log-empty">No events in selected time range</div></div>';
+  }
+  
+  // Sort by start time descending
+  allEvents.sort((a, b) => b.start - a.start);
+  
+  const eventRows = allEvents.map(evt => {
+    const startDate = new Date(evt.start);
+    const dateStr = startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const timeStr = startDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    
+    return `
+      <div class="event-log-row clickable" data-filename="${escapeHtml(evt.filename)}">
+        <span class="event-log-date">${dateStr}</span>
+        <span class="event-log-time">${timeStr}</span>
+        <span class="event-log-image">${escapeHtml(truncateFilename(evt.filename, 18))}</span>
+        <span class="event-log-duration">${formatHoursNice((evt.duration) / 1000)}</span>
+      </div>
+    `;
+  }).join('');
+  
+  return `
+    <div class="event-log">
+      <div class="event-log-title">Display Events (${allEvents.length})</div>
+      <div class="event-log-header">
+        <span>Date</span>
+        <span>Time</span>
+        <span>Image</span>
+        <span>Duration</span>
+      </div>
+      <div class="event-log-scroll">
+        ${eventRows}
+      </div>
+    </div>
+  `;
 }

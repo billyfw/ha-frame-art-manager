@@ -81,7 +81,20 @@
       "per_tv": [
         {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 162000, "event_count": 45, "share": 78.3},
         {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 45000, "event_count": 12, "share": 21.7}
-      ]
+      ],
+      "display_periods": {
+        "a9eef6ac436f482090e5e66ecbe88641": [
+          {"start": 1733140800000, "end": 1733155200000},
+          {"start": 1733155200000, "end": 1733169600000},
+          {"start": 1733169600000, "end": 1733184000000},
+          {"start": 1733227200000, "end": 1733241600000},
+          {"start": 1733241600000, "end": 1733256000000}
+        ],
+        "b7ddf5bc325e371080d4d55dabe77530": [
+          {"start": 1733184000000, "end": 1733198400000},
+          {"start": 1733270400000, "end": 1733284800000}
+        ]
+      }
     },
     "forest-morning.jpg": {
       "tags": ["nature", "landscape", "forest"],
@@ -90,7 +103,17 @@
       "per_tv": [
         {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 126000, "event_count": 35, "share": 83.3},
         {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 25200, "event_count": 7, "share": 16.7}
-      ]
+      ],
+      "display_periods": {
+        "a9eef6ac436f482090e5e66ecbe88641": [
+          {"start": 1733054400000, "end": 1733068800000},
+          {"start": 1733068800000, "end": 1733083200000},
+          {"start": 1733313600000, "end": 1733328000000}
+        ],
+        "c8ccf4ab214d260070c3c44cace66419": [
+          {"start": 1733097600000, "end": 1733112000000}
+        ]
+      }
     },
     "mountain-vista.jpg": {
       "tags": ["nature", "landscape", "mountains"],
@@ -99,7 +122,17 @@
       "per_tv": [
         {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 108000, "event_count": 30, "share": 71.4},
         {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 43200, "event_count": 12, "share": 28.6}
-      ]
+      ],
+      "display_periods": {
+        "a9eef6ac436f482090e5e66ecbe88641": [
+          {"start": 1732968000000, "end": 1732982400000},
+          {"start": 1732982400000, "end": 1732996800000}
+        ],
+        "c8ccf4ab214d260070c3c44cace66419": [
+          {"start": 1733011200000, "end": 1733025600000},
+          {"start": 1733025600000, "end": 1733040000000}
+        ]
+      }
     },
     "family-portrait-2024.jpg": {
       "tags": ["family", "portrait"],
@@ -108,7 +141,18 @@
       "per_tv": [
         {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 90000, "event_count": 25, "share": 52.6},
         {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 81000, "event_count": 22, "share": 47.4}
-      ]
+      ],
+      "display_periods": {
+        "a9eef6ac436f482090e5e66ecbe88641": [
+          {"start": 1733256000000, "end": 1733270400000},
+          {"start": 1733270400000, "end": 1733284800000}
+        ],
+        "b7ddf5bc325e371080d4d55dabe77530": [
+          {"start": 1733198400000, "end": 1733212800000},
+          {"start": 1733212800000, "end": 1733227200000},
+          {"start": 1733227200000, "end": 1733241600000}
+        ]
+      }
     },
     "lake-reflection.jpg": {
       "tags": ["nature", "landscape", "lake"],
@@ -116,7 +160,13 @@
       "event_count": 20,
       "per_tv": [
         {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 72000, "event_count": 20, "share": 100.0}
-      ]
+      ],
+      "display_periods": {
+        "a9eef6ac436f482090e5e66ecbe88641": [
+          {"start": 1732881600000, "end": 1732896000000},
+          {"start": 1732896000000, "end": 1732910400000}
+        ]
+      }
     },
     "autumn-leaves.jpg": {
       "tags": ["nature", "autumn", "landscape"],
@@ -124,7 +174,13 @@
       "event_count": 18,
       "per_tv": [
         {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 64800, "event_count": 18, "share": 100.0}
-      ]
+      ],
+      "display_periods": {
+        "a9eef6ac436f482090e5e66ecbe88641": [
+          {"start": 1732795200000, "end": 1732809600000},
+          {"start": 1732809600000, "end": 1732824000000}
+        ]
+      }
     },
     "city-skyline.jpg": {
       "tags": ["urban", "landscape", "city"],
@@ -133,7 +189,16 @@
       "per_tv": [
         {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 54000, "event_count": 15, "share": 60.0},
         {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 36000, "event_count": 10, "share": 40.0}
-      ]
+      ],
+      "display_periods": {
+        "a9eef6ac436f482090e5e66ecbe88641": [
+          {"start": 1732708800000, "end": 1732723200000}
+        ],
+        "c8ccf4ab214d260070c3c44cace66419": [
+          {"start": 1732737600000, "end": 1732752000000},
+          {"start": 1732752000000, "end": 1732766400000}
+        ]
+      }
     },
     "ocean-waves.jpg": {
       "tags": ["nature", "ocean", "beach"],
@@ -141,7 +206,12 @@
       "event_count": 14,
       "per_tv": [
         {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 50400, "event_count": 14, "share": 100.0}
-      ]
+      ],
+      "display_periods": {
+        "a9eef6ac436f482090e5e66ecbe88641": [
+          {"start": 1732622400000, "end": 1732636800000}
+        ]
+      }
     },
     "garden-flowers.jpg": {
       "tags": ["nature", "flowers", "garden"],
@@ -150,7 +220,15 @@
       "per_tv": [
         {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 43200, "event_count": 12, "share": 54.5},
         {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 36000, "event_count": 10, "share": 45.5}
-      ]
+      ],
+      "display_periods": {
+        "a9eef6ac436f482090e5e66ecbe88641": [
+          {"start": 1732536000000, "end": 1732550400000}
+        ],
+        "b7ddf5bc325e371080d4d55dabe77530": [
+          {"start": 1732564800000, "end": 1732579200000}
+        ]
+      }
     },
     "winter-cabin.jpg": {
       "tags": ["nature", "winter", "landscape"],
@@ -158,7 +236,12 @@
       "event_count": 10,
       "per_tv": [
         {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 36000, "event_count": 10, "share": 100.0}
-      ]
+      ],
+      "display_periods": {
+        "a9eef6ac436f482090e5e66ecbe88641": [
+          {"start": 1732449600000, "end": 1732464000000}
+        ]
+      }
     },
     "kids-beach-day.jpg": {
       "tags": ["family", "beach", "kids"],
@@ -166,7 +249,13 @@
       "event_count": 18,
       "per_tv": [
         {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 63000, "event_count": 18, "share": 100.0}
-      ]
+      ],
+      "display_periods": {
+        "b7ddf5bc325e371080d4d55dabe77530": [
+          {"start": 1732363200000, "end": 1732377600000},
+          {"start": 1732377600000, "end": 1732392000000}
+        ]
+      }
     },
     "wedding-photo.jpg": {
       "tags": ["family", "portrait", "wedding"],
@@ -174,7 +263,12 @@
       "event_count": 15,
       "per_tv": [
         {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 54000, "event_count": 15, "share": 100.0}
-      ]
+      ],
+      "display_periods": {
+        "b7ddf5bc325e371080d4d55dabe77530": [
+          {"start": 1732276800000, "end": 1732291200000}
+        ]
+      }
     },
     "abstract-art-1.jpg": {
       "tags": ["abstract", "art"],
@@ -182,7 +276,12 @@
       "event_count": 8,
       "per_tv": [
         {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 28800, "event_count": 8, "share": 100.0}
-      ]
+      ],
+      "display_periods": {
+        "c8ccf4ab214d260070c3c44cace66419": [
+          {"start": 1732190400000, "end": 1732204800000}
+        ]
+      }
     },
     "minimalist-desk.jpg": {
       "tags": [],
@@ -190,7 +289,12 @@
       "event_count": 6,
       "per_tv": [
         {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 21600, "event_count": 6, "share": 100.0}
-      ]
+      ],
+      "display_periods": {
+        "c8ccf4ab214d260070c3c44cace66419": [
+          {"start": 1732104000000, "end": 1732118400000}
+        ]
+      }
     }
   },
   "tags": {
