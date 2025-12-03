@@ -5300,34 +5300,49 @@ function renderOverallPieChart() {
   const container = document.getElementById('analytics-image-pie');
   const statsContainer = document.getElementById('analytics-distribution-stats');
   const alertsContainer = document.getElementById('analytics-distribution-alerts');
-  if (!container || !analyticsData) return;
+  if (!container) return;
   
-  const images = analyticsData.images || {};
-  const imageNames = Object.keys(images);
+  const analyticsImages = analyticsData?.images || {};
+  const galleryImageNames = Object.keys(allImages || {});
   
-  if (imageNames.length === 0) {
+  // Merge gallery images with analytics data - include ALL images from gallery
+  // Images not in analytics get 0 seconds
+  const mergedImages = galleryImageNames.map(name => ({
+    name,
+    seconds: analyticsImages[name]?.total_display_seconds || 0
+  }));
+  
+  // Also include any images in analytics that might not be in gallery (edge case)
+  Object.keys(analyticsImages).forEach(name => {
+    if (!allImages[name]) {
+      mergedImages.push({
+        name,
+        seconds: analyticsImages[name].total_display_seconds || 0
+      });
+    }
+  });
+  
+  if (mergedImages.length === 0) {
     container.innerHTML = '<div class="empty-state-small">No image data</div>';
     if (statsContainer) statsContainer.innerHTML = '';
     if (alertsContainer) alertsContainer.innerHTML = '';
     return;
   }
   
-  // Get all images with their display times
-  const allImages = imageNames
-    .map(name => ({ name, seconds: images[name].total_display_seconds || 0 }))
-    .sort((a, b) => b.seconds - a.seconds);
+  // Sort by display time descending
+  const imageList = mergedImages.sort((a, b) => b.seconds - a.seconds);
   
-  const totalSeconds = allImages.reduce((sum, img) => sum + img.seconds, 0);
+  const totalSeconds = imageList.reduce((sum, img) => sum + img.seconds, 0);
   
   // Calculate stats
-  const count = allImages.length;
-  const avgSeconds = totalSeconds / count;
-  const sortedByTime = [...allImages].sort((a, b) => a.seconds - b.seconds);
-  const medianSeconds = count % 2 === 0 
+  const count = imageList.length;
+  const avgSeconds = count > 0 ? totalSeconds / count : 0;
+  const sortedByTime = [...imageList].sort((a, b) => a.seconds - b.seconds);
+  const medianSeconds = count === 0 ? 0 : (count % 2 === 0 
     ? (sortedByTime[count/2 - 1].seconds + sortedByTime[count/2].seconds) / 2
-    : sortedByTime[Math.floor(count/2)].seconds;
-  const minSeconds = sortedByTime[0].seconds;
-  const maxSeconds = sortedByTime[count - 1].seconds;
+    : sortedByTime[Math.floor(count/2)].seconds);
+  const minSeconds = sortedByTime[0]?.seconds || 0;
+  const maxSeconds = sortedByTime[count - 1]?.seconds || 0;
   
   // Render stats line
   if (statsContainer) {
@@ -5356,7 +5371,7 @@ function renderOverallPieChart() {
   ];
   
   // Distribute images into buckets
-  allImages.forEach(img => {
+  imageList.forEach(img => {
     for (const bucket of buckets) {
       if (img.seconds >= bucket.min && img.seconds < bucket.max) {
         bucket.images.push(img);
@@ -5370,16 +5385,18 @@ function renderOverallPieChart() {
     }
   });
   
-  // Find which bucket contains the average
+  // Find which bucket contains the average (only if we have displayed images)
   let avgBucketIndex = -1;
-  for (let i = 0; i < buckets.length; i++) {
-    if (avgSeconds >= buckets[i].min && avgSeconds < buckets[i].max) {
-      avgBucketIndex = i;
-      break;
-    }
-    if (buckets[i].max === Infinity && avgSeconds >= buckets[i].min) {
-      avgBucketIndex = i;
-      break;
+  if (avgSeconds > 0) {
+    for (let i = 0; i < buckets.length; i++) {
+      if (avgSeconds >= buckets[i].min && avgSeconds < buckets[i].max) {
+        avgBucketIndex = i;
+        break;
+      }
+      if (buckets[i].max === Infinity && avgSeconds >= buckets[i].min) {
+        avgBucketIndex = i;
+        break;
+      }
     }
   }
   
@@ -5411,19 +5428,24 @@ function renderOverallPieChart() {
     `;
   }).join('');
   
+  // Only show avg marker if there's actual display time
+  const avgMarkerHtml = avgBucketIndex >= 0 ? `
+    <div class="histogram-avg-marker" style="left: ${((avgBucketIndex + 0.5) / buckets.length) * 100}%">
+      <div class="histogram-avg-line"></div>
+      <div class="histogram-avg-label">avg</div>
+    </div>
+  ` : '';
+  
   container.innerHTML = `
     <div class="histogram-chart">
       <div class="histogram-bars">${barsHtml}</div>
-      <div class="histogram-avg-marker" style="left: ${((avgBucketIndex + 0.5) / buckets.length) * 100}%">
-        <div class="histogram-avg-line"></div>
-        <div class="histogram-avg-label">avg</div>
-      </div>
+      ${avgMarkerHtml}
     </div>
   `;
   
   // Calculate alerts
-  const neverDisplayed = allImages.filter(img => img.seconds === 0);
-  const overDisplayed = allImages.filter(img => img.seconds > avgSeconds * 5);
+  const neverDisplayed = imageList.filter(img => img.seconds === 0);
+  const overDisplayed = avgSeconds > 0 ? imageList.filter(img => img.seconds > avgSeconds * 5) : [];
   
   if (alertsContainer) {
     let alertsHtml = '';
@@ -5435,7 +5457,7 @@ function renderOverallPieChart() {
     if (overDisplayed.length > 0) {
       const names = overDisplayed.slice(0, 5).map(img => `${getAnalyticsDisplayName(img.name)} (${formatHoursNice(img.seconds)})`).join(', ');
       const moreText = overDisplayed.length > 5 ? `, +${overDisplayed.length - 5} more` : '';
-      alertsHtml += `<span class="dist-alert hot" title="${escapeHtml(names + moreText)}">🔥 ${overDisplayed.length} over 5x average</span>`;
+      alertsHtml += `<span class="dist-alert hot" title="${escapeHtml(names + moreText)}">${overDisplayed.length} over 5x average</span>`;
     }
     alertsContainer.innerHTML = alertsHtml;
   }

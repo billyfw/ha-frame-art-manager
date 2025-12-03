@@ -3505,10 +3505,6 @@ body {
   background: #e74c3c;
 }
 
-.histogram-bar.avg-bucket .histogram-bar-inner {
-  background: #27ae60;
-}
-
 .histogram-count {
   font-size: 0.7rem;
   font-weight: 600;
@@ -3530,23 +3526,26 @@ body {
   bottom: 28px;
   transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   align-items: center;
   pointer-events: none;
+  z-index: 10;
 }
 
 .histogram-avg-line {
   width: 2px;
   height: 100px;
   background: #27ae60;
-  opacity: 0.5;
+  opacity: 0.7;
 }
 
 .histogram-avg-label {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   color: #27ae60;
-  font-weight: 600;
-  margin-top: 2px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* Distribution alerts */
