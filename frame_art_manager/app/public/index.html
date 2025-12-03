@@ -151,6 +151,7 @@
           <button class="advanced-tab-btn active" data-tab="settings">Settings</button>
           <button class="advanced-tab-btn" data-tab="metadata">Metadata</button>
           <button class="advanced-tab-btn" data-tab="sync">Sync Detail</button>
+          <button class="advanced-tab-btn" data-tab="analytics">Analytics</button>
         </div>
 
         <!-- Settings Sub-tab -->
@@ -211,6 +212,86 @@
             <div id="sync-log-container" class="sync-log-container">
               <div class="loading-indicator">Loading sync history...</div>
             </div>
+          </div>
+        </div>
+
+        <!-- Analytics Sub-tab -->
+        <div id="advanced-analytics-content" class="advanced-tab-content">
+          <!-- Compact Summary Header -->
+          <div class="analytics-header">
+            <div class="analytics-summary-compact">
+              <div class="summary-images">
+                <span class="summary-count" id="analytics-total-images">--</span>
+                <span class="summary-label">images tracked</span>
+              </div>
+              <div class="summary-tvs" id="analytics-tv-summary">
+                <!-- TV summaries populated by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Overall pie chart by image -->
+          <div class="analytics-top-chart">
+            <div class="top-chart-container">
+              <h4>Display Time by Image</h4>
+              <div id="analytics-image-pie" class="image-pie-chart-area">
+                <div class="loading-indicator">Loading...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Three column layout -->
+          <div class="analytics-columns">
+            <!-- Column 1: TVs -->
+            <div class="analytics-column analytics-tvs">
+              <div class="column-header">
+                <h4>TVs</h4>
+              </div>
+              <div id="analytics-tv-list" class="analytics-tv-list">
+                <div class="loading-indicator">Loading...</div>
+              </div>
+            </div>
+
+            <!-- Column 2: Tags -->
+            <div class="analytics-column analytics-tags">
+              <div class="column-header">
+                <h4>Tags</h4>
+                <select id="analytics-tag-select" class="analytics-select">
+                  <option value="">Select a tag...</option>
+                </select>
+              </div>
+              <div id="analytics-tag-detail" class="analytics-detail-panel">
+                <div class="empty-state-small">Select a tag to view details</div>
+              </div>
+            </div>
+
+            <!-- Column 3: Images -->
+            <div class="analytics-column analytics-images">
+              <div class="column-header">
+                <h4>Images</h4>
+                <select id="analytics-image-select" class="analytics-select">
+                  <option value="">Select an image...</option>
+                </select>
+              </div>
+              <div id="analytics-image-detail" class="analytics-detail-panel">
+                <div class="empty-state-small">Select an image to view details</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty/Error states (hidden by default) -->
+          <div id="analytics-empty-state" class="analytics-empty-state" style="display: none;">
+            <div class="empty-icon-text">No Data</div>
+            <h3>No activity data yet</h3>
+            <p>Activity logging tracks how long images are displayed on your TVs. Data will appear here after the Frame Art Shuffler integration starts recording sessions.</p>
+            <p class="hint">Make sure logging is enabled in the integration settings.</p>
+          </div>
+
+          <div id="analytics-error-state" class="analytics-error-state" style="display: none;">
+            <div class="empty-icon-text">Error</div>
+            <h3>Failed to load activity data</h3>
+            <p id="analytics-error-message">Unknown error</p>
+            <button id="analytics-retry-btn" class="btn-primary">Retry</button>
           </div>
         </div>
       </div>

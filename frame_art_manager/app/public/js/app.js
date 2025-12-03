@@ -149,7 +149,7 @@ const METADATA_DEFAULT_MATTE = 'none';
 const METADATA_DEFAULT_FILTER = 'None';
 
 const ADVANCED_TAB_DEFAULT = 'settings';
-const VALID_ADVANCED_TABS = new Set(['settings', 'metadata', 'sync']);
+const VALID_ADVANCED_TABS = new Set(['settings', 'metadata', 'sync', 'analytics']);
 
 function normalizeEditingFilterName(name) {
   if (!name) return 'none';
@@ -248,6 +248,8 @@ function switchToAdvancedSubTab(tabName) {
     }, 0);
   } else if (targetTab === 'metadata') {
     loadMetadata();
+  } else if (targetTab === 'analytics') {
+    loadAnalytics();
   }
 }
 
@@ -5165,3 +5167,661 @@ window.displayOnTv = async function(id, type) {
     }
   }
 };
+
+// ===== Analytics Functions =====
+
+// Analytics state
+let analyticsData = null;
+let selectedTag = null;
+let selectedImage = null;
+let selectedTimelineTv = null;
+
+// Chart colors for pie charts
+const CHART_COLORS = [
+  '#3498db', // blue
+  '#e74c3c', // red
+  '#2ecc71', // green
+  '#9b59b6', // purple
+  '#f39c12', // orange
+  '#1abc9c', // teal
+  '#e67e22', // dark orange
+  '#95a5a6'  // gray (for "other" / "<none>")
+];
+
+async function loadAnalytics() {
+  const emptyState = document.getElementById('analytics-empty-state');
+  const errorState = document.getElementById('analytics-error-state');
+  const content = document.getElementById('analytics-content');
+  
+  // Hide states, show loading
+  if (emptyState) emptyState.style.display = 'none';
+  if (errorState) errorState.style.display = 'none';
+  if (content) content.style.display = 'none';
+  
+  // Show loading in summary
+  const tvSummaryList = document.getElementById('analytics-tv-summary-list');
+  if (tvSummaryList) tvSummaryList.innerHTML = '<div class="loading-indicator">Loading analytics...</div>';
+  
+  try {
+    const response = await fetch(`${API_BASE}/analytics/summary`);
+    const result = await response.json();
+    
+    if (!result.success) {
+      if (result.reason === 'no_data') {
+        // Show empty state
+        if (emptyState) emptyState.style.display = 'block';
+        return;
+      }
+      throw new Error(result.message || 'Failed to load analytics');
+    }
+    
+    analyticsData = result.data;
+    
+    // Check if logging is disabled
+    if (analyticsData.logging_enabled === false) {
+      if (emptyState) {
+        emptyState.querySelector('h3').textContent = 'Activity logging is disabled';
+        emptyState.querySelector('p').textContent = 'Enable logging in the Frame Art Shuffler integration settings to start tracking display statistics.';
+        emptyState.style.display = 'block';
+      }
+      return;
+    }
+    
+    // Show content
+    if (content) content.style.display = 'block';
+    
+    // Render all sections
+    renderAnalyticsSummary();
+    renderOverallPieChart();
+    renderTVCards();
+    renderTagSelector();
+    renderImageSelector();
+    setupAnalyticsEventListeners();
+    
+  } catch (error) {
+    console.error('Error loading analytics:', error);
+    if (errorState) {
+      const errorMsg = document.getElementById('analytics-error-message');
+      if (errorMsg) errorMsg.textContent = error.message;
+      errorState.style.display = 'block';
+    }
+  }
+}
+
+function renderAnalyticsSummary() {
+  if (!analyticsData) return;
+  
+  const imageCount = Object.keys(analyticsData.images || {}).length;
+  
+  // Update image count
+  const imagesEl = document.getElementById('analytics-total-images');
+  if (imagesEl) imagesEl.textContent = imageCount;
+  
+  // Render TV summary list
+  const tvSummaryList = document.getElementById('analytics-tv-summary-list');
+  if (!tvSummaryList) return;
+  
+  const tvs = analyticsData.tvs || {};
+  const tvIds = Object.keys(tvs);
+  
+  if (tvIds.length === 0) {
+    tvSummaryList.innerHTML = '<div class="empty-state-small">No TV data</div>';
+    return;
+  }
+  
+  // Sort by display time descending
+  tvIds.sort((a, b) => (tvs[b].total_display_seconds || 0) - (tvs[a].total_display_seconds || 0));
+  
+  tvSummaryList.innerHTML = tvIds.map(tvId => {
+    const tv = tvs[tvId];
+    const hours = formatHours(tv.total_display_seconds || 0);
+    // Derive unique image count from per_image array length
+    const imageCount = Array.isArray(tv.per_image) ? tv.per_image.length : 0;
+    return `
+      <div class="tv-summary-item">
+        <span class="tv-summary-name">${escapeHtml(tv.name || 'Unknown TV')}</span>
+        <span class="tv-summary-stats">${hours}h / ${imageCount} images</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderOverallPieChart() {
+  const container = document.getElementById('analytics-overall-pie');
+  if (!container || !analyticsData) return;
+  
+  const images = analyticsData.images || {};
+  const imageNames = Object.keys(images);
+  
+  if (imageNames.length === 0) {
+    container.innerHTML = '<div class="empty-state-small">No image data</div>';
+    return;
+  }
+  
+  // Sort by display time descending
+  const sortedImages = imageNames
+    .map(name => ({ name, seconds: images[name].total_display_seconds || 0 }))
+    .sort((a, b) => b.seconds - a.seconds);
+  
+  const totalSeconds = sortedImages.reduce((sum, img) => sum + img.seconds, 0);
+  if (totalSeconds === 0) {
+    container.innerHTML = '<div class="empty-state-small">No display time recorded</div>';
+    return;
+  }
+  
+  // Take top 7, combine rest into "other"
+  const topImages = sortedImages.slice(0, 7);
+  const otherSeconds = sortedImages.slice(7).reduce((sum, img) => sum + img.seconds, 0);
+  
+  if (otherSeconds > 0) {
+    topImages.push({ name: 'other', seconds: otherSeconds });
+  }
+  
+  // Build conic gradient
+  let gradientStops = [];
+  let currentPct = 0;
+  
+  topImages.forEach((img, index) => {
+    const pct = (img.seconds / totalSeconds) * 100;
+    const color = img.name === 'other' ? CHART_COLORS[7] : CHART_COLORS[index % (CHART_COLORS.length - 1)];
+    gradientStops.push(`${color} ${currentPct}% ${currentPct + pct}%`);
+    currentPct += pct;
+  });
+  
+  // Fill remaining if needed
+  if (currentPct < 100) {
+    gradientStops.push(`#e9ecef ${currentPct}% 100%`);
+  }
+  
+  const gradient = `conic-gradient(${gradientStops.join(', ')})`;
+  
+  // Build legend
+  const legendItems = topImages.map((img, index) => {
+    const color = img.name === 'other' ? CHART_COLORS[7] : CHART_COLORS[index % (CHART_COLORS.length - 1)];
+    const pct = ((img.seconds / totalSeconds) * 100).toFixed(0);
+    const displayName = img.name === 'other' ? '(other)' : truncateFilename(img.name, 20);
+    
+    return `
+      <div class="pie-legend-item" data-filename="${escapeHtml(img.name)}" title="${img.name !== 'other' ? 'Click to view image details' : ''}">
+        <span class="pie-legend-color" style="background: ${color}"></span>
+        <span class="pie-legend-label">${escapeHtml(displayName)}</span>
+        <span class="pie-legend-pct">${pct}%</span>
+      </div>
+    `;
+  }).join('');
+  
+  container.innerHTML = `
+    <div class="overall-pie-chart-container">
+      <div class="pie-chart pie-chart-large" style="background: ${gradient}"></div>
+      <div class="pie-legend pie-legend-vertical">${legendItems}</div>
+    </div>
+  `;
+  
+  // Add click handlers for legend items
+  container.querySelectorAll('.pie-legend-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const filename = item.dataset.filename;
+      if (filename && filename !== 'other') {
+        selectAnalyticsImage(filename);
+      }
+    });
+  });
+}
+
+function renderTVCards() {
+  const container = document.getElementById('analytics-tv-list');
+  if (!container || !analyticsData) return;
+  
+  const tvs = analyticsData.tvs || {};
+  const tvIds = Object.keys(tvs);
+  
+  if (tvIds.length === 0) {
+    container.innerHTML = '<div class="empty-state-small">No TV data available</div>';
+    return;
+  }
+  
+  // Sort by display time descending
+  tvIds.sort((a, b) => (tvs[b].total_display_seconds || 0) - (tvs[a].total_display_seconds || 0));
+  
+  container.innerHTML = tvIds.map(tvId => {
+    const tv = tvs[tvId];
+    const tags = tv.per_tag || [];
+    
+    return `
+      <div class="analytics-tv-card" data-tv-id="${tvId}">
+        <div class="tv-card-header">
+          <span class="tv-card-name">${escapeHtml(tv.name || 'Unknown TV')}</span>
+          <span class="tv-card-share">${(tv.share_of_tracked || 0).toFixed(1)}% of total</span>
+        </div>
+        <div class="tv-card-stats">
+          <span class="tv-card-stat"><strong>${formatHours(tv.total_display_seconds || 0)}</strong> hours</span>
+          <span class="tv-card-stat"><strong>${Array.isArray(tv.per_image) ? tv.per_image.length : 0}</strong> images</span>
+        </div>
+        ${renderPieChart(tags, tvId)}
+      </div>
+    `;
+  }).join('');
+}
+
+function renderPieChart(tags, tvId) {
+  if (!tags || tags.length === 0) {
+    return '<div class="empty-state-small" style="padding: 10px;">No tag data</div>';
+  }
+  
+  // Take top 5 tags, combine rest into "other"
+  const sortedTags = [...tags].sort((a, b) => (b.seconds || 0) - (a.seconds || 0));
+  const topTags = sortedTags.slice(0, 5);
+  const otherSeconds = sortedTags.slice(5).reduce((sum, t) => sum + (t.seconds || 0), 0);
+  
+  if (otherSeconds > 0) {
+    const totalSeconds = sortedTags.reduce((sum, t) => sum + (t.seconds || 0), 0);
+    topTags.push({
+      tag: 'other',
+      seconds: otherSeconds,
+      share: (otherSeconds / totalSeconds) * 100
+    });
+  }
+  
+  // Build conic gradient
+  let gradientStops = [];
+  let currentPct = 0;
+  
+  topTags.forEach((tag, index) => {
+    const pct = tag.share || 0;
+    const color = tag.tag === '<none>' || tag.tag === 'other' 
+      ? CHART_COLORS[7] 
+      : CHART_COLORS[index % (CHART_COLORS.length - 1)];
+    
+    gradientStops.push(`${color} ${currentPct}% ${currentPct + pct}%`);
+    currentPct += pct;
+  });
+  
+  // Fill remaining to 100% if needed
+  if (currentPct < 100) {
+    gradientStops.push(`#e9ecef ${currentPct}% 100%`);
+  }
+  
+  const gradient = `conic-gradient(${gradientStops.join(', ')})`;
+  
+  // Build legend
+  const legendItems = topTags.map((tag, index) => {
+    const color = tag.tag === '<none>' || tag.tag === 'other' 
+      ? CHART_COLORS[7] 
+      : CHART_COLORS[index % (CHART_COLORS.length - 1)];
+    const displayTag = tag.tag === '<none>' ? '(untagged)' : tag.tag;
+    
+    return `
+      <div class="pie-legend-item" data-tag="${escapeHtml(tag.tag)}" title="Click to view tag details">
+        <span class="pie-legend-color" style="background: ${color}"></span>
+        <span class="pie-legend-label">${escapeHtml(displayTag)}</span>
+        <span class="pie-legend-pct">${(tag.share || 0).toFixed(0)}%</span>
+      </div>
+    `;
+  }).join('');
+  
+  return `
+    <div class="pie-chart-container">
+      <div class="pie-chart" style="background: ${gradient}"></div>
+      <div class="pie-legend">${legendItems}</div>
+    </div>
+  `;
+}
+
+function renderTagSelector() {
+  const select = document.getElementById('analytics-tag-select');
+  if (!select || !analyticsData) return;
+  
+  const tags = analyticsData.tags || {};
+  const tagNames = Object.keys(tags);
+  
+  // Sort by display time descending
+  tagNames.sort((a, b) => (tags[b].total_display_seconds || 0) - (tags[a].total_display_seconds || 0));
+  
+  select.innerHTML = '<option value="">Select a tag...</option>' + 
+    tagNames.map(tag => {
+      const hours = formatHours(tags[tag].total_display_seconds || 0);
+      const displayTag = tag === '<none>' ? '(untagged)' : tag;
+      return `<option value="${escapeHtml(tag)}">${escapeHtml(displayTag)} (${hours}h)</option>`;
+    }).join('');
+}
+
+function renderImageSelector() {
+  const select = document.getElementById('analytics-image-select');
+  if (!select || !analyticsData) return;
+  
+  const images = analyticsData.images || {};
+  const imageNames = Object.keys(images);
+  
+  // Sort by display time descending
+  imageNames.sort((a, b) => (images[b].total_display_seconds || 0) - (images[a].total_display_seconds || 0));
+  
+  select.innerHTML = '<option value="">Select an image...</option>' + 
+    imageNames.map(filename => {
+      const hours = formatHours(images[filename].total_display_seconds || 0);
+      const displayName = truncateFilename(filename, 40);
+      return `<option value="${escapeHtml(filename)}">${escapeHtml(displayName)} (${hours}h)</option>`;
+    }).join('');
+}
+
+function renderTagDetail(tagName) {
+  const container = document.getElementById('analytics-tag-detail');
+  if (!container || !analyticsData) return;
+  
+  if (!tagName) {
+    container.innerHTML = '<div class="empty-state-small">Select a tag to view details</div>';
+    return;
+  }
+  
+  const tagData = analyticsData.tags?.[tagName];
+  if (!tagData) {
+    container.innerHTML = '<div class="empty-state-small">Tag not found</div>';
+    return;
+  }
+  
+  const displayTag = tagName === '<none>' ? '(untagged)' : tagName;
+  const perTv = tagData.per_tv || [];
+  const topImages = tagData.top_images || [];
+  
+  // Summary card
+  let html = `
+    <div class="tag-summary-card">
+      <div class="tag-summary-name">${escapeHtml(displayTag)}</div>
+      <div class="tag-summary-stats">
+        <span><strong>${formatHours(tagData.total_display_seconds || 0)}</strong> hours</span>
+        <span><strong>${(tagData.event_count || 0).toLocaleString()}</strong> sessions</span>
+      </div>
+    </div>
+  `;
+  
+  // TV breakdown bar chart
+  if (perTv.length > 0) {
+    html += `
+      <div class="bar-chart">
+        <div class="bar-chart-title">Display by TV</div>
+        ${perTv.map(tv => {
+          // Look up TV name from tvs object
+          const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
+          return `
+          <div class="bar-chart-item">
+            <div class="bar-chart-label">
+              <span class="bar-chart-name">${escapeHtml(tvName)}</span>
+              <span class="bar-chart-value">${(tv.share || 0).toFixed(1)}%</span>
+            </div>
+            <div class="bar-chart-track">
+              <div class="bar-chart-fill" style="width: ${tv.share || 0}%"></div>
+            </div>
+            <div class="bar-chart-detail">${formatHours(tv.seconds || 0)}h</div>
+          </div>
+        `}).join('')}
+      </div>
+    `;
+  }
+  
+  // Top images
+  if (topImages.length > 0) {
+    html += `
+      <div class="top-images-list">
+        <div class="top-images-title">Top Images</div>
+        ${topImages.slice(0, 10).map((img, idx) => `
+          <div class="top-image-item" data-filename="${escapeHtml(img.filename)}">
+            <span class="top-image-rank">${idx + 1}</span>
+            <span class="top-image-name">${escapeHtml(truncateFilename(img.filename, 30))}</span>
+            <span class="top-image-hours">${formatHours(img.seconds || 0)}h</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  container.innerHTML = html;
+  
+  // Add click handlers for top images
+  container.querySelectorAll('.top-image-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const filename = item.dataset.filename;
+      selectAnalyticsImage(filename);
+    });
+  });
+}
+
+function renderImageDetail(filename) {
+  const container = document.getElementById('analytics-image-detail');
+  const tvSelector = document.getElementById('analytics-timeline-tv-select');
+  const timelineContainer = document.getElementById('analytics-timeline-container');
+  
+  if (!container || !analyticsData) return;
+  
+  if (!filename) {
+    container.innerHTML = '<div class="empty-state-small">Select an image to view details</div>';
+    if (tvSelector) tvSelector.style.display = 'none';
+    if (timelineContainer) timelineContainer.style.display = 'none';
+    return;
+  }
+  
+  const imageData = analyticsData.images?.[filename];
+  if (!imageData) {
+    container.innerHTML = '<div class="empty-state-small">Image not found in analytics data</div>';
+    if (tvSelector) tvSelector.style.display = 'none';
+    if (timelineContainer) timelineContainer.style.display = 'none';
+    return;
+  }
+  
+  const perTv = imageData.per_tv || [];
+  const tags = imageData.tags || [];
+  
+  // Try to get thumbnail URL
+  const thumbUrl = `thumbs/${encodeURIComponent(filename)}`;
+  
+  let html = `
+    <div class="image-preview-card">
+      <img class="image-preview-thumb" src="${thumbUrl}" alt="${escapeHtml(filename)}" onerror="this.style.display='none'">
+      <div class="image-preview-name">${escapeHtml(filename)}</div>
+      <div class="image-preview-stats">
+        <strong>${formatHours(imageData.total_display_seconds || 0)}</strong> hours
+      </div>
+      <div class="image-preview-tags">
+        ${tags.length > 0 
+          ? tags.map(tag => `<span class="image-tag-pill">${escapeHtml(tag)}</span>`).join('')
+          : '<span class="image-tag-pill" style="background: #f0f0f0; color: #7f8c8d;">(untagged)</span>'
+        }
+      </div>
+    </div>
+  `;
+  
+  // TV breakdown
+  if (perTv.length > 0) {
+    html += `
+      <div class="bar-chart">
+        <div class="bar-chart-title">Display by TV</div>
+        ${perTv.map(tv => {
+          // Look up TV name from tvs object
+          const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
+          return `
+          <div class="bar-chart-item">
+            <div class="bar-chart-label">
+              <span class="bar-chart-name">${escapeHtml(tvName)}</span>
+              <span class="bar-chart-value">${(tv.share || 0).toFixed(1)}%</span>
+            </div>
+            <div class="bar-chart-track">
+              <div class="bar-chart-fill" style="width: ${tv.share || 0}%"></div>
+            </div>
+            <div class="bar-chart-detail">${formatHours(tv.seconds || 0)}h</div>
+          </div>
+        `}).join('')}
+      </div>
+    `;
+  }
+  
+  container.innerHTML = html;
+  
+  // Setup TV selector for timeline
+  if (tvSelector && perTv.length > 0) {
+    const select = tvSelector.querySelector('select');
+    if (select) {
+      select.innerHTML = '<option value="">Select TV for timeline...</option>' +
+        perTv.map(tv => {
+          const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
+          return `<option value="${escapeHtml(tv.tv_id)}">${escapeHtml(tvName)}</option>`;
+        }).join('');
+      
+      tvSelector.style.display = 'block';
+      
+      // Reset timeline
+      if (timelineContainer) {
+        timelineContainer.style.display = 'none';
+        timelineContainer.innerHTML = '';
+      }
+      
+      // Set event handler
+      select.onchange = (e) => {
+        selectedTimelineTv = e.target.value || null;
+        if (selectedTimelineTv && selectedImage) {
+          renderImageTimeline(selectedImage, selectedTimelineTv);
+        } else if (timelineContainer) {
+          timelineContainer.style.display = 'none';
+        }
+      };
+    }
+  } else if (tvSelector) {
+    tvSelector.style.display = 'none';
+  }
+}
+
+function renderImageTimeline(filename, tvId) {
+  const container = document.getElementById('analytics-timeline-container');
+  if (!container || !analyticsData) return;
+  
+  const imageData = analyticsData.images?.[filename];
+  if (!imageData) {
+    container.style.display = 'none';
+    return;
+  }
+  
+  // Get display periods for this TV (from imageData.display_periods if available)
+  const displayPeriods = imageData.display_periods?.[tvId] || [];
+  
+  if (displayPeriods.length === 0) {
+    // Show placeholder with generic timeline
+    container.style.display = 'block';
+    container.innerHTML = `
+      <div class="timeline-bar-container">
+        <div class="timeline-bar">
+          <div class="timeline-bar-track">
+            <div class="timeline-bar-empty">No detailed timeline data available</div>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  // Calculate timeline (last 7 days)
+  const now = Date.now();
+  const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
+  const totalRange = now - weekAgo;
+  
+  // Build timeline segments
+  const segments = displayPeriods
+    .filter(p => p.end > weekAgo)
+    .map(period => {
+      const start = Math.max(period.start, weekAgo);
+      const end = Math.min(period.end, now);
+      const leftPct = ((start - weekAgo) / totalRange) * 100;
+      const widthPct = ((end - start) / totalRange) * 100;
+      return `<div class="timeline-bar-segment" style="left: ${leftPct}%; width: ${widthPct}%" title="${new Date(start).toLocaleString()}"></div>`;
+    })
+    .join('');
+  
+  container.style.display = 'block';
+  container.innerHTML = `
+    <div class="timeline-bar-container">
+      <div class="timeline-bar-label">Display history (last 7 days)</div>
+      <div class="timeline-bar">
+        <div class="timeline-bar-track">
+          ${segments || '<div class="timeline-bar-empty">No displays in last 7 days</div>'}
+        </div>
+      </div>
+      <div class="timeline-bar-axis">
+        <span>7d ago</span>
+        <span>Now</span>
+      </div>
+    </div>
+  `;
+}
+
+function setupAnalyticsEventListeners() {
+  // Retry button
+  const retryBtn = document.getElementById('analytics-retry-btn');
+  if (retryBtn) {
+    retryBtn.onclick = () => loadAnalytics();
+  }
+  
+  // Tag selector
+  const tagSelect = document.getElementById('analytics-tag-select');
+  if (tagSelect) {
+    tagSelect.onchange = (e) => {
+      selectedTag = e.target.value || null;
+      renderTagDetail(selectedTag);
+    };
+  }
+  
+  // Image selector (dropdown)
+  const imageSelect = document.getElementById('analytics-image-select');
+  if (imageSelect) {
+    imageSelect.onchange = (e) => {
+      selectedImage = e.target.value || null;
+      selectedTimelineTv = null; // Reset TV selection
+      renderImageDetail(selectedImage);
+    };
+  }
+  
+  // Pie chart legend clicks (select tag)
+  document.querySelectorAll('#analytics-tv-list .pie-legend-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const tag = item.dataset.tag;
+      if (tag && tag !== 'other') {
+        // Update tag selector and show detail
+        const tagSelect = document.getElementById('analytics-tag-select');
+        if (tagSelect) {
+          tagSelect.value = tag;
+          selectedTag = tag;
+          renderTagDetail(tag);
+        }
+      }
+    });
+  });
+}
+
+function selectAnalyticsImage(filename) {
+  selectedImage = filename;
+  selectedTimelineTv = null;
+  
+  // Update image dropdown
+  const imageSelect = document.getElementById('analytics-image-select');
+  if (imageSelect) {
+    imageSelect.value = filename;
+  }
+  
+  renderImageDetail(filename);
+}
+
+// Helper: truncate filename for display
+function truncateFilename(filename, maxLen) {
+  if (!filename || filename.length <= maxLen) return filename;
+  const ext = filename.lastIndexOf('.');
+  if (ext > 0 && filename.length - ext < 6) {
+    // Keep extension
+    const extPart = filename.substring(ext);
+    const namePart = filename.substring(0, ext);
+    const availLen = maxLen - extPart.length - 3;
+    if (availLen > 5) {
+      return namePart.substring(0, availLen) + '...' + extPart;
+    }
+  }
+  return filename.substring(0, maxLen - 3) + '...';
+}
+
+// Helper: format seconds to hours (1 decimal)
+function formatHours(seconds) {
+  return (seconds / 3600).toFixed(1);
+}
