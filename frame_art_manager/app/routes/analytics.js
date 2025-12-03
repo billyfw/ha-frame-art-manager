@@ -10,7 +10,7 @@ const getLogsPath = () => {
     return '/config/frame_art/logs';
   }
   // Development: use test-data folder relative to app directory
-  return path.join(__dirname, '..', 'test-data', 'logs');
+  return path.join(__dirname, '..', 'test-data', 'mock-logs');
 };
 
 /**
