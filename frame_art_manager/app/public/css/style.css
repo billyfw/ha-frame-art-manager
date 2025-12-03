@@ -3216,8 +3216,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
-  padding: 0 4px;
+  margin: 20px 0;
+  padding: 12px 16px;
+  background: #f0f4f8;
+  border-radius: 8px;
+  border: 1px solid #e1e4e8;
 }
 
 .time-range-controls {
@@ -3234,7 +3237,7 @@ body {
 
 .time-pill {
   padding: 4px 0;
-  width: 36px;
+  width: 70px;
   text-align: center;
   font-size: 0.75rem;
   border: 1px solid #ddd;
@@ -3261,6 +3264,7 @@ body {
 .date-range-hint {
   font-size: 0.85rem;
   color: #5a6c7d;
+  font-style: italic;
 }
 
 /* Inline stat row - compact horizontal metrics */
@@ -3442,12 +3446,25 @@ body {
 
 /* Inline timeline (below each TV bar) */
 .bar-chart-item-with-timeline {
-  margin-bottom: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #b0b5bb;
+}
+
+.bar-chart-item-with-timeline:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 
 .inline-timeline {
   margin-top: 4px;
   padding-left: 0;
+}
+
+.inline-timeline .timeline-edges {
+  font-size: 0.6rem;
+  margin-bottom: 2px;
 }
 
 .inline-timeline-track {
@@ -3467,6 +3484,20 @@ body {
   min-width: 2px;
   border-right: 1px solid white;
   box-sizing: border-box;
+}
+
+/* Smaller ticks for inline timelines */
+.inline-timeline .timeline-ticks {
+  height: 10px;
+}
+
+.inline-timeline .timeline-tick {
+  height: 4px;
+}
+
+.inline-timeline .timeline-tick-label {
+  top: 5px;
+  font-size: 0.55rem;
 }
 
 .inline-timeline-axis {
@@ -3491,11 +3522,57 @@ body {
   font-style: italic;
 }
 
+/* Labeled timelines section (column 3) */
+.labeled-timelines-section {
+  margin-top: 15px;
+}
+
+.labeled-timelines-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #5a6c7d;
+  margin-bottom: 12px;
+}
+
+.labeled-timeline-row {
+  margin-bottom: 12px;
+}
+
+.labeled-timeline-row:last-child {
+  margin-bottom: 0;
+}
+
+.labeled-timeline-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.labeled-timeline-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.labeled-timeline-name {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #2c3e50;
+  flex: 1;
+}
+
+.labeled-timeline-hours {
+  font-size: 0.7rem;
+  color: #7f8c8d;
+}
+
 /* Event log */
 .event-log {
-  margin-top: 20px;
+  margin-top: 25px;
   padding-top: 15px;
-  border-top: 1px solid #e1e4e8;
+  border-top: 1px solid #dce0e5;
 }
 
 .event-log-title {
@@ -3518,7 +3595,7 @@ body {
 }
 
 .event-log-scroll {
-  max-height: 200px;
+  max-height: 600px;
   overflow-y: auto;
 }
 
@@ -3682,16 +3759,24 @@ body {
 
 /* TV Activity Timeline */
 .tv-timeline {
-  margin: 15px 0;
-  padding: 10px 0;
-  border-top: 1px solid #e9ecef;
-  border-bottom: 1px solid #e9ecef;
+  margin: 0;
+  padding: 3px 0 0 0;
+}
+
+.tv-timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.tv-timeline-header .timeline-edges {
+  margin-top: 0;
 }
 
 .tv-timeline-label {
   font-size: 0.75rem;
   color: #5a6c7d;
-  margin-bottom: 6px;
 }
 
 .tv-timeline-track {
@@ -3713,12 +3798,38 @@ body {
   box-sizing: border-box;
 }
 
-.tv-timeline-axis {
+/* Timeline edges (date labels) - above track */
+.timeline-edges {
   display: flex;
   justify-content: space-between;
   font-size: 0.65rem;
+  color: #7f8c8d;
+}
+
+/* Timeline axis - ticks below track */
+
+.timeline-ticks {
+  position: relative;
+  height: 12px;
+}
+
+.timeline-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 6px;
+  background: #bdc3c7;
+  transform: translateX(-50%);
+}
+
+.timeline-tick-label {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
   color: #95a5a6;
-  margin-top: 4px;
+  white-space: nowrap;
 }
 
 .tv-timeline-empty {
@@ -4090,6 +4201,7 @@ body {
 
 /* Horizontal bar chart */
 .bar-chart {
+  margin-top: 15px;
   margin-bottom: 15px;
 }
 
@@ -4235,6 +4347,18 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.stacked-bar-legend-item.clickable {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  margin: -2px -4px;
+  transition: background 0.15s;
+}
+
+.stacked-bar-legend-item.clickable:hover {
+  background: #e9ecef;
 }
 
 .stacked-bar-legend-color {

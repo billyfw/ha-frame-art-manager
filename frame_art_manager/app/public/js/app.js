@@ -5461,6 +5461,60 @@ function renderTVDetail(tvId) {
   });
 }
 
+// Generate timeline axis with edge labels and tick marks based on time range
+function generateTimelineAxis(rangeStart, rangeMs, isCompact = false) {
+  const now = Date.now();
+  
+  // Determine tick interval based on selected time range
+  const tickConfig = {
+    '1h': { interval: 15 * 60 * 1000, format: { hour: 'numeric', minute: '2-digit' } },           // 15 min
+    '1d': { interval: 4 * 60 * 60 * 1000, format: { hour: 'numeric' } },                          // 4 hours
+    '1w': { interval: 24 * 60 * 60 * 1000, format: { weekday: 'short' } },                        // 1 day
+    '1mo': { interval: 7 * 24 * 60 * 60 * 1000, format: { month: 'short', day: 'numeric' } },     // 1 week
+    '6mo': { interval: 30 * 24 * 60 * 60 * 1000, format: { month: 'short' } }                     // 1 month
+  };
+  
+  const config = tickConfig[selectedTimeRange] || tickConfig['1w'];
+  
+  // Generate tick marks
+  const ticks = [];
+  let tickTime = Math.ceil(rangeStart / config.interval) * config.interval; // Start at first clean interval
+  
+  while (tickTime < now) {
+    const pct = ((tickTime - rangeStart) / rangeMs) * 100;
+    if (pct > 5 && pct < 95) { // Avoid ticks too close to edges
+      const label = new Date(tickTime).toLocaleString(undefined, config.format);
+      ticks.push({ pct, label });
+    }
+    tickTime += config.interval;
+  }
+  
+  // Edge labels
+  const startDate = new Date(rangeStart);
+  const startFormat = (selectedTimeRange === '1h' || selectedTimeRange === '1d') 
+    ? { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
+    : { month: 'short', day: 'numeric' };
+  const startLabel = startDate.toLocaleString(undefined, startFormat);
+  
+  // Build tick marks HTML
+  const tickMarks = ticks.map(t => 
+    `<div class="timeline-tick" style="left: ${t.pct}%"><span class="timeline-tick-label">${t.label}</span></div>`
+  ).join('');
+  
+  // Edge labels HTML (above track)
+  const edgesHtml = `<div class="timeline-edges"><span>${startLabel}</span><span>Now</span></div>`;
+  
+  // Ticks HTML (below track)
+  const ticksHtml = tickMarks ? `<div class="timeline-ticks">${tickMarks}</div>` : '';
+  
+  // For compact (inline) timelines, just return edges
+  if (isCompact) {
+    return { edges: edgesHtml, ticks: '' };
+  }
+  
+  return { edges: edgesHtml, ticks: ticksHtml };
+}
+
 // Render activity timeline for a TV (showing when it was on/displaying) with image tooltips
 function renderTVActivityTimeline(tvId) {
   const tvData = analyticsData?.tvs?.[tvId];
@@ -5503,10 +5557,14 @@ function renderTVActivityTimeline(tvId) {
     })
     .join('');
   
+  // Generate axis parts (edges above, ticks below)
+  const axis = generateTimelineAxis(rangeStart, rangeMs, false);
+  
   return `
     <div class="tv-timeline">
-      <div class="tv-timeline-label">Activity</div>
+      ${axis.edges}
       <div class="tv-timeline-track">${segments || '<div class="tv-timeline-empty">No activity</div>'}</div>
+      ${axis.ticks}
     </div>
   `;
 }
@@ -5730,18 +5788,17 @@ function renderTagDetail(tagName) {
       const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
       const color = CHART_COLORS[index % CHART_COLORS.length];
       const pct = tv.share || 0;
-      return `<div class="stacked-bar-segment" style="width: ${pct}%; background: ${color}" title="${escapeHtml(tvName)} (${formatPercent(pct)}, ${formatHoursNice(tv.seconds || 0)})"></div>`;
+      return `<div class="stacked-bar-segment clickable" data-tv-id="${escapeHtml(tv.tv_id)}" style="width: ${pct}%; background: ${color}" title="${escapeHtml(tvName)} (${formatPercent(pct)}, ${formatHoursNice(tv.seconds || 0)})"></div>`;
     }).join('');
     
     const legend = perTv.map((tv, index) => {
       const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
       const color = CHART_COLORS[index % CHART_COLORS.length];
-      return `<span class="stacked-bar-legend-item"><span class="stacked-bar-legend-color" style="background: ${color}"></span>${escapeHtml(tvName)}</span>`;
+      return `<span class="stacked-bar-legend-item clickable" data-tv-id="${escapeHtml(tv.tv_id)}"><span class="stacked-bar-legend-color" style="background: ${color}"></span>${escapeHtml(tvName)}</span>`;
     }).join('');
     
     html += `
       <div class="stacked-bar-section">
-        <div class="stacked-bar-title">Display by TV</div>
         <div class="stacked-bar-track">${segments}</div>
         <div class="stacked-bar-legend">${legend}</div>
       </div>
@@ -5769,6 +5826,22 @@ function renderTagDetail(tagName) {
   html += renderTagEventLog(tagName);
   
   container.innerHTML = html;
+  
+  // Add click handlers for stacked bar segments
+  container.querySelectorAll('.stacked-bar-segment.clickable').forEach(segment => {
+    segment.addEventListener('click', () => {
+      const tvId = segment.dataset.tvId;
+      if (tvId) selectAnalyticsTv(tvId);
+    });
+  });
+  
+  // Add click handlers for stacked bar legend items
+  container.querySelectorAll('.stacked-bar-legend-item.clickable').forEach(item => {
+    item.addEventListener('click', () => {
+      const tvId = item.dataset.tvId;
+      if (tvId) selectAnalyticsTv(tvId);
+    });
+  });
   
   // Add click handlers for top images
   container.querySelectorAll('.top-images-row.clickable').forEach(item => {
@@ -5835,25 +5908,42 @@ function renderImageDetail(filename) {
   
   let html = '';
   
-  // TV breakdown with inline timelines
+  // TV breakdown - stacked horizontal bar (like column 2)
   if (perTv.length > 0) {
+    const segments = perTv.map((tv, index) => {
+      const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
+      const color = CHART_COLORS[index % CHART_COLORS.length];
+      const pct = tv.share || 0;
+      return `<div class="stacked-bar-segment" style="width: ${pct}%; background: ${color}" title="${escapeHtml(tvName)} (${formatPercent(pct)}, ${formatHoursNice(tv.seconds || 0)})"></div>`;
+    }).join('');
+    
+    const legend = perTv.map((tv, index) => {
+      const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
+      const color = CHART_COLORS[index % CHART_COLORS.length];
+      return `<span class="stacked-bar-legend-item"><span class="stacked-bar-legend-color" style="background: ${color}"></span>${escapeHtml(tvName)}</span>`;
+    }).join('');
+    
     html += `
-      <div class="bar-chart">
-        <div class="bar-chart-title">Display by TV</div>
-        ${perTv.map(tv => {
+      <div class="stacked-bar-section">
+        <div class="stacked-bar-track">${segments}</div>
+        <div class="stacked-bar-legend">${legend}</div>
+      </div>
+    `;
+    
+    // Labeled timelines section
+    html += `
+      <div class="labeled-timelines-section">
+        <div class="labeled-timelines-title">Activity Timeline</div>
+        ${perTv.map((tv, index) => {
           const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
+          const color = CHART_COLORS[index % CHART_COLORS.length];
           const timelineHtml = renderInlineTimeline(filename, tv.tv_id);
           return `
-          <div class="bar-chart-item-with-timeline">
-            <div class="bar-chart-item">
-              <div class="bar-chart-label">
-                <span class="bar-chart-name">${escapeHtml(tvName)}</span>
-                <span class="bar-chart-value">${formatPercent(tv.share || 0)}</span>
-              </div>
-              <div class="bar-chart-track">
-                <div class="bar-chart-fill" style="width: ${tv.share || 0}%"></div>
-              </div>
-              <div class="bar-chart-detail">${formatHoursNice(tv.seconds || 0)}</div>
+          <div class="labeled-timeline-row">
+            <div class="labeled-timeline-header">
+              <span class="labeled-timeline-color" style="background: ${color}"></span>
+              <span class="labeled-timeline-name">${escapeHtml(tvName)}</span>
+              <span class="labeled-timeline-hours">${formatHoursNice(tv.seconds || 0)}</span>
             </div>
             ${timelineHtml}
           </div>
@@ -5868,6 +5958,22 @@ function renderImageDetail(filename) {
   container.innerHTML = html;
 }
 
+// Helper to format relative time ago
+function formatTimeAgo(timestamp) {
+  const now = Date.now();
+  const diffMs = now - timestamp;
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  const diffWeeks = diffDays / 7;
+  const diffMonths = diffDays / 30;
+  
+  if (diffHours < 1) return 'less than an hour ago';
+  if (diffHours < 24) return diffHours < 2 ? 'an hour ago' : `${Math.floor(diffHours)} hours ago`;
+  if (diffDays < 7) return diffDays < 2 ? 'a day ago' : `${Math.floor(diffDays)} days ago`;
+  if (diffWeeks < 4) return diffWeeks < 2 ? 'a week ago' : `${Math.floor(diffWeeks)} weeks ago`;
+  return diffMonths < 2 ? 'a month ago' : `${Math.floor(diffMonths)} months ago`;
+}
+
 // Render inline timeline for a specific TV
 function renderInlineTimeline(filename, tvId) {
   const imageData = analyticsData?.images?.[filename];
@@ -5876,7 +5982,8 @@ function renderInlineTimeline(filename, tvId) {
   const displayPeriods = imageData.display_periods?.[tvId] || [];
   
   if (displayPeriods.length === 0) {
-    return '<div class="inline-timeline"><div class="inline-timeline-empty">No timeline data</div></div>';
+    // No display_periods means we have aggregate data but no timeline detail for this TV
+    return '<div class="inline-timeline"><div class="inline-timeline-empty">No detailed timeline available</div></div>';
   }
   
   // Calculate timeline using selected time range
@@ -5900,12 +6007,20 @@ function renderInlineTimeline(filename, tvId) {
     .join('');
   
   if (!segments) {
-    return `<div class="inline-timeline"><div class="inline-timeline-empty">No displays in range</div></div>`;
+    // Has display_periods but none in the selected time range - find most recent
+    const mostRecent = displayPeriods.reduce((latest, p) => p.end > latest ? p.end : latest, 0);
+    const timeAgo = formatTimeAgo(mostRecent);
+    return `<div class="inline-timeline"><div class="inline-timeline-empty">Not displayed since ${timeAgo}</div></div>`;
   }
+  
+  // Generate full axis (edge labels above, ticks below)
+  const axis = generateTimelineAxis(rangeStart, rangeMs, false);
   
   return `
     <div class="inline-timeline">
+      ${axis.edges}
       <div class="inline-timeline-track">${segments}</div>
+      ${axis.ticks}
     </div>
   `;
 }
@@ -6096,6 +6211,18 @@ function setupAnalyticsEventListeners() {
   }
 }
 
+function selectAnalyticsTv(tvId) {
+  selectedTv = tvId;
+  
+  // Update TV dropdown
+  const tvSelect = document.getElementById('analytics-tv-select');
+  if (tvSelect) {
+    tvSelect.value = tvId;
+  }
+  
+  renderTVDetail(tvId);
+}
+
 function selectAnalyticsImage(filename) {
   selectedImage = filename;
   
@@ -6282,7 +6409,15 @@ function updateDateRangeHint() {
   const rangeLabel = rangeLabels[selectedTimeRange] || 'week';
   
   const startDate = new Date(rangeStart);
-  const dateStr = startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  
+  // For hour/day, include time; for longer ranges, just date
+  let dateStr;
+  if (selectedTimeRange === '1h' || selectedTimeRange === '1d') {
+    dateStr = startDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) +
+              ' at ' + startDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  } else {
+    dateStr = startDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+  }
   
   hintEl.textContent = `Displaying last ${rangeLabel} of data (since ${dateStr})`;
 }
