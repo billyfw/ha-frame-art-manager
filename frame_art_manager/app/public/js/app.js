@@ -6235,20 +6235,45 @@ function selectAnalyticsImage(filename) {
   renderImageDetail(filename);
 }
 
+// Helper: get display name for analytics (remove hash if unique)
+function getAnalyticsDisplayName(filename) {
+  const { base, ext, hasUuid } = extractBaseComponents(filename);
+  if (!hasUuid) {
+    return filename;
+  }
+  
+  // Check if removing the hash would cause ambiguity with other files in analytics data
+  const allFilenames = Object.keys(analyticsData?.images || {});
+  const baseWithExt = base + ext;
+  const sharedBaseCount = allFilenames.filter(fn => {
+    const parsed = extractBaseComponents(fn);
+    return (parsed.base + parsed.ext) === baseWithExt;
+  }).length;
+  
+  if (sharedBaseCount > 1) {
+    return filename; // Keep hash to disambiguate
+  }
+  
+  return baseWithExt; // Safe to remove hash
+}
+
 // Helper: truncate filename for display
 function truncateFilename(filename, maxLen) {
-  if (!filename || filename.length <= maxLen) return filename;
-  const ext = filename.lastIndexOf('.');
-  if (ext > 0 && filename.length - ext < 6) {
+  // First, get the display name (remove hash if unique)
+  const displayName = getAnalyticsDisplayName(filename);
+  
+  if (!displayName || displayName.length <= maxLen) return displayName;
+  const ext = displayName.lastIndexOf('.');
+  if (ext > 0 && displayName.length - ext < 6) {
     // Keep extension
-    const extPart = filename.substring(ext);
-    const namePart = filename.substring(0, ext);
+    const extPart = displayName.substring(ext);
+    const namePart = displayName.substring(0, ext);
     const availLen = maxLen - extPart.length - 3;
     if (availLen > 5) {
       return namePart.substring(0, availLen) + '...' + extPart;
     }
   }
-  return filename.substring(0, maxLen - 3) + '...';
+  return displayName.substring(0, maxLen - 3) + '...';
 }
 
 // Helper: format seconds to hours (1 decimal) - legacy
@@ -6259,7 +6284,7 @@ function formatHours(seconds) {
 // Helper: format seconds to nice hours display (no unnecessary decimals)
 function formatHoursNice(seconds) {
   const hours = seconds / 3600;
-  if (hours < 0.1) {
+  if (hours < 1) {
     const mins = Math.round(seconds / 60);
     return mins + 'm';
   }
