@@ -3444,6 +3444,136 @@ body {
   white-space: nowrap;
 }
 
+/* Distribution stats line */
+.distribution-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #5a6c7d;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.dist-stat {
+  white-space: nowrap;
+}
+
+.dist-stat-sep {
+  color: #bdc3c7;
+}
+
+/* Histogram chart */
+.histogram-chart {
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.histogram-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-height: 120px;
+  padding: 0 10px;
+}
+
+.histogram-bar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  min-width: 50px;
+}
+
+.histogram-bar:hover .histogram-bar-inner {
+  filter: brightness(0.9);
+}
+
+.histogram-bar-inner {
+  width: 100%;
+  background: #3498db;
+  border-radius: 4px 4px 0 0;
+  min-height: 4px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  transition: height 0.3s ease;
+}
+
+.histogram-bar.zero-bucket .histogram-bar-inner {
+  background: #e74c3c;
+}
+
+.histogram-bar.avg-bucket .histogram-bar-inner {
+  background: #27ae60;
+}
+
+.histogram-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: white;
+  padding: 2px 0;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.histogram-label {
+  font-size: 0.7rem;
+  color: #5a6c7d;
+  margin-top: 6px;
+  text-align: center;
+}
+
+/* Average marker */
+.histogram-avg-marker {
+  position: absolute;
+  bottom: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.histogram-avg-line {
+  width: 2px;
+  height: 100px;
+  background: #27ae60;
+  opacity: 0.5;
+}
+
+.histogram-avg-label {
+  font-size: 0.65rem;
+  color: #27ae60;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* Distribution alerts */
+.distribution-alerts {
+  display: flex;
+  gap: 15px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.dist-alert {
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 12px;
+  cursor: help;
+}
+
+.dist-alert.warning {
+  background: #fef3e2;
+  color: #d68910;
+}
+
+.dist-alert.hot {
+  background: #fdeaea;
+  color: #c0392b;
+}
+
 /* Inline timeline (below each TV bar) */
 .bar-chart-item-with-timeline {
   margin-bottom: 18px;

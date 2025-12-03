@@ -5298,6 +5298,8 @@ function renderAnalyticsSummary() {
 
 function renderOverallPieChart() {
   const container = document.getElementById('analytics-image-pie');
+  const statsContainer = document.getElementById('analytics-distribution-stats');
+  const alertsContainer = document.getElementById('analytics-distribution-alerts');
   if (!container || !analyticsData) return;
   
   const images = analyticsData.images || {};
@@ -5305,61 +5307,147 @@ function renderOverallPieChart() {
   
   if (imageNames.length === 0) {
     container.innerHTML = '<div class="empty-state-small">No image data</div>';
+    if (statsContainer) statsContainer.innerHTML = '';
+    if (alertsContainer) alertsContainer.innerHTML = '';
     return;
   }
   
-  // Sort by display time descending
-  const sortedImages = imageNames
+  // Get all images with their display times
+  const allImages = imageNames
     .map(name => ({ name, seconds: images[name].total_display_seconds || 0 }))
     .sort((a, b) => b.seconds - a.seconds);
   
-  const totalSeconds = sortedImages.reduce((sum, img) => sum + img.seconds, 0);
-  if (totalSeconds === 0) {
-    container.innerHTML = '<div class="empty-state-small">No display time recorded</div>';
-    return;
+  const totalSeconds = allImages.reduce((sum, img) => sum + img.seconds, 0);
+  
+  // Calculate stats
+  const count = allImages.length;
+  const avgSeconds = totalSeconds / count;
+  const sortedByTime = [...allImages].sort((a, b) => a.seconds - b.seconds);
+  const medianSeconds = count % 2 === 0 
+    ? (sortedByTime[count/2 - 1].seconds + sortedByTime[count/2].seconds) / 2
+    : sortedByTime[Math.floor(count/2)].seconds;
+  const minSeconds = sortedByTime[0].seconds;
+  const maxSeconds = sortedByTime[count - 1].seconds;
+  
+  // Render stats line
+  if (statsContainer) {
+    statsContainer.innerHTML = `
+      <span class="dist-stat">${count} images</span>
+      <span class="dist-stat-sep">•</span>
+      <span class="dist-stat">Avg: ${formatHoursNice(avgSeconds)}</span>
+      <span class="dist-stat-sep">•</span>
+      <span class="dist-stat">Median: ${formatHoursNice(medianSeconds)}</span>
+      <span class="dist-stat-sep">•</span>
+      <span class="dist-stat">Range: ${formatHoursNice(minSeconds)} – ${formatHoursNice(maxSeconds)}</span>
+    `;
   }
   
-  // Take top 20 for vertical bar chart (use horizontal space)
-  const topImages = sortedImages.slice(0, 20);
-  const maxSeconds = topImages[0]?.seconds || 1;
+  // Define histogram buckets (in seconds)
+  const buckets = [
+    { min: 0, max: 0, label: '0m', images: [] },
+    { min: 1, max: 15 * 60, label: '<15m', images: [] },
+    { min: 15 * 60, max: 60 * 60, label: '15m-1h', images: [] },
+    { min: 60 * 60, max: 3 * 60 * 60, label: '1-3h', images: [] },
+    { min: 3 * 60 * 60, max: 6 * 60 * 60, label: '3-6h', images: [] },
+    { min: 6 * 60 * 60, max: 12 * 60 * 60, label: '6-12h', images: [] },
+    { min: 12 * 60 * 60, max: 24 * 60 * 60, label: '12-24h', images: [] },
+    { min: 24 * 60 * 60, max: 48 * 60 * 60, label: '1-2d', images: [] },
+    { min: 48 * 60 * 60, max: Infinity, label: '2d+', images: [] }
+  ];
   
-  // Build vertical bar chart
-  const barItems = topImages.map((img, index) => {
-    const color = CHART_COLORS[index % CHART_COLORS.length];
-    const heightPct = (img.seconds / maxSeconds) * 100;
-    const displayName = truncateFilename(img.name, 12);
-    const hours = formatHoursNice(img.seconds);
+  // Distribute images into buckets
+  allImages.forEach(img => {
+    for (const bucket of buckets) {
+      if (img.seconds >= bucket.min && img.seconds < bucket.max) {
+        bucket.images.push(img);
+        break;
+      }
+      // Handle exact 0 case
+      if (bucket.min === 0 && bucket.max === 0 && img.seconds === 0) {
+        bucket.images.push(img);
+        break;
+      }
+    }
+  });
+  
+  // Find which bucket contains the average
+  let avgBucketIndex = -1;
+  for (let i = 0; i < buckets.length; i++) {
+    if (avgSeconds >= buckets[i].min && avgSeconds < buckets[i].max) {
+      avgBucketIndex = i;
+      break;
+    }
+    if (buckets[i].max === Infinity && avgSeconds >= buckets[i].min) {
+      avgBucketIndex = i;
+      break;
+    }
+  }
+  
+  // Find max bucket count for scaling
+  const maxBucketCount = Math.max(...buckets.map(b => b.images.length), 1);
+  
+  // Build histogram bars
+  const barsHtml = buckets.map((bucket, index) => {
+    const heightPct = (bucket.images.length / maxBucketCount) * 100;
+    const isAvgBucket = index === avgBucketIndex;
+    const isZeroBucket = bucket.min === 0 && bucket.max === 0;
+    const hasImages = bucket.images.length > 0;
+    const bucketClass = `histogram-bar ${isZeroBucket && hasImages ? 'zero-bucket' : ''} ${isAvgBucket ? 'avg-bucket' : ''}`;
+    
+    // Tooltip with image list
+    const tooltipImages = bucket.images.slice(0, 10).map(img => 
+      `${getAnalyticsDisplayName(img.name)} (${formatHoursNice(img.seconds)})`
+    ).join('\n');
+    const moreText = bucket.images.length > 10 ? `\n...and ${bucket.images.length - 10} more` : '';
+    const tooltip = hasImages ? `${bucket.images.length} images:\n${tooltipImages}${moreText}` : 'No images';
     
     return `
-      <div class="vbar-item" data-filename="${escapeHtml(img.name)}" title="${escapeHtml(img.name)} - ${hours}">
-        <div class="vbar-value">${hours}</div>
-        <div class="vbar-track">
-          <div class="vbar-fill" style="height: ${heightPct}%; background: ${color}"></div>
+      <div class="${bucketClass}" data-bucket-index="${index}" title="${escapeHtml(tooltip)}">
+        <div class="histogram-bar-inner" style="height: ${heightPct}%">
+          ${hasImages ? `<span class="histogram-count">${bucket.images.length}</span>` : ''}
         </div>
-        <div class="vbar-label">${escapeHtml(displayName)}</div>
+        <div class="histogram-label">${bucket.label}</div>
       </div>
     `;
   }).join('');
   
-  // Show count if there are more images
-  const moreCount = sortedImages.length - 20;
-  const moreHtml = moreCount > 0 
-    ? `<div class="vbar-more">+ ${moreCount} more</div>` 
-    : '';
-  
   container.innerHTML = `
-    <div class="vbar-chart">
-      ${barItems}
-      ${moreHtml}
+    <div class="histogram-chart">
+      <div class="histogram-bars">${barsHtml}</div>
+      <div class="histogram-avg-marker" style="left: ${((avgBucketIndex + 0.5) / buckets.length) * 100}%">
+        <div class="histogram-avg-line"></div>
+        <div class="histogram-avg-label">avg</div>
+      </div>
     </div>
   `;
   
-  // Add click handlers for bar items
-  container.querySelectorAll('.vbar-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const filename = item.dataset.filename;
-      if (filename) {
-        selectAnalyticsImage(filename);
+  // Calculate alerts
+  const neverDisplayed = allImages.filter(img => img.seconds === 0);
+  const overDisplayed = allImages.filter(img => img.seconds > avgSeconds * 5);
+  
+  if (alertsContainer) {
+    let alertsHtml = '';
+    if (neverDisplayed.length > 0) {
+      const names = neverDisplayed.slice(0, 5).map(img => getAnalyticsDisplayName(img.name)).join(', ');
+      const moreText = neverDisplayed.length > 5 ? `, +${neverDisplayed.length - 5} more` : '';
+      alertsHtml += `<span class="dist-alert warning" title="${escapeHtml(names + moreText)}">⚠️ ${neverDisplayed.length} never displayed</span>`;
+    }
+    if (overDisplayed.length > 0) {
+      const names = overDisplayed.slice(0, 5).map(img => `${getAnalyticsDisplayName(img.name)} (${formatHoursNice(img.seconds)})`).join(', ');
+      const moreText = overDisplayed.length > 5 ? `, +${overDisplayed.length - 5} more` : '';
+      alertsHtml += `<span class="dist-alert hot" title="${escapeHtml(names + moreText)}">🔥 ${overDisplayed.length} over 5x average</span>`;
+    }
+    alertsContainer.innerHTML = alertsHtml;
+  }
+  
+  // Add click handlers for histogram bars to show images in that bucket
+  container.querySelectorAll('.histogram-bar').forEach(bar => {
+    bar.addEventListener('click', () => {
+      const bucketIndex = parseInt(bar.dataset.bucketIndex);
+      const bucket = buckets[bucketIndex];
+      if (bucket.images.length > 0) {
+        // Select the first image in this bucket
+        selectAnalyticsImage(bucket.images[0].name);
       }
     });
   });
