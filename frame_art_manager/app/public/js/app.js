@@ -5782,8 +5782,9 @@ function renderTagDetail(tagName) {
   
   let html = '';
   
-  // TV breakdown - stacked horizontal bar
-  if (perTv.length > 0) {
+  // TV breakdown - stacked horizontal bar (only if multiple TVs)
+  const totalTvCount = Object.keys(analyticsData.tvs || {}).length;
+  if (perTv.length > 0 && totalTvCount > 1) {
     const segments = perTv.map((tv, index) => {
       const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
       const color = CHART_COLORS[index % CHART_COLORS.length];
@@ -5908,8 +5909,19 @@ function renderImageDetail(filename) {
   
   let html = '';
   
-  // TV breakdown - stacked horizontal bar (like column 2)
-  if (perTv.length > 0) {
+  // Image thumbnail
+  const displayName = getAnalyticsDisplayName(filename);
+  html += `
+    <div class="analytics-image-preview">
+      <img src="thumbs/thumb_${encodeURIComponent(filename)}" 
+           onerror="this.src='library/${encodeURIComponent(filename)}'" 
+           alt="${escapeHtml(displayName)}" />
+    </div>
+  `;
+  
+  // TV breakdown - stacked horizontal bar (only if multiple TVs)
+  const totalTvCount = Object.keys(analyticsData.tvs || {}).length;
+  if (perTv.length > 0 && totalTvCount > 1) {
     const segments = perTv.map((tv, index) => {
       const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
       const color = CHART_COLORS[index % CHART_COLORS.length];
@@ -5929,8 +5941,10 @@ function renderImageDetail(filename) {
         <div class="stacked-bar-legend">${legend}</div>
       </div>
     `;
+  }
     
-    // Labeled timelines section
+  // Labeled timelines section
+  if (perTv.length > 0) {
     html += `
       <div class="labeled-timelines-section">
         <div class="labeled-timelines-title">Activity Timeline</div>
@@ -5938,13 +5952,17 @@ function renderImageDetail(filename) {
           const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
           const color = CHART_COLORS[index % CHART_COLORS.length];
           const timelineHtml = renderInlineTimeline(filename, tv.tv_id);
-          return `
-          <div class="labeled-timeline-row">
+          // Only show TV label if multiple TVs
+          const labelHtml = totalTvCount > 1 ? `
             <div class="labeled-timeline-header">
               <span class="labeled-timeline-color" style="background: ${color}"></span>
               <span class="labeled-timeline-name">${escapeHtml(tvName)}</span>
               <span class="labeled-timeline-hours">${formatHoursNice(tv.seconds || 0)}</span>
             </div>
+          ` : '';
+          return `
+          <div class="labeled-timeline-row">
+            ${labelHtml}
             ${timelineHtml}
           </div>
         `}).join('')}

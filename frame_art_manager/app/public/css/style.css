@@ -3568,6 +3568,20 @@ body {
   color: #7f8c8d;
 }
 
+/* Analytics image preview (column 3) */
+.analytics-image-preview {
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.analytics-image-preview img {
+  max-width: 100%;
+  max-height: 150px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: #e9ecef;
+}
+
 /* Event log */
 .event-log {
   margin-top: 25px;
