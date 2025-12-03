@@ -1,0 +1,284 @@
+{
+  "version": 1,
+  "generated_at": "2025-12-03T10:15:00+00:00",
+  "retention_months": 6,
+  "logging_enabled": true,
+  "flush_interval_minutes": 5,
+  "totals": {
+    "tracked_seconds": 1845000,
+    "event_count": 456
+  },
+  "tvs": {
+    "a9eef6ac436f482090e5e66ecbe88641": {
+      "name": "Living Room Frame",
+      "total_display_seconds": 1200000,
+      "event_count": 298,
+      "share_of_tracked": 65.0,
+      "per_image": [
+        {"filename": "sunset-beach.jpg", "seconds": 162000, "event_count": 45, "share": 13.5},
+        {"filename": "forest-morning.jpg", "seconds": 126000, "event_count": 35, "share": 10.5},
+        {"filename": "mountain-vista.jpg", "seconds": 108000, "event_count": 30, "share": 9.0},
+        {"filename": "family-portrait-2024.jpg", "seconds": 90000, "event_count": 25, "share": 7.5},
+        {"filename": "lake-reflection.jpg", "seconds": 72000, "event_count": 20, "share": 6.0},
+        {"filename": "autumn-leaves.jpg", "seconds": 64800, "event_count": 18, "share": 5.4},
+        {"filename": "city-skyline.jpg", "seconds": 54000, "event_count": 15, "share": 4.5},
+        {"filename": "ocean-waves.jpg", "seconds": 50400, "event_count": 14, "share": 4.2},
+        {"filename": "garden-flowers.jpg", "seconds": 43200, "event_count": 12, "share": 3.6},
+        {"filename": "winter-cabin.jpg", "seconds": 36000, "event_count": 10, "share": 3.0}
+      ],
+      "per_tag": [
+        {"tag": "nature", "seconds": 504000, "event_count": 140, "share": 42.0},
+        {"tag": "landscape", "seconds": 336000, "event_count": 93, "share": 28.0},
+        {"tag": "family", "seconds": 144000, "event_count": 40, "share": 12.0},
+        {"tag": "sunset", "seconds": 108000, "event_count": 30, "share": 9.0},
+        {"tag": "<none>", "seconds": 108000, "event_count": 30, "share": 9.0}
+      ]
+    },
+    "b7ddf5bc325e371080d4d55dabe77530": {
+      "name": "Bedroom Frame",
+      "total_display_seconds": 450000,
+      "event_count": 112,
+      "share_of_tracked": 24.4,
+      "per_image": [
+        {"filename": "family-portrait-2024.jpg", "seconds": 81000, "event_count": 22, "share": 18.0},
+        {"filename": "kids-beach-day.jpg", "seconds": 63000, "event_count": 18, "share": 14.0},
+        {"filename": "wedding-photo.jpg", "seconds": 54000, "event_count": 15, "share": 12.0},
+        {"filename": "sunset-beach.jpg", "seconds": 45000, "event_count": 12, "share": 10.0},
+        {"filename": "garden-flowers.jpg", "seconds": 36000, "event_count": 10, "share": 8.0}
+      ],
+      "per_tag": [
+        {"tag": "family", "seconds": 198000, "event_count": 55, "share": 44.0},
+        {"tag": "portrait", "seconds": 117000, "event_count": 32, "share": 26.0},
+        {"tag": "nature", "seconds": 81000, "event_count": 22, "share": 18.0},
+        {"tag": "<none>", "seconds": 54000, "event_count": 15, "share": 12.0}
+      ]
+    },
+    "c8ccf4ab214d260070c3c44cace66419": {
+      "name": "Office Frame",
+      "total_display_seconds": 195000,
+      "event_count": 46,
+      "share_of_tracked": 10.6,
+      "per_image": [
+        {"filename": "mountain-vista.jpg", "seconds": 43200, "event_count": 12, "share": 22.2},
+        {"filename": "city-skyline.jpg", "seconds": 36000, "event_count": 10, "share": 18.5},
+        {"filename": "abstract-art-1.jpg", "seconds": 28800, "event_count": 8, "share": 14.8},
+        {"filename": "forest-morning.jpg", "seconds": 25200, "event_count": 7, "share": 12.9},
+        {"filename": "minimalist-desk.jpg", "seconds": 21600, "event_count": 6, "share": 11.1}
+      ],
+      "per_tag": [
+        {"tag": "landscape", "seconds": 78000, "event_count": 19, "share": 40.0},
+        {"tag": "nature", "seconds": 50700, "event_count": 14, "share": 26.0},
+        {"tag": "abstract", "seconds": 35100, "event_count": 8, "share": 18.0},
+        {"tag": "<none>", "seconds": 31200, "event_count": 9, "share": 16.0}
+      ]
+    }
+  },
+  "images": {
+    "sunset-beach.jpg": {
+      "tags": ["nature", "landscape", "sunset", "beach"],
+      "total_display_seconds": 207000,
+      "event_count": 57,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 162000, "event_count": 45, "share": 78.3},
+        {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 45000, "event_count": 12, "share": 21.7}
+      ]
+    },
+    "forest-morning.jpg": {
+      "tags": ["nature", "landscape", "forest"],
+      "total_display_seconds": 151200,
+      "event_count": 42,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 126000, "event_count": 35, "share": 83.3},
+        {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 25200, "event_count": 7, "share": 16.7}
+      ]
+    },
+    "mountain-vista.jpg": {
+      "tags": ["nature", "landscape", "mountains"],
+      "total_display_seconds": 151200,
+      "event_count": 42,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 108000, "event_count": 30, "share": 71.4},
+        {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 43200, "event_count": 12, "share": 28.6}
+      ]
+    },
+    "family-portrait-2024.jpg": {
+      "tags": ["family", "portrait"],
+      "total_display_seconds": 171000,
+      "event_count": 47,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 90000, "event_count": 25, "share": 52.6},
+        {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 81000, "event_count": 22, "share": 47.4}
+      ]
+    },
+    "lake-reflection.jpg": {
+      "tags": ["nature", "landscape", "lake"],
+      "total_display_seconds": 72000,
+      "event_count": 20,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 72000, "event_count": 20, "share": 100.0}
+      ]
+    },
+    "autumn-leaves.jpg": {
+      "tags": ["nature", "autumn", "landscape"],
+      "total_display_seconds": 64800,
+      "event_count": 18,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 64800, "event_count": 18, "share": 100.0}
+      ]
+    },
+    "city-skyline.jpg": {
+      "tags": ["urban", "landscape", "city"],
+      "total_display_seconds": 90000,
+      "event_count": 25,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 54000, "event_count": 15, "share": 60.0},
+        {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 36000, "event_count": 10, "share": 40.0}
+      ]
+    },
+    "ocean-waves.jpg": {
+      "tags": ["nature", "ocean", "beach"],
+      "total_display_seconds": 50400,
+      "event_count": 14,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 50400, "event_count": 14, "share": 100.0}
+      ]
+    },
+    "garden-flowers.jpg": {
+      "tags": ["nature", "flowers", "garden"],
+      "total_display_seconds": 79200,
+      "event_count": 22,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 43200, "event_count": 12, "share": 54.5},
+        {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 36000, "event_count": 10, "share": 45.5}
+      ]
+    },
+    "winter-cabin.jpg": {
+      "tags": ["nature", "winter", "landscape"],
+      "total_display_seconds": 36000,
+      "event_count": 10,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 36000, "event_count": 10, "share": 100.0}
+      ]
+    },
+    "kids-beach-day.jpg": {
+      "tags": ["family", "beach", "kids"],
+      "total_display_seconds": 63000,
+      "event_count": 18,
+      "per_tv": [
+        {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 63000, "event_count": 18, "share": 100.0}
+      ]
+    },
+    "wedding-photo.jpg": {
+      "tags": ["family", "portrait", "wedding"],
+      "total_display_seconds": 54000,
+      "event_count": 15,
+      "per_tv": [
+        {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 54000, "event_count": 15, "share": 100.0}
+      ]
+    },
+    "abstract-art-1.jpg": {
+      "tags": ["abstract", "art"],
+      "total_display_seconds": 28800,
+      "event_count": 8,
+      "per_tv": [
+        {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 28800, "event_count": 8, "share": 100.0}
+      ]
+    },
+    "minimalist-desk.jpg": {
+      "tags": [],
+      "total_display_seconds": 21600,
+      "event_count": 6,
+      "per_tv": [
+        {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 21600, "event_count": 6, "share": 100.0}
+      ]
+    }
+  },
+  "tags": {
+    "nature": {
+      "total_display_seconds": 635700,
+      "event_count": 176,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 504000, "event_count": 140, "share": 79.3},
+        {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 81000, "event_count": 22, "share": 12.7},
+        {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 50700, "event_count": 14, "share": 8.0}
+      ],
+      "top_images": [
+        {"filename": "sunset-beach.jpg", "seconds": 207000, "share": 32.6},
+        {"filename": "forest-morning.jpg", "seconds": 151200, "share": 23.8},
+        {"filename": "mountain-vista.jpg", "seconds": 151200, "share": 23.8},
+        {"filename": "lake-reflection.jpg", "seconds": 72000, "share": 11.3},
+        {"filename": "autumn-leaves.jpg", "seconds": 64800, "share": 10.2}
+      ]
+    },
+    "landscape": {
+      "total_display_seconds": 414000,
+      "event_count": 112,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 336000, "event_count": 93, "share": 81.2},
+        {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 78000, "event_count": 19, "share": 18.8}
+      ],
+      "top_images": [
+        {"filename": "sunset-beach.jpg", "seconds": 207000, "share": 50.0},
+        {"filename": "forest-morning.jpg", "seconds": 151200, "share": 36.5},
+        {"filename": "mountain-vista.jpg", "seconds": 151200, "share": 36.5},
+        {"filename": "city-skyline.jpg", "seconds": 90000, "share": 21.7}
+      ]
+    },
+    "family": {
+      "total_display_seconds": 342000,
+      "event_count": 95,
+      "per_tv": [
+        {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 198000, "event_count": 55, "share": 57.9},
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 144000, "event_count": 40, "share": 42.1}
+      ],
+      "top_images": [
+        {"filename": "family-portrait-2024.jpg", "seconds": 171000, "share": 50.0},
+        {"filename": "kids-beach-day.jpg", "seconds": 63000, "share": 18.4},
+        {"filename": "wedding-photo.jpg", "seconds": 54000, "share": 15.8}
+      ]
+    },
+    "portrait": {
+      "total_display_seconds": 117000,
+      "event_count": 32,
+      "per_tv": [
+        {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 117000, "event_count": 32, "share": 100.0}
+      ],
+      "top_images": [
+        {"filename": "family-portrait-2024.jpg", "seconds": 171000, "share": 68.4},
+        {"filename": "wedding-photo.jpg", "seconds": 54000, "share": 21.6}
+      ]
+    },
+    "sunset": {
+      "total_display_seconds": 108000,
+      "event_count": 30,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 108000, "event_count": 30, "share": 100.0}
+      ],
+      "top_images": [
+        {"filename": "sunset-beach.jpg", "seconds": 207000, "share": 100.0}
+      ]
+    },
+    "abstract": {
+      "total_display_seconds": 35100,
+      "event_count": 8,
+      "per_tv": [
+        {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 35100, "event_count": 8, "share": 100.0}
+      ],
+      "top_images": [
+        {"filename": "abstract-art-1.jpg", "seconds": 28800, "share": 82.1}
+      ]
+    },
+    "<none>": {
+      "total_display_seconds": 193200,
+      "event_count": 54,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 108000, "event_count": 30, "share": 55.9},
+        {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 54000, "event_count": 15, "share": 28.0},
+        {"tv_id": "c8ccf4ab214d260070c3c44cace66419", "seconds": 31200, "event_count": 9, "share": 16.1}
+      ],
+      "top_images": [
+        {"filename": "minimalist-desk.jpg", "seconds": 21600, "share": 11.2}
+      ]
+    }
+  }
+}
