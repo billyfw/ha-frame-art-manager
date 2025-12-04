@@ -328,5 +328,27 @@
     "tags": ["nature", "winter", "landscape"],
     "source": "shuffle",
     "shuffle_mode": "random"
+  },
+  {
+    "tv_id": "a9eef6ac436f482090e5e66ecbe88641",
+    "tv_name": "Living Room Frame",
+    "filename": "4-copy-13a257b4.jpg",
+    "duration_seconds": 14400,
+    "started_at": "2025-11-29T08:00:00+00:00",
+    "completed_at": "2025-11-29T12:00:00+00:00",
+    "tags": ["test"],
+    "source": "shuffle",
+    "shuffle_mode": "random"
+  },
+  {
+    "tv_id": "b7ddf5bc325e371080d4d55dabe77530",
+    "tv_name": "Bedroom Frame",
+    "filename": "4-copy-13a257b4.jpg",
+    "duration_seconds": 10800,
+    "started_at": "2025-11-29T09:02:00+00:00",
+    "completed_at": "2025-11-29T12:02:00+00:00",
+    "tags": ["test"],
+    "source": "shuffle",
+    "shuffle_mode": "random"
   }
 ]

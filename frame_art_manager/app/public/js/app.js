@@ -1652,22 +1652,23 @@ function getLastDisplayInfo(filename) {
   
   if (!lastEnd || !lastTvId) return null;
   
-  // Format time ago
+  // Format time ago - use largest meaningful unit, rounded to nearest
   const now = Date.now();
   const diffMs = now - lastEnd;
-  const diffHours = diffMs / (1000 * 60 * 60);
-  const diffDays = diffHours / 24;
-  const diffMonths = diffDays / 30;
+  const diffMinutes = Math.round(diffMs / (1000 * 60));
+  const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  const diffMonths = Math.round(diffDays / 30);
   
   let timeAgo;
-  if (diffHours < 1) {
-    timeAgo = '<1h';
-  } else if (diffHours < 24) {
-    timeAgo = `${Math.floor(diffHours)}h`;
-  } else if (diffDays < 30) {
-    timeAgo = `${Math.floor(diffDays)}d`;
+  if (diffMonths >= 1) {
+    timeAgo = `${diffMonths}mo ago`;
+  } else if (diffDays >= 1) {
+    timeAgo = `${diffDays}d ago`;
+  } else if (diffHours >= 1) {
+    timeAgo = `${diffHours}h ago`;
   } else {
-    timeAgo = `${Math.floor(diffMonths)}mo`;
+    timeAgo = `${diffMinutes}m ago`;
   }
   
   // Get TV name
@@ -1759,7 +1760,7 @@ function renderGallery(filter = '') {
     // Get last display info from analytics
     const lastDisplay = getLastDisplayInfo(filename);
     const lastDisplayHtml = lastDisplay 
-      ? `<div class="image-last-display">Last: ${lastDisplay.timeAgo} (${escapeHtml(lastDisplay.tvName)})</div>`
+      ? `<div class="image-last-display">${lastDisplay.timeAgo} (${escapeHtml(lastDisplay.tvName)})</div>`
       : '';
     
     return `
