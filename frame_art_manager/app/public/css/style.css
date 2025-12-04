@@ -3228,7 +3228,28 @@ body {
   color: #2c3e50;
 }
 
-/* Time row above chart - date hint left, pills right */
+/* Analytics header with title left, close button right */
+.analytics-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+/* Chart header row - subtitle left, pills right */
+.analytics-chart-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.analytics-chart-header .date-range-hint {
+  font-style: italic;
+}
+
+/* Time row - kept for backwards compatibility but no longer used */
 .analytics-time-row {
   display: flex;
   align-items: center;
@@ -3253,13 +3274,13 @@ body {
 }
 
 .time-pill {
-  padding: 4px 0;
-  width: 70px;
+  padding: 5px 0;
+  width: 88px;
   text-align: center;
-  font-size: 0.75rem;
-  border: 1px solid #ddd;
+  font-size: 0.94rem;
+  border: 1px solid #a0aab4;
   background: white;
-  border-radius: 12px;
+  border-radius: 15px;
   cursor: pointer;
   transition: all 0.15s;
   color: #5a6c7d;
@@ -3370,7 +3391,8 @@ body {
 
 /* Analytics page content */
 .analytics-page-content {
-  margin-top: 20px;
+  margin-top: -23px;
+  padding-top: 0;
 }
 
 /* Top Image Pie Chart */
