@@ -209,9 +209,11 @@ function detectNavigationContext() {
 // Hash-based routing
 function handleRoute() {
   const hash = window.location.hash.slice(1) || '/'; // Remove '#' and default to '/'
+  const [path, queryString] = hash.split('?');
+  const params = new URLSearchParams(queryString || '');
   
-  if (hash.startsWith('/advanced')) {
-    const parts = hash.split('/');
+  if (path.startsWith('/advanced')) {
+    const parts = path.split('/');
     const requestedTab = parts[2] || ADVANCED_TAB_DEFAULT; // /advanced/sync -> 'sync'
     // Redirect old analytics URL to new location
     if (requestedTab === 'analytics') {
@@ -221,10 +223,11 @@ function handleRoute() {
     const subTab = VALID_ADVANCED_TABS.has(requestedTab) ? requestedTab : ADVANCED_TAB_DEFAULT;
     switchToTab('advanced');
     switchToAdvancedSubTab(subTab);
-  } else if (hash === '/analytics') {
+  } else if (path === '/analytics') {
     switchToTab('analytics');
-    loadAnalytics();
-  } else if (hash === '/upload') {
+    const imageParam = params.get('image');
+    loadAnalytics(imageParam);
+  } else if (path === '/upload') {
     switchToTab('upload');
   } else {
     // Default to gallery
@@ -5321,7 +5324,7 @@ async function loadAnalyticsDataForGallery() {
   }
 }
 
-async function loadAnalytics() {
+async function loadAnalytics(selectedImage = null) {
   const emptyState = document.getElementById('analytics-empty-state');
   const errorState = document.getElementById('analytics-error-state');
   const content = document.getElementById('analytics-content');
@@ -5377,6 +5380,15 @@ async function loadAnalytics() {
     renderTagSelector();
     renderImageSelector();
     setupAnalyticsEventListeners();
+    
+    // If an image was specified, select it after rendering
+    if (selectedImage && analyticsData.images?.[selectedImage]) {
+      const imageSelect = document.getElementById('analytics-image-select');
+      if (imageSelect) {
+        imageSelect.value = selectedImage;
+        imageSelect.dispatchEvent(new Event('change'));
+      }
+    }
     
   } catch (error) {
     console.error('Error loading analytics:', error);
