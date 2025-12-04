@@ -1041,19 +1041,24 @@ body {
   display: block;
 }
 
+.image-info-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+}
+
 .image-last-display {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  font-size: 0.7rem;
-  padding: 3px 8px;
-  border-radius: 0 4px 0 0;
+  font-size: 0.75rem;
+  color: #95a5a6;
+  font-weight: 400;
   white-space: nowrap;
-  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.image-info-footer .image-date {
+  margin-top: 0;
 }
 
 .image-info {
