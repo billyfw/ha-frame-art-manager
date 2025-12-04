@@ -1529,6 +1529,154 @@ async function saveBulkTags() {
   await updateSyncStatus();
 }
 
+// Get TV tags that aren't already applied to the current image
+function getAvailableTvTags() {
+  if (!currentImage || !allTVs || allTVs.length === 0) return [];
+  
+  const imageData = allImages[currentImage];
+  const appliedTags = new Set(imageData?.tags || []);
+  
+  // Collect all TV tags with metadata
+  const tvTagsMap = new Map(); // tag -> { tvNames: [], isExclude: boolean }
+  
+  for (const tv of allTVs) {
+    const tvName = tv.name || 'Unknown TV';
+    
+    // Include tags
+    for (const tag of (tv.tags || [])) {
+      if (!appliedTags.has(tag)) {
+        if (!tvTagsMap.has(tag)) {
+          tvTagsMap.set(tag, { tvNames: [], isExclude: false });
+        }
+        const entry = tvTagsMap.get(tag);
+        if (!entry.isExclude) { // Don't override if already marked as include
+          entry.tvNames.push(tvName);
+        }
+      }
+    }
+    
+    // Exclude tags
+    for (const tag of (tv.exclude_tags || [])) {
+      if (!appliedTags.has(tag)) {
+        const key = tag + '__exclude__';
+        if (!tvTagsMap.has(key)) {
+          tvTagsMap.set(key, { tvNames: [], isExclude: true, tag });
+        }
+        tvTagsMap.get(key).tvNames.push(tvName);
+      }
+    }
+  }
+  
+  // Convert to array and sort (include tags first, then exclude)
+  const result = [];
+  for (const [key, data] of tvTagsMap) {
+    const actualTag = data.isExclude ? data.tag : key;
+    result.push({
+      tag: actualTag,
+      tvNames: data.tvNames,
+      isExclude: data.isExclude
+    });
+  }
+  
+  result.sort((a, b) => {
+    // Include tags first
+    if (a.isExclude !== b.isExclude) return a.isExclude ? 1 : -1;
+    // Then alphabetically
+    return a.tag.localeCompare(b.tag);
+  });
+  
+  return result;
+}
+
+// Render the TV tags helper row
+function renderTvTagsHelper() {
+  const container = document.getElementById('tv-tags-helper');
+  const wrapper = document.getElementById('tv-tags-wrapper');
+  if (!container) return;
+  
+  const availableTags = getAvailableTvTags();
+  
+  if (availableTags.length === 0) {
+    container.innerHTML = '';
+    if (wrapper) wrapper.style.display = 'none';
+    return;
+  }
+  
+  if (wrapper) wrapper.style.display = 'block';
+  
+  const pillsHtml = availableTags.map(item => {
+    const excludeClass = item.isExclude ? ' exclude' : '';
+    const tvLabel = item.tvNames.length > 1 
+      ? `${item.tvNames.length} TVs` 
+      : item.tvNames[0];
+    const tooltip = item.tvNames.join(', ') + (item.isExclude ? ' (exclude)' : '');
+    return `<button class="tv-tag-pill${excludeClass}" data-tag="${escapeHtml(item.tag)}" title="${escapeHtml(tooltip)}">
+      <span class="tag-label">${escapeHtml(item.tag)}</span>
+      <span class="tv-name">${escapeHtml(tvLabel)}</span>
+    </button>`;
+  }).join('');
+  
+  container.innerHTML = pillsHtml;
+  
+  // Add click handlers
+  container.querySelectorAll('.tv-tag-pill').forEach(pill => {
+    pill.addEventListener('click', async () => {
+      const tag = pill.dataset.tag;
+      await addTagFromHelper(tag);
+    });
+  });
+}
+
+// Add a single tag from the helper and re-render
+async function addTagFromHelper(tagName) {
+  if (!currentImage) return;
+  
+  try {
+    const imageData = allImages[currentImage];
+    const existingTags = imageData.tags || [];
+    const newTags = [...new Set([...existingTags, tagName])];
+    
+    const response = await fetch(`${API_BASE}/images/${currentImage}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: newTags })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      allImages[currentImage].tags = newTags;
+      renderImageTagBadges(newTags);
+      renderTvTagsHelper(); // Re-render to remove the added tag
+      loadTags();
+      await updateSyncStatus();
+    }
+  } catch (error) {
+    console.error('Error adding tag from helper:', error);
+  }
+}
+
+// Get TV matches for a specific tag (for tooltips)
+function getTvMatchesForTag(tag) {
+  if (!allTVs || allTVs.length === 0) return [];
+  
+  const matches = [];
+  
+  for (const tv of allTVs) {
+    const tvName = tv.name || 'Unknown TV';
+    const includeTags = tv.tags || [];
+    const excludeTags = tv.exclude_tags || [];
+    
+    if (includeTags.includes(tag)) {
+      matches.push({ tvName, isExclude: false });
+    }
+    if (excludeTags.includes(tag)) {
+      matches.push({ tvName, isExclude: true });
+    }
+  }
+  
+  return matches;
+}
+
 // Image modal tag management functions
 function renderImageTagBadges(tags) {
   const container = document.getElementById('modal-tags-badges');
@@ -1538,14 +1686,40 @@ function renderImageTagBadges(tags) {
     return;
   }
   
-  container.innerHTML = tags.sort().map(tag => `
-    <div class="tag-item">
+  container.innerHTML = tags.sort().map(tag => {
+    const tvMatches = getTvMatchesForTag(tag);
+    let tooltip = '';
+    let tvInfoHtml = '';
+    
+    if (tvMatches.length > 0) {
+      const matchStrings = tvMatches
+        .sort((a, b) => a.tvName.localeCompare(b.tvName))
+        .map(m => m.isExclude ? `${m.tvName} (exclude)` : m.tvName);
+      tooltip = matchStrings.join(', ');
+      
+      // Build compact TV info display
+      let tvLabel = tvMatches.length > 1 
+        ? `${tvMatches.length} TVs` 
+        : (tvMatches[0].isExclude ? `ex:${tvMatches[0].tvName}` : tvMatches[0].tvName);
+      // Truncate to keep tags uniform width
+      if (tvLabel.length > 12) {
+        tvLabel = tvLabel.substring(0, 11) + '…';
+      }
+      tvInfoHtml = `<span class="tag-tv-info">${escapeHtml(tvLabel)}</span>`;
+    }
+    
+    const hasMatchClass = tvMatches.length > 0 ? ' has-tv-match' : '';
+    
+    return `
+    <div class="tag-item${hasMatchClass}" ${tooltip ? `title="${escapeHtml(tooltip)}"` : ''}>
       <div class="tag-content">
-        <span class="tag-name">${tag}</span>
+        <span class="tag-name">${escapeHtml(tag)}</span>
+        ${tvInfoHtml}
       </div>
-      <button class="tag-remove" onclick="removeImageTag('${tag}')" title="Remove tag">×</button>
+      <button class="tag-remove" onclick="removeImageTag('${escapeHtml(tag)}')">×</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 async function removeImageTag(tagName) {
@@ -1567,8 +1741,9 @@ async function removeImageTag(tagName) {
       // Update local cache
       allImages[currentImage].tags = newTags;
       
-      // Re-render badges
+      // Re-render badges and TV tags helper
       renderImageTagBadges(newTags);
+      renderTvTagsHelper();
       
       // Reload gallery in background
       loadGallery();
@@ -4351,8 +4526,9 @@ function openImageModal(filename) {
 
   selectFilter('none', { silent: true });
   
-  // Render tag badges
+  // Render tag badges and TV tags helper
   renderImageTagBadges(imageData.tags || []);
+  renderTvTagsHelper();
 
   exitEditMode();
   const initialPreset = detectInitialCropPreset(imageData);

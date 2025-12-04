@@ -1647,6 +1647,102 @@ body {
   margin-top: 20px;
 }
 
+/* TV Tags Helper Row */
+.tv-tags-wrapper {
+  margin-top: 8px;
+  display: none;
+}
+
+.tv-tags-label {
+  display: block;
+  font-size: 0.75rem;
+  color: #7f8c8d;
+  margin-bottom: 4px;
+}
+
+.tv-tags-helper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  max-height: 80px;
+  overflow-y: auto;
+  scrollbar-width: auto;
+}
+
+.tv-tags-helper::-webkit-scrollbar {
+  width: 8px;
+}
+
+.tv-tags-helper::-webkit-scrollbar-track {
+  background: #e8e8e8;
+  border-radius: 4px;
+}
+
+.tv-tags-helper::-webkit-scrollbar-thumb {
+  background: #bbb;
+  border-radius: 4px;
+}
+
+.tv-tags-helper::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+.tv-tags-helper:empty {
+  display: none;
+}
+
+.tv-tags-helper::-webkit-scrollbar {
+  height: 4px;
+}
+
+.tv-tags-helper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 2px;
+}
+
+.tv-tags-helper::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 2px;
+}
+
+.tv-tag-pill {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3px 8px;
+  background: transparent;
+  border: 2px dashed #3498db;
+  color: #3498db;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s, border-style 0.15s;
+  line-height: 1.2;
+}
+
+.tv-tag-pill .tv-name {
+  font-size: 0.55rem;
+  opacity: 0.7;
+}
+
+.tv-tag-pill:hover {
+  background: #e8f4f8;
+  border-style: solid;
+}
+
+.tv-tag-pill.exclude {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+
+.tv-tag-pill.exclude:hover {
+  background: #fdedec;
+}
+
 /* Modal */
 .modal {
   display: none;
@@ -2111,14 +2207,10 @@ body {
 }
 
 .image-tag-section {
-  margin-bottom: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #ecf0f1;
+  margin-bottom: 6px;
 }
 
 .image-tag-section:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
   margin-bottom: 0;
 }
 
@@ -2137,17 +2229,21 @@ body {
 }
 
 .image-tag-section-header {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
-.image-tag-section-header strong {
+.image-tag-section-header label {
   display: block;
   color: #2c3e50;
   font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .image-tag-section .tag-cloud {
   min-height: 32px;
+  max-height: 80px;
+  overflow-y: auto;
+  scrollbar-width: auto;
   padding: 6px;
   background: #f8f9fa;
   border-radius: 6px;
@@ -2155,6 +2251,24 @@ body {
   margin-top: 0;
   align-items: flex-start;
   align-content: flex-start;
+}
+
+.image-tag-section .tag-cloud::-webkit-scrollbar {
+  width: 8px;
+}
+
+.image-tag-section .tag-cloud::-webkit-scrollbar-track {
+  background: #e8e8e8;
+  border-radius: 4px;
+}
+
+.image-tag-section .tag-cloud::-webkit-scrollbar-thumb {
+  background: #bbb;
+  border-radius: 4px;
+}
+
+.image-tag-section .tag-cloud::-webkit-scrollbar-thumb:hover {
+  background: #999;
 }
 
 .image-tag-section .tag-cloud:empty::before {
@@ -2165,19 +2279,32 @@ body {
 }
 
 .image-tag-section .tag-item {
-  padding: 4px 10px;
-  font-size: 0.9rem;
+  padding: 3px 8px;
+  font-size: 0.8rem;
   gap: 6px;
   height: auto;
   align-self: flex-start;
+  align-items: center;
+}
+
+.image-tag-section .tag-item.has-tv-match .tag-content {
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.tag-tv-info {
+  font-size: 0.55rem;
+  opacity: 0.7;
+  line-height: 1.2;
 }
 
 .image-tag-section .tag-name {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .image-tag-section .tag-remove {
-  font-size: 1.1rem;
+  font-size: 1rem;
   padding: 0 2px;
 }
 

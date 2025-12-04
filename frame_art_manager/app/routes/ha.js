@@ -30,13 +30,25 @@ const haRequest = async (method, endpoint, data = null) => {
         { 
           device_id: 'mock_device_1', 
           name: 'Living Room Frame', 
-          tags: ['Landscape', 'Nature'],
-          exclude_tags: ['Portrait']
+          tags: ['Landscape', 'Nature', 'Beach', 'Mountains'],
+          exclude_tags: ['Portrait', 'Dark']
         },
         { 
           device_id: 'mock_device_2', 
           name: 'Bedroom Frame', 
-          tags: ['Family', 'Portrait'],
+          tags: ['Family', 'Portrait', 'Kids'],
+          exclude_tags: ['Abstract']
+        },
+        { 
+          device_id: 'mock_device_3', 
+          name: 'Office Frame', 
+          tags: ['Abstract', 'Urban', 'Architecture'],
+          exclude_tags: ['Family']
+        },
+        { 
+          device_id: 'mock_device_4', 
+          name: 'Kitchen Frame', 
+          tags: ['Nature', 'Food', 'Colorful'],
           exclude_tags: []
         }
       ];
