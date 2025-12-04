@@ -515,6 +515,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Check for sync updates in the background (after UI is loaded)
   checkSyncOnLoad();
+  
+  // Load analytics data in background for gallery "last display" info
+  loadAnalyticsDataForGallery();
 });
 
 // Check for sync updates on page load
@@ -1773,6 +1776,7 @@ function renderGallery(filter = '') {
         ${lastDisplayHtml}
       </div>
       <div class="image-info">
+        <button class="stats-link" data-filename="${filename}" title="Stats">📊</button>
         <div class="image-filename">${getDisplayName(filename)}${badgesHtml ? ' ' + badgesHtml : ''}</div>
         <div class="image-tags">
           ${(data.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}
@@ -1787,6 +1791,17 @@ function renderGallery(filter = '') {
   const imageCards = grid.querySelectorAll('.image-card');
   imageCards.forEach(card => {
     card.addEventListener('click', (e) => {
+      // Check if clicked on stats link
+      if (e.target.closest('.stats-link')) {
+        e.stopPropagation();
+        const filename = e.target.closest('.stats-link').dataset.filename;
+        // Navigate to analytics page and select this image
+        navigateTo('/analytics');
+        // Wait for analytics to load then select the image
+        setTimeout(() => selectAnalyticsImage(filename), 300);
+        return;
+      }
+      
       // Check if clicked on select badge
       if (e.target.closest('.select-badge')) {
         e.stopPropagation();
@@ -5273,6 +5288,24 @@ const CHART_COLORS = [
   '#e67e22', // dark orange
   '#95a5a6'  // gray (for "other" / "<none>")
 ];
+
+// Load analytics data silently in background for gallery "last display" info
+async function loadAnalyticsDataForGallery() {
+  try {
+    const response = await fetch(`${API_BASE}/analytics/summary`);
+    const result = await response.json();
+    if (result.success && result.data) {
+      analyticsData = result.data;
+      // Re-render gallery to show "last display" info
+      if (galleryHasLoadedAtLeastOnce) {
+        renderGallery();
+      }
+    }
+  } catch (error) {
+    // Silently fail - analytics data is optional for gallery
+    console.log('Could not load analytics data for gallery:', error.message);
+  }
+}
 
 async function loadAnalytics() {
   const emptyState = document.getElementById('analytics-empty-state');
