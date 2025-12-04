@@ -1088,6 +1088,24 @@ body {
   opacity: 0.9;
 }
 
+.modal-stats-link {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  z-index: 10;
+}
+
+.modal-stats-link:hover {
+  opacity: 0.9;
+}
+
 .image-filename {
   font-weight: 600;
   color: #2c3e50;
@@ -1746,6 +1764,7 @@ body {
 
 .modal-body-scroll .modal-details {
   padding: 12px 0 0;
+  position: relative;
 }
 
 .modal-body-scroll .modal-edit-panel {
@@ -1889,6 +1908,7 @@ body {
   column-gap: 20px;
   margin-bottom: 12px;
   align-items: flex-start;
+  position: relative;
 }
 
 .modal-info-left {
