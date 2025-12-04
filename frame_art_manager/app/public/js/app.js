@@ -1630,6 +1630,49 @@ async function addImageTags() {
   }
 }
 
+// Get last display info for an image from analytics data
+function getLastDisplayInfo(filename) {
+  const imageData = analyticsData?.images?.[filename];
+  if (!imageData?.display_periods) return null;
+  
+  let lastEnd = 0;
+  let lastTvId = null;
+  
+  for (const [tvId, periods] of Object.entries(imageData.display_periods)) {
+    for (const period of periods) {
+      if (period.end > lastEnd) {
+        lastEnd = period.end;
+        lastTvId = tvId;
+      }
+    }
+  }
+  
+  if (!lastEnd || !lastTvId) return null;
+  
+  // Format time ago
+  const now = Date.now();
+  const diffMs = now - lastEnd;
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const diffDays = diffHours / 24;
+  const diffMonths = diffDays / 30;
+  
+  let timeAgo;
+  if (diffHours < 1) {
+    timeAgo = '<1h';
+  } else if (diffHours < 24) {
+    timeAgo = `${Math.floor(diffHours)}h`;
+  } else if (diffDays < 30) {
+    timeAgo = `${Math.floor(diffDays)}d`;
+  } else {
+    timeAgo = `${Math.floor(diffMonths)}mo`;
+  }
+  
+  // Get TV name
+  const tvName = analyticsData?.tvs?.[lastTvId]?.name || 'Unknown TV';
+  
+  return { timeAgo, tvName };
+}
+
 function renderGallery(filter = '') {
   const grid = document.getElementById('image-grid');
   if (!grid) {
@@ -1710,6 +1753,12 @@ function renderGallery(filter = '') {
       badgesHtml += '<span class="aspect-badge-card">16:9</span>';
     }
     
+    // Get last display info from analytics
+    const lastDisplay = getLastDisplayInfo(filename);
+    const lastDisplayHtml = lastDisplay 
+      ? `<div class="image-last-display">Last display: ${lastDisplay.timeAgo} (${escapeHtml(lastDisplay.tvName)})</div>`
+      : '';
+    
     return `
     <div class="image-card ${isSelected ? 'selected' : ''}" 
          data-filename="${filename}" 
@@ -1721,6 +1770,7 @@ function renderGallery(filter = '') {
         <button class="select-badge" data-filename="${filename}" data-index="${index}" title="Select image">
           <span class="select-icon">☑</span>
         </button>
+        ${lastDisplayHtml}
       </div>
       <div class="image-info">
         <div class="image-filename">${getDisplayName(filename)}${badgesHtml ? ' ' + badgesHtml : ''}</div>
