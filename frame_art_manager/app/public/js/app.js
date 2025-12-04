@@ -1759,7 +1759,7 @@ function renderGallery(filter = '') {
     // Get last display info from analytics
     const lastDisplay = getLastDisplayInfo(filename);
     const lastDisplayHtml = lastDisplay 
-      ? `<div class="image-last-display">Last display: ${lastDisplay.timeAgo} (${escapeHtml(lastDisplay.tvName)})</div>`
+      ? `<div class="image-last-display">Last: ${lastDisplay.timeAgo} (${escapeHtml(lastDisplay.tvName)})</div>`
       : '';
     
     return `
@@ -1773,7 +1773,6 @@ function renderGallery(filter = '') {
         <button class="select-badge" data-filename="${filename}" data-index="${index}" title="Select image">
           <span class="select-icon">☑</span>
         </button>
-        ${lastDisplayHtml}
       </div>
       <div class="image-info">
         <button class="stats-link" data-filename="${filename}" title="Stats">📊</button>
@@ -1781,7 +1780,10 @@ function renderGallery(filter = '') {
         <div class="image-tags">
           ${(data.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}
         </div>
-        ${dateAdded ? `<div class="image-date">${dateAdded}</div>` : ''}
+        <div class="image-info-footer">
+          ${lastDisplayHtml}
+          ${dateAdded ? `<div class="image-date">${dateAdded}</div>` : ''}
+        </div>
       </div>
     </div>
   `;
