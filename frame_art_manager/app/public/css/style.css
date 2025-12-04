@@ -3898,8 +3898,8 @@ body {
 
 /* Event log */
 .event-log {
-  margin-top: 25px;
-  padding-top: 15px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid #dce0e5;
 }
 
@@ -4089,6 +4089,7 @@ body {
 .tv-timeline {
   margin: 0;
   padding: 3px 0 0 0;
+  min-height: 70px;
 }
 
 .tv-timeline-header {
@@ -4634,6 +4635,7 @@ body {
 /* Stacked horizontal bar */
 .stacked-bar-section {
   margin-top: 15px;
+  min-height: 55px;
 }
 
 .stacked-bar-title {
