@@ -3360,7 +3360,7 @@ body {
   background: #fafbfc;
   border: 1px solid #e1e4e8;
   border-radius: 8px;
-  padding: 15px 20px;
+  padding: 10px 20px 10px;
 }
 
 .top-chart-container h4 {
@@ -3457,16 +3457,19 @@ body {
 
 .dist-stat {
   white-space: nowrap;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #2c3e50;
 }
 
 .dist-stat-sep {
   color: #bdc3c7;
+  font-size: 0.9rem;
 }
 
 /* Histogram chart */
 .histogram-chart {
   position: relative;
-  padding-bottom: 10px;
 }
 
 .histogram-bars {
@@ -3475,6 +3478,18 @@ body {
   gap: 8px;
   min-height: 120px;
   padding: 0 10px;
+  position: relative;
+}
+
+.histogram-bars::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 22px;
+  height: 1px;
+  background: #bdc3c7;
+  z-index: 0;
 }
 
 .histogram-bar {
@@ -3484,6 +3499,7 @@ body {
   align-items: center;
   cursor: pointer;
   min-width: 50px;
+  z-index: 1;
 }
 
 .histogram-bar:hover .histogram-bar-inner {
@@ -3494,9 +3510,8 @@ body {
   width: 100%;
   background: #3498db;
   border-radius: 4px 4px 0 0;
-  min-height: 4px;
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: center;
   transition: height 0.3s ease;
 }
@@ -3509,7 +3524,7 @@ body {
   font-size: 0.7rem;
   font-weight: 600;
   color: white;
-  padding: 2px 0;
+  padding: 4px 0 2px 0;
   text-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
 
@@ -3518,59 +3533,112 @@ body {
   color: #5a6c7d;
   margin-top: 6px;
   text-align: center;
+  position: relative;
 }
 
-/* Average marker */
-.histogram-avg-marker {
+.histogram-label::before {
+  content: '';
   position: absolute;
-  bottom: 28px;
+  top: -6px;
+  left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: center;
-  pointer-events: none;
-  z-index: 10;
+  width: 1px;
+  height: 5px;
+  background: #95a5a6;
 }
 
-.histogram-avg-line {
-  width: 2px;
-  height: 100px;
-  background: #27ae60;
-  opacity: 0.7;
+/* Bucket detail table (expandable from histogram) */
+.bucket-detail-container {
+  animation: slideDown 0.2s ease-out;
 }
 
-.histogram-avg-label {
-  font-size: 0.6rem;
-  color: #27ae60;
-  font-weight: 500;
-  margin-bottom: 4px;
+.bucket-detail-container:not(:empty) {
+  margin-top: 15px;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Bucket table wrapper - no additional styles needed */
+
+.bucket-table-header {
+  display: grid;
+  grid-template-columns: 28px 2fr 2fr 130px;
+  gap: 8px;
+  font-size: 0.65rem;
+  color: #7f8c8d;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #e9ecef;
+  margin-bottom: 5px;
 }
 
-/* Distribution alerts */
-.distribution-alerts {
-  display: flex;
-  gap: 15px;
-  margin-top: 12px;
-  flex-wrap: wrap;
+.bucket-table-scroll {
+  max-height: 300px;
+  overflow-y: auto;
 }
 
-.dist-alert {
-  font-size: 0.8rem;
-  padding: 4px 10px;
-  border-radius: 12px;
-  cursor: help;
+.bucket-row {
+  display: grid;
+  grid-template-columns: 28px 2fr 2fr 130px;
+  gap: 8px;
+  font-size: 0.75rem;
+  padding: 4px 0;
+  border-bottom: 1px solid #f5f5f5;
 }
 
-.dist-alert.warning {
-  background: #fef3e2;
-  color: #d68910;
+.bucket-row.clickable {
+  cursor: pointer;
 }
 
-.dist-alert.hot {
-  background: #fdeaea;
-  color: #c0392b;
+.bucket-row.clickable:hover {
+  background: #f8f9fa;
+}
+
+.bucket-row:last-child {
+  border-bottom: none;
+}
+
+.bucket-filename {
+  color: #2c3e50;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bucket-tags {
+  color: #5a6c7d;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bucket-time {
+  color: #2c3e50;
+  text-align: left;
+}
+
+.bucket-time.zero {
+  color: #e74c3c;
+}
+
+.bucket-date {
+  color: #5a6c7d;
+  white-space: nowrap;
+}
+
+.histogram-bar.selected {
+  opacity: 1 !important;
+  outline: 2px solid #333;
+  outline-offset: -2px;
 }
 
 /* Inline timeline (below each TV bar) */

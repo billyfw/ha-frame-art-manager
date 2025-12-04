@@ -5296,10 +5296,14 @@ function renderAnalyticsSummary() {
   }).join('');
 }
 
+// Store buckets globally for click handlers
+let histogramBuckets = [];
+let selectedBucketIndex = -1;
+
 function renderOverallPieChart() {
   const container = document.getElementById('analytics-image-pie');
   const statsContainer = document.getElementById('analytics-distribution-stats');
-  const alertsContainer = document.getElementById('analytics-distribution-alerts');
+  const detailContainer = document.getElementById('analytics-bucket-detail');
   if (!container) return;
   
   const analyticsImages = analyticsData?.images || {};
@@ -5325,7 +5329,7 @@ function renderOverallPieChart() {
   if (mergedImages.length === 0) {
     container.innerHTML = '<div class="empty-state-small">No image data</div>';
     if (statsContainer) statsContainer.innerHTML = '';
-    if (alertsContainer) alertsContainer.innerHTML = '';
+    if (detailContainer) detailContainer.innerHTML = '';
     return;
   }
   
@@ -5358,7 +5362,7 @@ function renderOverallPieChart() {
   }
   
   // Define histogram buckets (in seconds)
-  const buckets = [
+  histogramBuckets = [
     { min: 0, max: 0, label: '0m', images: [] },
     { min: 1, max: 15 * 60, label: '<15m', images: [] },
     { min: 15 * 60, max: 60 * 60, label: '15m-1h', images: [] },
@@ -5372,7 +5376,7 @@ function renderOverallPieChart() {
   
   // Distribute images into buckets
   imageList.forEach(img => {
-    for (const bucket of buckets) {
+    for (const bucket of histogramBuckets) {
       if (img.seconds >= bucket.min && img.seconds < bucket.max) {
         bucket.images.push(img);
         break;
@@ -5385,92 +5389,142 @@ function renderOverallPieChart() {
     }
   });
   
-  // Find which bucket contains the average (only if we have displayed images)
-  let avgBucketIndex = -1;
-  if (avgSeconds > 0) {
-    for (let i = 0; i < buckets.length; i++) {
-      if (avgSeconds >= buckets[i].min && avgSeconds < buckets[i].max) {
-        avgBucketIndex = i;
-        break;
-      }
-      if (buckets[i].max === Infinity && avgSeconds >= buckets[i].min) {
-        avgBucketIndex = i;
-        break;
-      }
-    }
-  }
-  
   // Find max bucket count for scaling
-  const maxBucketCount = Math.max(...buckets.map(b => b.images.length), 1);
+  const maxBucketCount = Math.max(...histogramBuckets.map(b => b.images.length), 1);
+  const maxBarHeight = 90; // pixels
   
   // Build histogram bars
-  const barsHtml = buckets.map((bucket, index) => {
-    const heightPct = (bucket.images.length / maxBucketCount) * 100;
-    const isAvgBucket = index === avgBucketIndex;
+  const barsHtml = histogramBuckets.map((bucket, index) => {
+    const heightPx = Math.max((bucket.images.length / maxBucketCount) * maxBarHeight, bucket.images.length > 0 ? 18 : 0);
     const isZeroBucket = bucket.min === 0 && bucket.max === 0;
     const hasImages = bucket.images.length > 0;
-    const bucketClass = `histogram-bar ${isZeroBucket && hasImages ? 'zero-bucket' : ''} ${isAvgBucket ? 'avg-bucket' : ''}`;
+    const isSelected = index === selectedBucketIndex;
+    const bucketClass = `histogram-bar ${isZeroBucket && hasImages ? 'zero-bucket' : ''} ${hasImages ? 'clickable' : ''} ${isSelected ? 'selected' : ''}`;
     
-    // Tooltip with image list
-    const tooltipImages = bucket.images.slice(0, 10).map(img => 
-      `${getAnalyticsDisplayName(img.name)} (${formatHoursNice(img.seconds)})`
-    ).join('\n');
-    const moreText = bucket.images.length > 10 ? `\n...and ${bucket.images.length - 10} more` : '';
-    const tooltip = hasImages ? `${bucket.images.length} images:\n${tooltipImages}${moreText}` : 'No images';
+    // Only show bar if bucket has images
+    const barInnerHtml = hasImages ? `
+      <div class="histogram-bar-inner" style="height: ${heightPx}px">
+        <span class="histogram-count">${bucket.images.length}</span>
+      </div>
+    ` : '';
     
     return `
-      <div class="${bucketClass}" data-bucket-index="${index}" title="${escapeHtml(tooltip)}">
-        <div class="histogram-bar-inner" style="height: ${heightPct}%">
-          ${hasImages ? `<span class="histogram-count">${bucket.images.length}</span>` : ''}
-        </div>
+      <div class="${bucketClass}" data-bucket-index="${index}">
+        ${barInnerHtml}
         <div class="histogram-label">${bucket.label}</div>
       </div>
     `;
   }).join('');
   
-  // Only show avg marker if there's actual display time
-  const avgMarkerHtml = avgBucketIndex >= 0 ? `
-    <div class="histogram-avg-marker" style="left: ${((avgBucketIndex + 0.5) / buckets.length) * 100}%">
-      <div class="histogram-avg-line"></div>
-      <div class="histogram-avg-label">avg</div>
-    </div>
-  ` : '';
-  
   container.innerHTML = `
     <div class="histogram-chart">
       <div class="histogram-bars">${barsHtml}</div>
-      ${avgMarkerHtml}
     </div>
   `;
   
-  // Calculate alerts
-  const neverDisplayed = imageList.filter(img => img.seconds === 0);
-  const overDisplayed = avgSeconds > 0 ? imageList.filter(img => img.seconds > avgSeconds * 5) : [];
+  // Clear detail container
+  if (detailContainer) detailContainer.innerHTML = '';
+  selectedBucketIndex = -1;
   
-  if (alertsContainer) {
-    let alertsHtml = '';
-    if (neverDisplayed.length > 0) {
-      const names = neverDisplayed.slice(0, 5).map(img => getAnalyticsDisplayName(img.name)).join(', ');
-      const moreText = neverDisplayed.length > 5 ? `, +${neverDisplayed.length - 5} more` : '';
-      alertsHtml += `<span class="dist-alert warning" title="${escapeHtml(names + moreText)}">⚠️ ${neverDisplayed.length} never displayed</span>`;
-    }
-    if (overDisplayed.length > 0) {
-      const names = overDisplayed.slice(0, 5).map(img => `${getAnalyticsDisplayName(img.name)} (${formatHoursNice(img.seconds)})`).join(', ');
-      const moreText = overDisplayed.length > 5 ? `, +${overDisplayed.length - 5} more` : '';
-      alertsHtml += `<span class="dist-alert hot" title="${escapeHtml(names + moreText)}">${overDisplayed.length} over 5x average</span>`;
-    }
-    alertsContainer.innerHTML = alertsHtml;
-  }
-  
-  // Add click handlers for histogram bars to show images in that bucket
-  container.querySelectorAll('.histogram-bar').forEach(bar => {
+  // Add click handlers for histogram bars
+  container.querySelectorAll('.histogram-bar.clickable').forEach(bar => {
     bar.addEventListener('click', () => {
       const bucketIndex = parseInt(bar.dataset.bucketIndex);
-      const bucket = buckets[bucketIndex];
-      if (bucket.images.length > 0) {
-        // Select the first image in this bucket
-        selectAnalyticsImage(bucket.images[0].name);
-      }
+      toggleBucketDetail(bucketIndex);
+    });
+  });
+}
+
+// Helper to format days ago
+function formatDaysAgo(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  return `${diffDays}d`;
+}
+
+// Toggle bucket detail table
+function toggleBucketDetail(bucketIndex) {
+  const container = document.getElementById('analytics-image-pie');
+  const detailContainer = document.getElementById('analytics-bucket-detail');
+  if (!detailContainer) return;
+  
+  // If clicking the same bucket, collapse it
+  if (selectedBucketIndex === bucketIndex) {
+    selectedBucketIndex = -1;
+    detailContainer.innerHTML = '';
+    // Remove selected class from all bars
+    container.querySelectorAll('.histogram-bar').forEach(bar => bar.classList.remove('selected'));
+    return;
+  }
+  
+  selectedBucketIndex = bucketIndex;
+  const bucket = histogramBuckets[bucketIndex];
+  
+  // Update selected state on bars
+  container.querySelectorAll('.histogram-bar').forEach(bar => {
+    bar.classList.toggle('selected', parseInt(bar.dataset.bucketIndex) === bucketIndex);
+  });
+  
+  if (!bucket || bucket.images.length === 0) {
+    detailContainer.innerHTML = '';
+    return;
+  }
+  
+  // Sort images: display time desc, then upload date asc (oldest first)
+  const sortedImages = [...bucket.images].sort((a, b) => {
+    if (b.seconds !== a.seconds) return b.seconds - a.seconds;
+    // For upload date, get from allImages
+    const dateA = allImages[a.name]?.added || '';
+    const dateB = allImages[b.name]?.added || '';
+    return dateA.localeCompare(dateB); // ascending (oldest first)
+  });
+  
+  // Build table rows
+  const rows = sortedImages.map(img => {
+    const imageData = allImages[img.name] || {};
+    const tags = imageData.tags || [];
+    const tagsHtml = tags.length > 0 
+      ? tags.map(t => escapeHtml(t)).join(', ')
+      : '<span class="bucket-tag untagged">(untagged)</span>';
+    const displayTime = formatHoursNice(img.seconds);
+    const isZeroTime = img.seconds === 0;
+    const addedDate = imageData.added ? formatDate(imageData.added) : '—';
+    const daysAgo = imageData.added ? formatDaysAgo(imageData.added) : '';
+    const uploadDisplay = imageData.added ? `${addedDate} (${daysAgo})` : '—';
+    const displayName = getAnalyticsDisplayName(img.name);
+    
+    return `
+      <div class="bucket-row clickable" data-filename="${escapeHtml(img.name)}">
+        <span class="bucket-time${isZeroTime ? ' zero' : ''}">${displayTime}</span>
+        <span class="bucket-filename" title="${escapeHtml(img.name)}">${escapeHtml(displayName)}</span>
+        <span class="bucket-tags">${tagsHtml}</span>
+        <span class="bucket-date">${uploadDisplay}</span>
+      </div>
+    `;
+  }).join('');
+  
+  detailContainer.innerHTML = `
+    <div class="bucket-table-wrapper">
+      <div class="bucket-table-header">
+        <span></span>
+        <span>Filename</span>
+        <span>Tags</span>
+        <span>Upload Date</span>
+      </div>
+      <div class="bucket-table-scroll">
+        ${rows}
+      </div>
+    </div>
+  `;
+  
+  // Add click handlers for rows
+  detailContainer.querySelectorAll('.bucket-row.clickable').forEach(row => {
+    row.addEventListener('click', () => {
+      const filename = row.dataset.filename;
+      if (filename) openImageModal(filename);
     });
   });
 }
@@ -6412,6 +6466,11 @@ function formatHours(seconds) {
 // Helper: format seconds to nice hours display (no unnecessary decimals)
 function formatHoursNice(seconds) {
   const hours = seconds / 3600;
+  // Show days for >= 48 hours
+  if (hours >= 48) {
+    const days = Math.round(hours / 24);
+    return days + 'd';
+  }
   if (hours < 1) {
     const mins = Math.round(seconds / 60);
     return mins + 'm';
