@@ -301,6 +301,23 @@
           {"start": 1732104000000, "end": 1732118400000}
         ]
       }
+    },
+    "4-copy-13a257b4.jpg": {
+      "tags": ["test"],
+      "total_display_seconds": 25200,
+      "event_count": 2,
+      "per_tv": [
+        {"tv_id": "a9eef6ac436f482090e5e66ecbe88641", "seconds": 14400, "event_count": 1, "share": 57.1},
+        {"tv_id": "b7ddf5bc325e371080d4d55dabe77530", "seconds": 10800, "event_count": 1, "share": 42.9}
+      ],
+      "display_periods": {
+        "a9eef6ac436f482090e5e66ecbe88641": [
+          {"start": 1733234400000, "end": 1733248800000}
+        ],
+        "b7ddf5bc325e371080d4d55dabe77530": [
+          {"start": 1733299200000, "end": 1733310000000}
+        ]
+      }
     }
   },
   "tags": {
