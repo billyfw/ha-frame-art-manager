@@ -5639,9 +5639,9 @@ function toggleBucketDetail(bucketIndex) {
     return;
   }
   
-  // Sort images: display time desc, then upload date asc (oldest first)
+  // Sort images: display time ascending (less time toward top), then upload date ascending (oldest first)
   const sortedImages = [...bucket.images].sort((a, b) => {
-    if (b.seconds !== a.seconds) return b.seconds - a.seconds;
+    if (a.seconds !== b.seconds) return a.seconds - b.seconds;
     // For upload date, get from allImages
     const dateA = allImages[a.name]?.added || '';
     const dateB = allImages[b.name]?.added || '';
@@ -5758,35 +5758,10 @@ function renderTVDetail(tvId) {
   // Activity timeline (when TV was displaying vs not)
   html += renderTVActivityTimeline(tvId);
   
-  // Top images breakdown - simple table
-  if (perImage.length > 0) {
-    html += `
-      <div class="top-images-table">
-        <div class="top-images-title">Top Images</div>
-        <div class="top-images-rows">
-          ${perImage.slice(0, 5).map(img => `
-            <div class="top-images-row clickable" data-filename="${escapeHtml(img.filename)}">
-              <span class="top-images-name">${escapeHtml(truncateFilename(img.filename, 22))}</span>
-              <span class="top-images-hours">${formatHoursNice(img.seconds || 0)}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  }
-  
   // Event log for this TV
   html += renderTVEventLog(tvId);
   
   container.innerHTML = html;
-  
-  // Add click handlers for images
-  container.querySelectorAll('.top-images-row.clickable').forEach(item => {
-    item.addEventListener('click', () => {
-      const filename = item.dataset.filename;
-      if (filename) selectAnalyticsImage(filename);
-    });
-  });
   
   // Add click handlers for event log rows
   container.querySelectorAll('.event-log-row.clickable').forEach(row => {
@@ -6144,23 +6119,6 @@ function renderTagDetail(tagName) {
     `;
   }
   
-  // Top images - simple table
-  if (topImages.length > 0) {
-    html += `
-      <div class="top-images-table">
-        <div class="top-images-title">Top Images</div>
-        <div class="top-images-rows">
-          ${topImages.slice(0, 5).map(img => `
-            <div class="top-images-row clickable" data-filename="${escapeHtml(img.filename)}">
-              <span class="top-images-name">${escapeHtml(truncateFilename(img.filename, 22))}</span>
-              <span class="top-images-hours">${formatHoursNice(img.seconds || 0)}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  }
-  
   // Event log for this tag
   html += renderTagEventLog(tagName);
   
@@ -6179,14 +6137,6 @@ function renderTagDetail(tagName) {
     item.addEventListener('click', () => {
       const tvId = item.dataset.tvId;
       if (tvId) selectAnalyticsTv(tvId);
-    });
-  });
-  
-  // Add click handlers for top images
-  container.querySelectorAll('.top-images-row.clickable').forEach(item => {
-    item.addEventListener('click', () => {
-      const filename = item.dataset.filename;
-      selectAnalyticsImage(filename);
     });
   });
   
