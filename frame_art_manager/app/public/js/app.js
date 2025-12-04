@@ -5342,11 +5342,32 @@ function renderOverallPieChart() {
   const analyticsImages = analyticsData?.images || {};
   const galleryImageNames = Object.keys(allImages || {});
   
+  // Calculate time-filtered display seconds for each image
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  // Helper to calculate display seconds within the time range for an image
+  function getImageSecondsInRange(imageData) {
+    if (!imageData?.display_periods) return 0;
+    let seconds = 0;
+    for (const [tvId, periods] of Object.entries(imageData.display_periods)) {
+      for (const period of periods) {
+        if (period.end > rangeStart) {
+          const start = Math.max(period.start, rangeStart);
+          const end = Math.min(period.end, now);
+          seconds += (end - start) / 1000;
+        }
+      }
+    }
+    return seconds;
+  }
+  
   // Merge gallery images with analytics data - include ALL images from gallery
-  // Images not in analytics get 0 seconds
+  // Images not in analytics get 0 seconds, others get time-filtered seconds
   const mergedImages = galleryImageNames.map(name => ({
     name,
-    seconds: analyticsImages[name]?.total_display_seconds || 0
+    seconds: getImageSecondsInRange(analyticsImages[name])
   }));
   
   // Also include any images in analytics that might not be in gallery (edge case)
@@ -5354,7 +5375,7 @@ function renderOverallPieChart() {
     if (!allImages[name]) {
       mergedImages.push({
         name,
-        seconds: analyticsImages[name].total_display_seconds || 0
+        seconds: getImageSecondsInRange(analyticsImages[name])
       });
     }
   });
