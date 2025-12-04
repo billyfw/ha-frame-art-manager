@@ -5637,11 +5637,9 @@ function renderTVDetail(tvId) {
   if (statsContainer) {
     statsContainer.innerHTML = `
       <div class="stat-row-inline">
-        <span class="stat-inline"><strong>${formatHoursNice(tvStats.totalSeconds)}</strong> on</span>
+        <span class="stat-inline"><strong>${formatHoursNice(tvStats.totalSeconds)}</strong> display time</span>
         <span class="stat-sep">·</span>
-        <span class="stat-inline"><strong>${tvStats.eventCount}</strong> displays</span>
-        <span class="stat-sep">·</span>
-        <span class="stat-inline"><strong>${formatPercent(tvStats.shareOfTotal)}</strong> of total</span>
+        <span class="stat-inline"><strong>${tvStats.eventCount}</strong> events</span>
       </div>
     `;
   }
@@ -5677,6 +5675,14 @@ function renderTVDetail(tvId) {
   container.querySelectorAll('.top-images-row.clickable').forEach(item => {
     item.addEventListener('click', () => {
       const filename = item.dataset.filename;
+      if (filename) selectAnalyticsImage(filename);
+    });
+  });
+  
+  // Add click handlers for event log rows
+  container.querySelectorAll('.event-log-row.clickable').forEach(row => {
+    row.addEventListener('click', () => {
+      const filename = row.dataset.filename;
       if (filename) selectAnalyticsImage(filename);
     });
   });
@@ -5996,9 +6002,9 @@ function renderTagDetail(tagName) {
   if (statsContainer) {
     statsContainer.innerHTML = `
       <div class="stat-row-inline">
-        <span class="stat-inline"><strong>${formatHoursNice(tagStats.totalSeconds)}</strong> displayed</span>
+        <span class="stat-inline"><strong>${formatHoursNice(tagStats.totalSeconds)}</strong> display time</span>
         <span class="stat-sep">·</span>
-        <span class="stat-inline"><strong>${tagStats.eventCount}</strong> displays</span>
+        <span class="stat-inline"><strong>${tagStats.eventCount}</strong> events</span>
       </div>
     `;
   }
@@ -6124,9 +6130,9 @@ function renderImageDetail(filename) {
   if (statsContainer) {
     statsContainer.innerHTML = `
       <div class="stat-row-inline">
-        <span class="stat-inline"><strong>${formatHoursNice(imageStats.totalSeconds)}</strong> displayed</span>
+        <span class="stat-inline"><strong>${formatHoursNice(imageStats.totalSeconds)}</strong> display time</span>
         <span class="stat-sep">·</span>
-        <span class="stat-inline"><strong>${imageStats.tvCount}</strong> TVs</span>
+        <span class="stat-inline"><strong>${imageStats.eventCount}</strong> events</span>
       </div>
     `;
   }
