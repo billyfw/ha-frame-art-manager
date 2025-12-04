@@ -4228,6 +4228,17 @@ function initModal() {
     });
   }
 
+  // Stats link in modal - navigate to analytics page with this image selected
+  const modalStatsLink = document.getElementById('modal-stats-link');
+  if (modalStatsLink) {
+    modalStatsLink.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (currentImage) {
+        modal.classList.remove('active');
+        window.location.hash = `#/analytics?image=${encodeURIComponent(currentImage)}`;
+      }
+    });
+  }
   if (matteSelect) {
     matteSelect.addEventListener('change', saveImageChanges);
   }
@@ -6214,11 +6225,15 @@ function renderImageDetail(filename) {
   
   // Render stats below dropdown
   if (statsContainer) {
+    const lastDisplay = getLastDisplayInfo(filename);
+    const lastDisplayText = lastDisplay ? lastDisplay.timeAgo : 'Never';
     statsContainer.innerHTML = `
       <div class="stat-row-inline">
         <span class="stat-inline"><strong>${formatHoursNice(imageStats.totalSeconds)}</strong> display time</span>
         <span class="stat-sep">·</span>
         <span class="stat-inline"><strong>${imageStats.eventCount}</strong> events</span>
+        <span class="stat-sep">·</span>
+        <span class="stat-inline">Last displayed <strong>${lastDisplayText}</strong></span>
       </div>
     `;
   }
