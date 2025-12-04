@@ -1649,7 +1649,7 @@ body {
 
 /* TV Tags Helper Row */
 .tv-tags-wrapper {
-  margin-top: 8px;
+  margin-top: 4px;
   display: none;
 }
 
@@ -1658,6 +1658,7 @@ body {
   font-size: 0.75rem;
   color: #7f8c8d;
   margin-bottom: 4px;
+  font-style: italic;
 }
 
 .tv-tags-helper {
