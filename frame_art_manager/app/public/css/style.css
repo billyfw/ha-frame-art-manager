@@ -1060,7 +1060,7 @@ body {
 /* Hide last display text when screen is narrow and cards would shrink */
 @media (max-width: 600px) {
   .image-last-display {
-    display: none;
+    display: none !important;
   }
 }
 
