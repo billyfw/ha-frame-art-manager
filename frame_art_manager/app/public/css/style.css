@@ -1057,6 +1057,13 @@ body {
   text-overflow: ellipsis;
 }
 
+/* Hide last display text when screen is narrow and cards would shrink */
+@media (max-width: 600px) {
+  .image-last-display {
+    display: none;
+  }
+}
+
 .image-info-footer .image-date {
   margin-top: 0;
   margin-left: auto;
