@@ -1045,12 +1045,12 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 6px;
+  margin-top: 10px;
 }
 
 .image-last-display {
-  font-size: 0.75rem;
-  color: #95a5a6;
+  font-size: 0.72rem;
+  color: #aab4be;
   font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
@@ -1059,6 +1059,7 @@ body {
 
 .image-info-footer .image-date {
   margin-top: 0;
+  margin-left: auto;
 }
 
 .image-info {
