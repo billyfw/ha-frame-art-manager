@@ -2283,21 +2283,30 @@ body {
   padding: 3px 8px;
   font-size: 0.8rem;
   gap: 6px;
-  height: auto;
+  min-height: 32px;
   align-self: flex-start;
   align-items: center;
 }
 
-.image-tag-section .tag-item.has-tv-match .tag-content {
+.image-tag-section .tag-item .tag-content {
+  display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 0;
+  min-height: 24px;
 }
 
 .tag-tv-info {
   font-size: 0.55rem;
   opacity: 0.7;
   line-height: 1.2;
+}
+
+.tag-tv-info.tv-info-exclude,
+.tv-info-exclude {
+  color: #c0392b;
+  opacity: 1;
 }
 
 .image-tag-section .tag-name {

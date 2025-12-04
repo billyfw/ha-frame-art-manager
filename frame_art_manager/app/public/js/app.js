@@ -1698,14 +1698,34 @@ function renderImageTagBadges(tags) {
       tooltip = matchStrings.join(', ');
       
       // Build compact TV info display
-      let tvLabel = tvMatches.length > 1 
-        ? `${tvMatches.length} TVs` 
-        : (tvMatches[0].isExclude ? `ex:${tvMatches[0].tvName}` : tvMatches[0].tvName);
-      // Truncate to keep tags uniform width
-      if (tvLabel.length > 12) {
-        tvLabel = tvLabel.substring(0, 11) + '…';
+      const excludeCount = tvMatches.filter(m => m.isExclude).length;
+      const allExclude = excludeCount === tvMatches.length;
+      const someExclude = excludeCount > 0 && !allExclude;
+      
+      let tvLabel;
+      let colorClass = '';
+      
+      if (tvMatches.length === 1) {
+        tvLabel = tvMatches[0].isExclude ? `ex:${tvMatches[0].tvName}` : tvMatches[0].tvName;
+        if (tvMatches[0].isExclude) colorClass = ' tv-info-exclude';
+      } else if (allExclude) {
+        tvLabel = `${tvMatches.length} TVs`;
+        colorClass = ' tv-info-exclude';
+      } else if (someExclude) {
+        // Show "X TVs (Y ex)" with Y ex in red
+        tvInfoHtml = `<span class="tag-tv-info">${tvMatches.length} TVs <span class="tv-info-exclude">(${excludeCount} ex)</span></span>`;
+      } else {
+        tvLabel = `${tvMatches.length} TVs`;
       }
-      tvInfoHtml = `<span class="tag-tv-info">${escapeHtml(tvLabel)}</span>`;
+      
+      // Only build tvInfoHtml if not already set (for partial exclude case)
+      if (!tvInfoHtml) {
+        // Truncate to keep tags uniform width
+        if (tvLabel.length > 12) {
+          tvLabel = tvLabel.substring(0, 11) + '…';
+        }
+        tvInfoHtml = `<span class="tag-tv-info${colorClass}">${escapeHtml(tvLabel)}</span>`;
+      }
     }
     
     const hasMatchClass = tvMatches.length > 0 ? ' has-tv-match' : '';
