@@ -44,6 +44,7 @@
         </div>
 
         <div class="control-item control-settings">
+          <button type="button" id="open-analytics-btn" class="btn-icon btn-analytics" title="Analytics & Log">📊</button>
           <button type="button" id="open-advanced-btn" class="btn-icon btn-settings" title="Advanced settings">⚙</button>
         </div>
 
@@ -151,7 +152,6 @@
           <button class="advanced-tab-btn active" data-tab="settings">Settings</button>
           <button class="advanced-tab-btn" data-tab="metadata">Metadata</button>
           <button class="advanced-tab-btn" data-tab="sync">Sync Detail</button>
-          <button class="advanced-tab-btn" data-tab="analytics">Analytics</button>
         </div>
 
         <!-- Settings Sub-tab -->
@@ -214,9 +214,18 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- Analytics Sub-tab -->
-        <div id="advanced-analytics-content" class="advanced-tab-content">
+    <!-- Analytics Tab -->
+    <div id="analytics-tab" class="tab-content">
+      <div class="section">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <h2 style="margin:0;">Analytics & Log</h2>
+          <button id="go-home-analytics-btn" class="btn-icon close-simple" title="Back to Gallery">✕</button>
+        </div>
+        
+        <div class="analytics-page-content">
           <!-- Overall chart by image -->
           <div class="analytics-top-chart">
             <div class="top-chart-container">

@@ -439,6 +439,23 @@ body {
   color: #2c3e50;
 }
 
+.btn-analytics {
+  flex-shrink: 0;
+  font-size: 22px !important;
+  padding: 8px 6px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #7f8c8d;
+  transition: color 0.2s;
+  line-height: 1;
+}
+
+.btn-analytics:hover {
+  color: #2c3e50;
+}
+
 /* Sync Button/Indicator */
 .btn-sync {
   flex-shrink: 0;
@@ -3351,6 +3368,11 @@ body {
   color: #7f8c8d;
 }
 
+/* Analytics page content */
+.analytics-page-content {
+  margin-top: 20px;
+}
+
 /* Top Image Pie Chart */
 .analytics-top-chart {
   margin-bottom: 20px;
@@ -3448,18 +3470,32 @@ body {
 .distribution-stats {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
   font-size: 0.85rem;
   color: #5a6c7d;
   margin-bottom: 15px;
+}
+
+.dist-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #2c3e50;
+  white-space: nowrap;
+}
+
+.dist-metrics {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .dist-stat {
   white-space: nowrap;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: #2c3e50;
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: #7f8c8d;
 }
 
 .dist-stat-sep {
