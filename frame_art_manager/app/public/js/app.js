@@ -6097,7 +6097,8 @@ function renderTagDetail(tagName) {
   
   // TV breakdown - stacked horizontal bar (only if multiple TVs)
   const totalTvCount = Object.keys(analyticsData.tvs || {}).length;
-  if (perTv.length > 0 && totalTvCount > 1) {
+  const showStackedBar = perTv.length > 0 && totalTvCount > 1;
+  if (showStackedBar) {
     const segments = perTv.map((tv, index) => {
       const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
       const color = CHART_COLORS[index % CHART_COLORS.length];
@@ -6119,8 +6120,8 @@ function renderTagDetail(tagName) {
     `;
   }
   
-  // Event log for this tag
-  html += renderTagEventLog(tagName);
+  // Event log for this tag (show separator only if stacked bar is shown)
+  html += renderTagEventLog(tagName, showStackedBar);
   
   container.innerHTML = html;
   
@@ -6908,7 +6909,7 @@ function updateDateRangeHint() {
 }
 
 // Render event log for a tag (all events for images with this tag)
-function renderTagEventLog(tagName) {
+function renderTagEventLog(tagName, showSeparator = true) {
   const images = analyticsData?.images || {};
   const tvs = analyticsData?.tvs || {};
   
@@ -6943,8 +6944,10 @@ function renderTagEventLog(tagName) {
     }
   }
   
+  const separatorClass = showSeparator ? '' : ' no-separator';
+  
   if (allEvents.length === 0) {
-    return '<div class="event-log"><div class="event-log-title">Display Events</div><div class="event-log-empty">No events in selected time range</div></div>';
+    return `<div class="event-log${separatorClass}"><div class="event-log-title">Display Events</div><div class="event-log-empty">No events in selected time range</div></div>`;
   }
   
   // Sort by start time descending
@@ -6966,7 +6969,7 @@ function renderTagEventLog(tagName) {
   }).join('');
   
   return `
-    <div class="event-log">
+    <div class="event-log${separatorClass}">
       <div class="event-log-title">Display Events (${allEvents.length})</div>
       <div class="event-log-header">
         <span>Date</span>

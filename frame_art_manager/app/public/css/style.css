@@ -3903,6 +3903,12 @@ body {
   border-top: 1px solid #dce0e5;
 }
 
+.event-log.no-separator {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
 .event-log-title {
   font-size: 0.85rem;
   font-weight: 600;
