@@ -1064,6 +1064,24 @@ body {
   flex-direction: column;
 }
 
+.stats-link {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  z-index: 1;
+}
+
+.stats-link:hover {
+  opacity: 0.9;
+}
+
 .image-filename {
   font-weight: 600;
   color: #2c3e50;
