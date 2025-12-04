@@ -149,7 +149,7 @@ const METADATA_DEFAULT_MATTE = 'none';
 const METADATA_DEFAULT_FILTER = 'None';
 
 const ADVANCED_TAB_DEFAULT = 'settings';
-const VALID_ADVANCED_TABS = new Set(['settings', 'metadata', 'sync', 'analytics']);
+const VALID_ADVANCED_TABS = new Set(['settings', 'metadata', 'sync']);
 
 function normalizeEditingFilterName(name) {
   if (!name) return 'none';
@@ -213,9 +213,17 @@ function handleRoute() {
   if (hash.startsWith('/advanced')) {
     const parts = hash.split('/');
     const requestedTab = parts[2] || ADVANCED_TAB_DEFAULT; // /advanced/sync -> 'sync'
+    // Redirect old analytics URL to new location
+    if (requestedTab === 'analytics') {
+      navigateTo('/analytics');
+      return;
+    }
     const subTab = VALID_ADVANCED_TABS.has(requestedTab) ? requestedTab : ADVANCED_TAB_DEFAULT;
     switchToTab('advanced');
     switchToAdvancedSubTab(subTab);
+  } else if (hash === '/analytics') {
+    switchToTab('analytics');
+    loadAnalytics();
   } else if (hash === '/upload') {
     switchToTab('upload');
   } else {
@@ -248,8 +256,6 @@ function switchToAdvancedSubTab(tabName) {
     }, 0);
   } else if (targetTab === 'metadata') {
     loadMetadata();
-  } else if (targetTab === 'analytics') {
-    loadAnalytics();
   }
 }
 
@@ -1059,7 +1065,9 @@ function initUploadNavigation() {
 
 function initSettingsNavigation() {
   const openAdvancedBtn = document.getElementById('open-advanced-btn');
+  const openAnalyticsBtn = document.getElementById('open-analytics-btn');
   const goHomeBtn = document.getElementById('go-home-btn');
+  const goHomeAnalyticsBtn = document.getElementById('go-home-analytics-btn');
 
   if (openAdvancedBtn) {
     openAdvancedBtn.addEventListener('click', () => {
@@ -1074,8 +1082,26 @@ function initSettingsNavigation() {
     });
   }
 
+  if (openAnalyticsBtn) {
+    openAnalyticsBtn.addEventListener('click', () => {
+      // Close any open dropdowns in the gallery toolbar
+      const tagFilterBtn = document.getElementById('tag-filter-btn');
+      const tagFilterDropdown = document.getElementById('tag-filter-dropdown');
+      tagFilterBtn?.classList.remove('active');
+      tagFilterDropdown?.classList.remove('active');
+      closeTagDropdownPortal();
+      navigateTo('/analytics');
+    });
+  }
+
   if (goHomeBtn) {
     goHomeBtn.addEventListener('click', () => {
+      navigateTo('/');
+    });
+  }
+
+  if (goHomeAnalyticsBtn) {
+    goHomeAnalyticsBtn.addEventListener('click', () => {
       navigateTo('/');
     });
   }
@@ -5213,6 +5239,13 @@ async function loadAnalytics() {
   if (tvSummaryList) tvSummaryList.innerHTML = '<div class="loading-indicator">Loading analytics...</div>';
   
   try {
+    // Ensure gallery data is loaded (needed for histogram)
+    if (!galleryHasLoadedAtLeastOnce) {
+      const galleryResponse = await fetch(`${API_BASE}/images`);
+      allImages = await galleryResponse.json();
+      galleryHasLoadedAtLeastOnce = true;
+    }
+    
     const response = await fetch(`${API_BASE}/analytics/summary`);
     const result = await response.json();
     
@@ -5351,13 +5384,16 @@ function renderOverallPieChart() {
   // Render stats line
   if (statsContainer) {
     statsContainer.innerHTML = `
-      <span class="dist-stat">${count} images</span>
-      <span class="dist-stat-sep">•</span>
-      <span class="dist-stat">Avg: ${formatHoursNice(avgSeconds)}</span>
-      <span class="dist-stat-sep">•</span>
-      <span class="dist-stat">Median: ${formatHoursNice(medianSeconds)}</span>
-      <span class="dist-stat-sep">•</span>
-      <span class="dist-stat">Range: ${formatHoursNice(minSeconds)} – ${formatHoursNice(maxSeconds)}</span>
+      <span class="dist-title">Accumulated Display Time</span>
+      <span class="dist-metrics">
+        <span class="dist-stat">${count} images</span>
+        <span class="dist-stat-sep">•</span>
+        <span class="dist-stat">Avg: ${formatHoursNice(avgSeconds)}</span>
+        <span class="dist-stat-sep">•</span>
+        <span class="dist-stat">Median: ${formatHoursNice(medianSeconds)}</span>
+        <span class="dist-stat-sep">•</span>
+        <span class="dist-stat">Range: ${formatHoursNice(minSeconds)} – ${formatHoursNice(maxSeconds)}</span>
+      </span>
     `;
   }
   
@@ -5570,8 +5606,8 @@ function renderTVDetail(tvId) {
     return;
   }
   
-  const perImage = tvData.per_image || [];
-  const perTag = tvData.per_tag || [];
+  // Get time-filtered data for this TV
+  const perImage = getTopImagesForTVInRange(tvId);
   
   // Calculate stats for selected time range
   const tvStats = calculateTVStatsForRange(tvId);
@@ -5927,8 +5963,10 @@ function renderTagDetail(tagName) {
   }
   
   const displayTag = tagName === '<none>' ? '(untagged)' : tagName;
-  const perTv = tagData.per_tv || [];
-  const topImages = tagData.top_images || [];
+  
+  // Get time-filtered data for this tag
+  const perTv = getPerTVStatsForTagInRange(tagName);
+  const topImages = getTopImagesForTagInRange(tagName);
   
   // Calculate stats for selected time range
   const tagStats = calculateTagStatsForRange(tagName);
@@ -6047,7 +6085,8 @@ function renderImageDetail(filename) {
     return;
   }
   
-  const perTv = imageData.per_tv || [];
+  // Get time-filtered data for this image
+  const perTv = getPerTVStatsForImageInRange(filename);
   const tags = imageData.tags || [];
   
   // Calculate stats for selected time range
@@ -6592,6 +6631,150 @@ function calculateImageStatsForRange(filename) {
   }
   
   return { totalSeconds, eventCount, tvCount: tvsWithActivity.size };
+}
+
+// Helper: get top images for a TV within the selected time range
+function getTopImagesForTVInRange(tvId) {
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  const images = analyticsData?.images || {};
+  const imageSeconds = {};
+  
+  for (const [filename, imageData] of Object.entries(images)) {
+    const periods = imageData.display_periods?.[tvId] || [];
+    let seconds = 0;
+    for (const period of periods) {
+      if (period.end > rangeStart) {
+        const start = Math.max(period.start, rangeStart);
+        const end = Math.min(period.end, now);
+        seconds += (end - start) / 1000;
+      }
+    }
+    if (seconds > 0) {
+      imageSeconds[filename] = seconds;
+    }
+  }
+  
+  // Sort by seconds descending and return top entries
+  return Object.entries(imageSeconds)
+    .map(([filename, seconds]) => ({ filename, seconds }))
+    .sort((a, b) => b.seconds - a.seconds);
+}
+
+// Helper: get top images for a tag within the selected time range
+function getTopImagesForTagInRange(tagName) {
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  const images = analyticsData?.images || {};
+  const imageSeconds = {};
+  
+  for (const [filename, imageData] of Object.entries(images)) {
+    const imageTags = imageData.tags || [];
+    const hasTag = tagName === '<none>' 
+      ? imageTags.length === 0 
+      : imageTags.includes(tagName);
+    
+    if (!hasTag) continue;
+    
+    let seconds = 0;
+    for (const [tvId, periods] of Object.entries(imageData.display_periods || {})) {
+      for (const period of periods) {
+        if (period.end > rangeStart) {
+          const start = Math.max(period.start, rangeStart);
+          const end = Math.min(period.end, now);
+          seconds += (end - start) / 1000;
+        }
+      }
+    }
+    if (seconds > 0) {
+      imageSeconds[filename] = seconds;
+    }
+  }
+  
+  return Object.entries(imageSeconds)
+    .map(([filename, seconds]) => ({ filename, seconds }))
+    .sort((a, b) => b.seconds - a.seconds);
+}
+
+// Helper: get per-TV stats for an image within the selected time range
+function getPerTVStatsForImageInRange(filename) {
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  const imageData = analyticsData?.images?.[filename];
+  if (!imageData) return [];
+  
+  const tvStats = {};
+  let totalSeconds = 0;
+  
+  for (const [tvId, periods] of Object.entries(imageData.display_periods || {})) {
+    let seconds = 0;
+    for (const period of periods) {
+      if (period.end > rangeStart) {
+        const start = Math.max(period.start, rangeStart);
+        const end = Math.min(period.end, now);
+        seconds += (end - start) / 1000;
+      }
+    }
+    if (seconds > 0) {
+      tvStats[tvId] = seconds;
+      totalSeconds += seconds;
+    }
+  }
+  
+  // Return array with share percentages
+  return Object.entries(tvStats)
+    .map(([tv_id, seconds]) => ({
+      tv_id,
+      seconds,
+      share: totalSeconds > 0 ? (seconds / totalSeconds) * 100 : 0
+    }))
+    .sort((a, b) => b.seconds - a.seconds);
+}
+
+// Helper: get per-TV stats for a tag within the selected time range
+function getPerTVStatsForTagInRange(tagName) {
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  const images = analyticsData?.images || {};
+  const tvStats = {};
+  let totalSeconds = 0;
+  
+  for (const [filename, imageData] of Object.entries(images)) {
+    const imageTags = imageData.tags || [];
+    const hasTag = tagName === '<none>' 
+      ? imageTags.length === 0 
+      : imageTags.includes(tagName);
+    
+    if (!hasTag) continue;
+    
+    for (const [tvId, periods] of Object.entries(imageData.display_periods || {})) {
+      for (const period of periods) {
+        if (period.end > rangeStart) {
+          const start = Math.max(period.start, rangeStart);
+          const end = Math.min(period.end, now);
+          const seconds = (end - start) / 1000;
+          tvStats[tvId] = (tvStats[tvId] || 0) + seconds;
+          totalSeconds += seconds;
+        }
+      }
+    }
+  }
+  
+  return Object.entries(tvStats)
+    .map(([tv_id, seconds]) => ({
+      tv_id,
+      seconds,
+      share: totalSeconds > 0 ? (seconds / totalSeconds) * 100 : 0
+    }))
+    .sort((a, b) => b.seconds - a.seconds);
 }
 
 // Helper: format date range for display
