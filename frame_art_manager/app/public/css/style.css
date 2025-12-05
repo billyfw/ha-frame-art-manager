@@ -3869,12 +3869,16 @@ body {
   border-bottom: 1px solid #f5f5f5;
 }
 
-.bucket-row.clickable {
+.bucket-row {
   cursor: pointer;
 }
 
-.bucket-row.clickable:hover {
+.bucket-row:hover {
   background: #f8f9fa;
+}
+
+.bucket-row.selected {
+  background: #e8f4f8;
 }
 
 .bucket-row:last-child {
@@ -3886,6 +3890,29 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bucket-open-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: #3498db;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.bucket-row:hover .bucket-open-btn {
+  display: inline-block;
+}
+
+.bucket-open-btn:hover {
+  color: #2980b9;
 }
 
 .bucket-tags {
