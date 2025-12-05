@@ -3832,7 +3832,7 @@ body {
 
 .bucket-table-header {
   display: grid;
-  grid-template-columns: 28px 2fr 2fr 130px;
+  grid-template-columns: 32px 36px 2fr 2fr 130px;
   gap: 8px;
   font-size: 0.65rem;
   color: #7f8c8d;
@@ -3842,6 +3842,10 @@ body {
   margin-bottom: 5px;
 }
 
+.bucket-table-header .center {
+  text-align: center;
+}
+
 .bucket-table-scroll {
   max-height: 300px;
   overflow-y: auto;
@@ -3849,7 +3853,7 @@ body {
 
 .bucket-row {
   display: grid;
-  grid-template-columns: 28px 2fr 2fr 130px;
+  grid-template-columns: 32px 36px 2fr 2fr 130px;
   gap: 8px;
   font-size: 0.75rem;
   padding: 4px 0;
@@ -3889,6 +3893,11 @@ body {
 
 .bucket-time.zero {
   color: #e74c3c;
+}
+
+.bucket-count {
+  color: #7f8c8d;
+  text-align: center;
 }
 
 .bucket-date {

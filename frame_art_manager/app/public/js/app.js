@@ -5652,35 +5652,43 @@ function renderOverallPieChart() {
   const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
   const rangeStart = now - rangeMs;
   
-  // Helper to calculate display seconds within the time range for an image
-  function getImageSecondsInRange(imageData) {
-    if (!imageData?.display_periods) return 0;
+  // Helper to calculate display seconds and count within the time range for an image
+  function getImageStatsInRange(imageData) {
+    if (!imageData?.display_periods) return { seconds: 0, count: 0 };
     let seconds = 0;
+    let count = 0;
     for (const [tvId, periods] of Object.entries(imageData.display_periods)) {
       for (const period of periods) {
         if (period.end > rangeStart) {
           const start = Math.max(period.start, rangeStart);
           const end = Math.min(period.end, now);
           seconds += (end - start) / 1000;
+          count++;
         }
       }
     }
-    return seconds;
+    return { seconds, count };
   }
   
   // Merge gallery images with analytics data - include ALL images from gallery
   // Images not in analytics get 0 seconds, others get time-filtered seconds
-  const mergedImages = galleryImageNames.map(name => ({
-    name,
-    seconds: getImageSecondsInRange(analyticsImages[name])
-  }));
+  const mergedImages = galleryImageNames.map(name => {
+    const stats = getImageStatsInRange(analyticsImages[name]);
+    return {
+      name,
+      seconds: stats.seconds,
+      displayCount: stats.count
+    };
+  });
   
   // Also include any images in analytics that might not be in gallery (edge case)
   Object.keys(analyticsImages).forEach(name => {
     if (!allImages[name]) {
+      const stats = getImageStatsInRange(analyticsImages[name]);
       mergedImages.push({
         name,
-        seconds: getImageSecondsInRange(analyticsImages[name])
+        seconds: stats.seconds,
+        displayCount: stats.count
       });
     }
   });
@@ -5853,6 +5861,7 @@ function toggleBucketDetail(bucketIndex) {
       : '<span class="bucket-tag untagged">(untagged)</span>';
     const displayTime = formatHoursNice(img.seconds);
     const isZeroTime = img.seconds === 0;
+    const displayCount = img.displayCount || 0;
     const addedDate = imageData.added ? formatDate(imageData.added) : '—';
     const daysAgo = imageData.added ? formatDaysAgo(imageData.added) : '';
     const uploadDisplay = imageData.added ? `${addedDate} (${daysAgo})` : '—';
@@ -5861,6 +5870,7 @@ function toggleBucketDetail(bucketIndex) {
     return `
       <div class="bucket-row clickable" data-filename="${escapeHtml(img.name)}">
         <span class="bucket-time${isZeroTime ? ' zero' : ''}">${displayTime}</span>
+        <span class="bucket-count">${displayCount}</span>
         <span class="bucket-filename" title="${escapeHtml(img.name)}">${escapeHtml(displayName)}</span>
         <span class="bucket-tags">${tagsHtml}</span>
         <span class="bucket-date">${uploadDisplay}</span>
@@ -5871,7 +5881,8 @@ function toggleBucketDetail(bucketIndex) {
   detailContainer.innerHTML = `
     <div class="bucket-table-wrapper">
       <div class="bucket-table-header">
-        <span></span>
+        <span>Time</span>
+        <span class="center">Count</span>
         <span>Filename</span>
         <span>Tags</span>
         <span>Upload Date</span>
