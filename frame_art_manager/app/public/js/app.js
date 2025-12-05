@@ -5637,6 +5637,8 @@ function renderAnalyticsSummary() {
 // Store buckets globally for click handlers
 let histogramBuckets = [];
 let selectedBucketIndex = -1;
+let bucketSortColumn = 'time'; // 'time' or 'count'
+let bucketSortAsc = true;
 
 function renderOverallPieChart() {
   const container = document.getElementById('analytics-image-pie');
@@ -5831,25 +5833,45 @@ function toggleBucketDetail(bucketIndex) {
   }
   
   selectedBucketIndex = bucketIndex;
-  const bucket = histogramBuckets[bucketIndex];
   
   // Update selected state on bars
   container.querySelectorAll('.histogram-bar').forEach(bar => {
     bar.classList.toggle('selected', parseInt(bar.dataset.bucketIndex) === bucketIndex);
   });
   
+  // Reset sort to default when opening new bucket
+  bucketSortColumn = 'time';
+  bucketSortAsc = true;
+  
+  renderBucketDetailTable();
+}
+
+// Render the bucket detail table (called by toggleBucketDetail and sort handlers)
+function renderBucketDetailTable() {
+  const detailContainer = document.getElementById('analytics-bucket-detail');
+  if (!detailContainer || selectedBucketIndex < 0) return;
+  
+  const bucket = histogramBuckets[selectedBucketIndex];
   if (!bucket || bucket.images.length === 0) {
     detailContainer.innerHTML = '';
     return;
   }
   
-  // Sort images: display time ascending (less time toward top), then upload date ascending (oldest first)
+  // Sort images based on current sort column and direction
   const sortedImages = [...bucket.images].sort((a, b) => {
-    if (a.seconds !== b.seconds) return a.seconds - b.seconds;
-    // For upload date, get from allImages
-    const dateA = allImages[a.name]?.added || '';
-    const dateB = allImages[b.name]?.added || '';
-    return dateA.localeCompare(dateB); // ascending (oldest first)
+    let cmp = 0;
+    if (bucketSortColumn === 'time') {
+      cmp = a.seconds - b.seconds;
+    } else if (bucketSortColumn === 'count') {
+      cmp = (a.displayCount || 0) - (b.displayCount || 0);
+    }
+    // Secondary sort by upload date ascending
+    if (cmp === 0) {
+      const dateA = allImages[a.name]?.added || '';
+      const dateB = allImages[b.name]?.added || '';
+      cmp = dateA.localeCompare(dateB);
+    }
+    return bucketSortAsc ? cmp : -cmp;
   });
   
   // Build table rows
@@ -5878,11 +5900,14 @@ function toggleBucketDetail(bucketIndex) {
     `;
   }).join('');
   
+  const timeArrow = bucketSortColumn === 'time' ? (bucketSortAsc ? ' ▲' : ' ▼') : '';
+  const countArrow = bucketSortColumn === 'count' ? (bucketSortAsc ? ' ▲' : ' ▼') : '';
+  
   detailContainer.innerHTML = `
     <div class="bucket-table-wrapper">
       <div class="bucket-table-header">
-        <span>Time</span>
-        <span class="center">Count</span>
+        <span class="sortable" data-sort="time">Time${timeArrow}</span>
+        <span class="sortable center" data-sort="count">Count${countArrow}</span>
         <span>Filename</span>
         <span>Tags</span>
         <span>Upload Date</span>
@@ -5892,6 +5917,20 @@ function toggleBucketDetail(bucketIndex) {
       </div>
     </div>
   `;
+  
+  // Add click handlers for sortable headers
+  detailContainer.querySelectorAll('.bucket-table-header .sortable').forEach(header => {
+    header.addEventListener('click', () => {
+      const col = header.dataset.sort;
+      if (bucketSortColumn === col) {
+        bucketSortAsc = !bucketSortAsc;
+      } else {
+        bucketSortColumn = col;
+        bucketSortAsc = true;
+      }
+      renderBucketDetailTable();
+    });
+  });
   
   // Add click handlers for rows
   detailContainer.querySelectorAll('.bucket-row.clickable').forEach(row => {

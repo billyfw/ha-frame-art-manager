@@ -3832,7 +3832,7 @@ body {
 
 .bucket-table-header {
   display: grid;
-  grid-template-columns: 32px 36px 2fr 2fr 130px;
+  grid-template-columns: 42px 50px 2fr 2fr 130px;
   gap: 8px;
   font-size: 0.65rem;
   color: #7f8c8d;
@@ -3846,6 +3846,15 @@ body {
   text-align: center;
 }
 
+.bucket-table-header .sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.bucket-table-header .sortable:hover {
+  color: #3498db;
+}
+
 .bucket-table-scroll {
   max-height: 300px;
   overflow-y: auto;
@@ -3853,7 +3862,7 @@ body {
 
 .bucket-row {
   display: grid;
-  grid-template-columns: 32px 36px 2fr 2fr 130px;
+  grid-template-columns: 42px 50px 2fr 2fr 130px;
   gap: 8px;
   font-size: 0.75rem;
   padding: 4px 0;
