@@ -5956,7 +5956,7 @@ function renderBucketDetailTable() {
       e.stopPropagation();
       const row = btn.closest('.bucket-row');
       const filename = row?.dataset.filename;
-      if (filename) openImageModal(filename);
+      if (filename && allImages[filename]) openImageModal(filename);
     });
   });
 }
