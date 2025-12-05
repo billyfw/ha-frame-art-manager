@@ -5890,10 +5890,10 @@ function renderBucketDetailTable() {
     const displayName = getAnalyticsDisplayName(img.name);
     
     return `
-      <div class="bucket-row clickable" data-filename="${escapeHtml(img.name)}">
+      <div class="bucket-row" data-filename="${escapeHtml(img.name)}">
         <span class="bucket-time${isZeroTime ? ' zero' : ''}">${displayTime}</span>
         <span class="bucket-count">${displayCount}</span>
-        <span class="bucket-filename" title="${escapeHtml(img.name)}">${escapeHtml(displayName)}</span>
+        <span class="bucket-filename" title="${escapeHtml(img.name)}">${escapeHtml(displayName)}<button class="bucket-open-btn" title="Open image">⤴</button></span>
         <span class="bucket-tags">${tagsHtml}</span>
         <span class="bucket-date">${uploadDisplay}</span>
       </div>
@@ -5932,10 +5932,30 @@ function renderBucketDetailTable() {
     });
   });
   
-  // Add click handlers for rows
-  detailContainer.querySelectorAll('.bucket-row.clickable').forEach(row => {
-    row.addEventListener('click', () => {
+  // Add click handlers for rows (select image in 3rd column)
+  detailContainer.querySelectorAll('.bucket-row').forEach(row => {
+    row.addEventListener('click', (e) => {
+      // Don't select if clicking the open button
+      if (e.target.classList.contains('bucket-open-btn')) return;
+      
       const filename = row.dataset.filename;
+      if (filename) {
+        // Remove selected from all rows, add to this one
+        detailContainer.querySelectorAll('.bucket-row').forEach(r => r.classList.remove('selected'));
+        row.classList.add('selected');
+        
+        // Update the 3rd column display
+        renderAnalyticsThirdColumn(filename);
+      }
+    });
+  });
+  
+  // Add click handlers for open buttons
+  detailContainer.querySelectorAll('.bucket-open-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const row = btn.closest('.bucket-row');
+      const filename = row?.dataset.filename;
       if (filename) openImageModal(filename);
     });
   });
