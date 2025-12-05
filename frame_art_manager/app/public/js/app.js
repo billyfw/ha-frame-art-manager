@@ -5893,7 +5893,7 @@ function renderBucketDetailTable() {
       <div class="bucket-row" data-filename="${escapeHtml(img.name)}">
         <span class="bucket-time${isZeroTime ? ' zero' : ''}">${displayTime}</span>
         <span class="bucket-count">${displayCount}</span>
-        <span class="bucket-filename" title="${escapeHtml(img.name)}">${escapeHtml(displayName)}<button class="bucket-open-btn" title="Open image">⤴</button></span>
+        <span class="bucket-filename" title="${escapeHtml(img.name)}">${escapeHtml(displayName)}<button class="bucket-open-btn" title="Open image">⧉</button></span>
         <span class="bucket-tags">${tagsHtml}</span>
         <span class="bucket-date">${uploadDisplay}</span>
       </div>
@@ -5945,7 +5945,7 @@ function renderBucketDetailTable() {
         row.classList.add('selected');
         
         // Update the 3rd column display
-        renderAnalyticsThirdColumn(filename);
+        selectAnalyticsImage(filename);
       }
     });
   });
