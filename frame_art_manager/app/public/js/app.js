@@ -2338,14 +2338,31 @@ function initUploadForm() {
   if (!form) return;
 
   const fileInput = document.getElementById('image-file');
+  const clearFileBtn = document.getElementById('clear-file-btn');
+  
   if (fileInput) {
     fileInput.addEventListener('change', async (event) => {
       const file = event.target.files && event.target.files[0] ? event.target.files[0] : null;
       await updateUploadPreview(file);
+      // Show/hide clear button based on file selection
+      if (clearFileBtn) {
+        clearFileBtn.classList.toggle('hidden', !file);
+      }
     });
   }
 
-  form.addEventListener('reset', () => updateUploadPreview(null));
+  if (clearFileBtn && fileInput) {
+    clearFileBtn.addEventListener('click', async () => {
+      fileInput.value = '';
+      await updateUploadPreview(null);
+      clearFileBtn.classList.add('hidden');
+    });
+  }
+
+  form.addEventListener('reset', () => {
+    updateUploadPreview(null);
+    if (clearFileBtn) clearFileBtn.classList.add('hidden');
+  });
   updateUploadPreview(null);
 
   form.addEventListener('submit', async (e) => {
