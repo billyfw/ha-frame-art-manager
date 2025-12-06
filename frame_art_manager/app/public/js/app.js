@@ -6015,7 +6015,7 @@ function renderTVDetail(tvId) {
       <div class="stat-row-inline">
         <span class="stat-inline"><strong>${formatHoursNice(tvStats.totalSeconds)}</strong> display time</span>
         <span class="stat-sep">·</span>
-        <span class="stat-inline"><strong>${tvStats.eventCount}</strong> events</span>
+        <span class="stat-inline"><strong>${tvStats.eventCount}</strong> shuffles</span>
       </div>
     `;
   }
@@ -6356,7 +6356,7 @@ function renderTagDetail(tagName) {
       <div class="stat-row-inline">
         <span class="stat-inline"><strong>${formatHoursNice(tagStats.totalSeconds)}</strong> display time</span>
         <span class="stat-sep">·</span>
-        <span class="stat-inline"><strong>${tagStats.eventCount}</strong> events</span>
+        <span class="stat-inline"><strong>${tagStats.eventCount}</strong> appearances</span>
       </div>
     `;
   }
@@ -6462,7 +6462,7 @@ function renderImageDetail(filename) {
       <div class="stat-row-inline">
         <span class="stat-inline"><strong>${formatHoursNice(imageStats.totalSeconds)}</strong> display time</span>
         <span class="stat-sep">·</span>
-        <span class="stat-inline"><strong>${imageStats.eventCount}</strong> events</span>
+        <span class="stat-inline"><strong>${imageStats.eventCount}</strong> appearances</span>
         <span class="stat-sep">·</span>
         <span class="stat-inline">Last displayed <strong>${lastDisplayText}</strong></span>
       </div>
