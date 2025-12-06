@@ -1297,22 +1297,58 @@ body {
 .file-input-wrapper {
   display: flex;
   align-items: center;
-  gap: 8px;
+  position: relative;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  overflow: hidden;
 }
 
 .file-input-wrapper input[type="file"] {
   flex: 1;
   min-width: 0;
+  padding-right: 28px; /* Make room for clear button */
+  border: none;
+  background: transparent;
+}
+
+/* Style the file input button */
+.file-input-wrapper input[type="file"]::file-selector-button {
+  background: #f0f0f0;
+  border: none;
+  border-right: 1px solid #ddd;
+  padding: 10px 15px;
+  margin-right: 10px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.file-input-wrapper input[type="file"]::file-selector-button:hover {
+  background: #e0e0e0;
+}
+
+/* Webkit prefix for older browsers */
+.file-input-wrapper input[type="file"]::-webkit-file-upload-button {
+  background: #f0f0f0;
+  border: none;
+  border-right: 1px solid #ddd;
+  padding: 10px 15px;
+  margin-right: 10px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.file-input-wrapper input[type="file"]::-webkit-file-upload-button:hover {
+  background: #e0e0e0;
 }
 
 .btn-clear-file {
-  background: #e74c3c;
-  color: white;
+  background: transparent;
+  color: #e74c3c;
   border: none;
-  border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  font-size: 14px;
+  width: 24px;
+  height: 24px;
+  font-size: 18px;
   font-weight: bold;
   cursor: pointer;
   display: flex;
@@ -1321,10 +1357,14 @@ body {
   flex-shrink: 0;
   padding: 0;
   line-height: 1;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .btn-clear-file:hover {
-  background: #c0392b;
+  color: #c0392b;
 }
 
 .btn-clear-file.hidden {
