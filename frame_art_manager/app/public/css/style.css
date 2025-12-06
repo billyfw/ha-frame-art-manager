@@ -2519,17 +2519,111 @@ body {
     white-space: nowrap;
   }
 
-  /* Gallery toolbar on mobile */
+  /* Gallery toolbar on mobile - 3 row layout */
   .gallery-toolbar {
     flex-wrap: wrap;
     gap: 8px;
+    align-items: center;
   }
 
+  /* Row 1: Add buttons + settings/sync icons */
   .btn-add {
-    flex: 1 1 calc(50% - 4px);
-    min-width: 100px;
-    padding: 8px 12px;
+    order: 1;
+    flex: 0 0 auto;
+    min-width: auto;
+    padding: 8px 16px;
     font-size: 0.9rem;
+  }
+
+  .control-settings {
+    order: 2;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .control-sync {
+    order: 3;
+  }
+
+  /* Row 2 & 3: Controls container takes full width */
+  .gallery-toolbar .controls {
+    order: 4;
+    width: 100%;
+    flex: 0 0 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    height: auto;
+  }
+
+  /* Row 2: Search + Sort on same line */
+  .control-search {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    background: #f8f9fa;
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    padding: 6px 10px;
+    height: 42px;
+  }
+
+  .control-sort {
+    order: 2;
+    flex: 0 0 auto;
+    background: #f8f9fa;
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-left: 8px;
+    height: 42px;
+  }
+
+  /* Row 3: Tag filter takes full width */
+  .control-filter {
+    order: 3;
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: none;
+    background: #f8f9fa;
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-top: 8px;
+    height: 42px;
+  }
+
+  /* Reset control-item borders for mobile */
+  .gallery-toolbar .control-item {
+    border-right: none;
+    border-bottom: none;
+  }
+
+  /* Make inputs/selects fit nicely */
+  .control-search input {
+    width: 100%;
+    min-width: 0;
+    font-size: 16px;
+    padding: 4px 8px;
+  }
+
+  .control-sort select {
+    font-size: 16px;
+    padding: 4px;
+  }
+
+  .control-filter .custom-multiselect {
+    width: 100%;
+  }
+
+  .control-filter .multiselect-button {
+    width: 100%;
+    font-size: 16px;
   }
 
   .image-grid {
@@ -2572,33 +2666,6 @@ body {
 
   .bulk-actions-buttons button {
     width: 100%;
-  }
-
-  .controls {
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px;
-  }
-
-  .control-item {
-    border-right: none;
-    border-bottom: 1px solid #e1e4e8;
-    padding: 8px 0;
-  }
-
-  .control-item:last-child {
-    border-bottom: none;
-  }
-
-  .control-search {
-    min-width: 100%;
-  }
-
-  .controls input,
-  .controls select {
-    min-width: 100%;
-    font-size: 16px;
-    padding: 8px;
   }
 
   /* Modal adjustments */
@@ -2659,8 +2726,8 @@ body {
   }
 }
 
-/* Toolbar no-wrap overrides: keep controls on a single line on all widths */
-@media (max-width: 1200px) {
+/* Toolbar no-wrap overrides: keep controls on a single line for tablets (768px-1200px) */
+@media (min-width: 769px) and (max-width: 1200px) {
   .controls {
     flex-direction: row !important;
     flex-wrap: nowrap !important;
