@@ -1294,6 +1294,43 @@ body {
   color: #2c3e50;
 }
 
+.file-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-input-wrapper input[type="file"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-clear-file {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+}
+
+.btn-clear-file:hover {
+  background: #c0392b;
+}
+
+.btn-clear-file.hidden {
+  display: none;
+}
+
 .form-group input,
 .form-group select {
   width: 100%;
