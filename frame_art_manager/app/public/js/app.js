@@ -5484,6 +5484,7 @@ let selectedTimeRange = '1w'; // default to 1 week
 // Time range options in milliseconds
 const TIME_RANGES = {
   '1h': 60 * 60 * 1000,
+  '12h': 12 * 60 * 60 * 1000,
   '1d': 24 * 60 * 60 * 1000,
   '1w': 7 * 24 * 60 * 60 * 1000,
   '1mo': 30 * 24 * 60 * 60 * 1000,
@@ -6045,6 +6046,7 @@ function generateTimelineAxis(rangeStart, rangeMs, isCompact = false) {
   // Determine tick interval based on selected time range
   const tickConfig = {
     '1h': { interval: 15 * 60 * 1000, format: { hour: 'numeric', minute: '2-digit' } },           // 15 min
+    '12h': { interval: 2 * 60 * 60 * 1000, format: { hour: 'numeric' } },                         // 2 hours
     '1d': { interval: 4 * 60 * 60 * 1000, format: { hour: 'numeric' } },                          // 4 hours
     '1w': { interval: 24 * 60 * 60 * 1000, format: { weekday: 'short' } },                        // 1 day
     '1mo': { interval: 7 * 24 * 60 * 60 * 1000, format: { month: 'short', day: 'numeric' } },     // 1 week
@@ -6068,7 +6070,7 @@ function generateTimelineAxis(rangeStart, rangeMs, isCompact = false) {
   
   // Edge labels
   const startDate = new Date(rangeStart);
-  const startFormat = (selectedTimeRange === '1h' || selectedTimeRange === '1d') 
+  const startFormat = (selectedTimeRange === '1h' || selectedTimeRange === '12h' || selectedTimeRange === '1d') 
     ? { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
     : { month: 'short', day: 'numeric' };
   const startLabel = startDate.toLocaleString(undefined, startFormat);
