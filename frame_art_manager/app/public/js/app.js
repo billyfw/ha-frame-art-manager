@@ -1195,10 +1195,14 @@ function handleImageClick(filename, index, event) {
 function updateBulkActionsBar() {
   const bulkActions = document.getElementById('bulk-actions');
   const selectedCount = document.getElementById('selected-count');
+  const selectedCountMobile = document.getElementById('selected-count-mobile');
   
   if (selectedImages.size > 0) {
     bulkActions.classList.add('visible');
     selectedCount.textContent = selectedImages.size;
+    if (selectedCountMobile) {
+      selectedCountMobile.textContent = selectedImages.size;
+    }
   } else {
     bulkActions.classList.remove('visible');
   }
