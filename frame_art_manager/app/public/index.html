@@ -324,9 +324,10 @@
   </div>
 
   <div id="image-modal" class="modal">
-      <div class="modal-content">
+      <div class="modal-content" data-mobile-tab="preview">
         <button class="close close-simple" id="image-modal-close">✕</button>
-      <div class="modal-image-container">
+        
+      <div class="modal-image-container mobile-section-preview mobile-section-edit">
         <button class="expand-image-btn" id="expand-image-btn" title="View full size">⤢</button>
         <div class="modal-image-stage" id="modal-image-stage">
           <img id="modal-image" src="" alt="" />
@@ -344,7 +345,7 @@
           </div>
         </div>
       </div>
-      <div id="image-edit-toolbar" class="image-edit-toolbar">
+      <div id="image-edit-toolbar" class="image-edit-toolbar mobile-section-edit">
         <div class="toolbar-group toolbar-group-primary">
           <button id="toolbar-edit-btn" class="toolbar-btn">Edit</button>
           <button id="revert-original-btn" class="toolbar-btn" disabled>Revert to Original Unedited</button>
@@ -396,7 +397,7 @@
           <button id="toolbar-apply-btn" class="btn-primary toolbar-apply" disabled>Apply</button>
         </div>
       </div>
-      <div id="edit-popover-container" class="edit-popover-container">
+      <div id="edit-popover-container" class="edit-popover-container mobile-section-edit">
         <div id="adjustments-popover" class="edit-popover hidden">
           <div class="popover-header">Brightness &amp; Contrast</div>
           <label class="popover-slider">
@@ -460,9 +461,9 @@
       </div>
       <div class="modal-body-scroll">
         <div class="modal-details">
-        <button id="modal-stats-link" class="modal-stats-link" title="View Stats">📊</button>
         <div class="modal-header-section">
-          <div class="modal-info-left">
+          <div class="modal-info-left mobile-section-preview">
+            <button id="modal-stats-link" class="modal-stats-link" title="View Stats">📊</button>
             <div class="modal-filename-container">
               <h3 id="modal-filename"></h3>
               <button id="edit-filename-btn" class="btn-icon" title="Edit name">✏️</button>
@@ -511,8 +512,11 @@
             <div class="image-edit-entry">
               <button id="open-edit-panel-btn" class="btn-secondary">Edit Image</button>
             </div>
+            <div class="mobile-show-tv-wrapper">
+              <button id="mobile-show-tv-btn" class="btn-primary">Show on TV</button>
+            </div>
           </div>
-          <div class="modal-info-center">
+          <div class="modal-info-center mobile-section-tags">
             <div class="image-tag-section">
               <div class="form-group form-group-compact">
                 <label>Add tags:</label>
@@ -610,6 +614,13 @@
             </div>
         </div>
       </div>
+      </div>
+      
+      <!-- Mobile Tab Navigation (hidden on desktop) -->
+      <div class="mobile-modal-tabs">
+        <button class="mobile-modal-tab active" data-modal-tab="preview">Preview</button>
+        <button class="mobile-modal-tab" data-modal-tab="edit">Edit</button>
+        <button class="mobile-modal-tab" data-modal-tab="tags">Tags</button>
       </div>
     </div>
   </div>
