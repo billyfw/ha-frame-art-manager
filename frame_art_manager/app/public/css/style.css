@@ -2802,21 +2802,49 @@ body {
     min-height: 44px;
   }
 
-  /* Stack bulk actions on mobile */
+  /* Stack bulk actions on mobile - fixed at bottom */
   .bulk-actions {
-    flex-direction: column;
-    gap: 10px;
-    padding: 12px;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    padding: 12px !important;
+    border-radius: 0 !important;
+    z-index: 1000 !important;
+    margin-bottom: 0 !important;
+    justify-content: center !important;
   }
 
   .bulk-actions-buttons {
-    flex-direction: column;
-    width: 100%;
-    gap: 8px;
+    display: contents !important;
   }
 
   .bulk-actions-buttons button {
-    width: 100%;
+    width: auto !important;
+    padding: 8px 10px !important;
+    font-size: 0.85rem !important;
+    min-width: 60px !important;
+    flex: 1 !important;
+    white-space: normal !important;
+    line-height: 1.2 !important;
+    text-align: center !important;
+  }
+
+  /* Show/hide desktop vs mobile text */
+  .bulk-actions .desktop-text {
+    display: none !important;
+  }
+
+  .bulk-actions .mobile-text {
+    display: inline !important;
+  }
+
+  /* Add bottom padding to gallery when bulk actions visible */
+  .bulk-actions.visible ~ #image-grid {
+    padding-bottom: 80px;
   }
 
   /* Modal adjustments */
@@ -2953,6 +2981,15 @@ body {
   align-items: center;
   justify-content: space-between;
   box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+}
+
+/* Desktop: show desktop text, hide mobile text */
+.bulk-actions .desktop-text {
+  display: inline;
+}
+
+.bulk-actions .mobile-text {
+  display: none;
 }
 
 .bulk-actions.visible {
