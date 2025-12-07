@@ -3386,6 +3386,100 @@ body {
     font-size: 0.8rem;
     padding: 2px 6px;
   }
+
+  /* ===== ADVANCED TAB - MOBILE ===== */
+  /* Make advanced tab fill entire screen like a full page */
+  #advanced-tab.active {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 1000 !important;
+    background: white !important;
+    overflow-y: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #advanced-tab .section {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 15px !important;
+    margin: 0 !important;
+    min-height: 100vh;
+  }
+
+  /* Close button styling like image modal */
+  #advanced-tab #go-home-btn {
+    color: #222222 !important;
+    background: #e0e0e0 !important;
+    border-radius: 6px !important;
+    padding: 6px 10px !important;
+    font-size: 24px !important;
+    width: auto !important;
+    height: auto !important;
+    line-height: 1 !important;
+  }
+
+  #advanced-tab #go-home-btn:hover {
+    background: #d5d5d5 !important;
+  }
+
+  /* Advanced tabs - horizontal scrolling tabs */
+  #advanced-tab .advanced-tabs {
+    display: flex !important;
+    gap: 0 !important;
+    margin: 15px -15px !important;
+    padding: 0 15px !important;
+    border-bottom: 2px solid #e1e4e8 !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #advanced-tab .advanced-tab-btn {
+    padding: 10px 16px !important;
+    font-size: 14px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Subsections - less padding on mobile */
+  #advanced-tab .subsection {
+    padding: 15px !important;
+    margin-bottom: 20px !important;
+  }
+
+  /* Library path - prevent overflow */
+  #advanced-tab .info-box {
+    flex-wrap: wrap !important;
+    word-break: break-all !important;
+  }
+
+  #advanced-tab .path-code {
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important;
+    display: block !important;
+    white-space: normal !important;
+  }
+
+  /* Metadata viewer */
+  #advanced-tab .metadata-viewer {
+    overflow-x: auto !important;
+  }
+
+  #advanced-tab .code-block {
+    font-size: 11px !important;
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+  }
+
+  /* Sync log container */
+  #advanced-tab .sync-log-container {
+    max-height: 60vh !important;
+    overflow-y: auto !important;
+  }
 }
 
 /* Extra small screens (phones in portrait) */
