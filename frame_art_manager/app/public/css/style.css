@@ -54,6 +54,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  touch-action: none;
 }
 
 .crop-overlay.active {
@@ -71,6 +72,7 @@ body {
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.75);
   transition: border 0.15s ease;
   cursor: move;
+  touch-action: none;
 }
 
 .crop-box.dragging {
@@ -89,6 +91,7 @@ body {
   pointer-events: auto;
   cursor: pointer;
   display: none;
+  touch-action: none;
 }
 
 .crop-overlay.active .crop-handle {
@@ -2062,6 +2065,17 @@ body {
   color: #555;
 }
 
+/* File size inline with filename */
+.modal-file-size-inline {
+  color: #7f8c8d;
+}
+
+.modal-file-size-inline strong {
+  color: #2c3e50;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.95em;
+}
+
 .modal-dimensions {
   margin-top: 0;
   margin-bottom: 4px;
@@ -2069,18 +2083,6 @@ body {
 }
 
 .modal-dimensions strong {
-  color: #2c3e50;
-  font-family: 'Monaco', 'Courier New', monospace;
-  font-size: 0.95em;
-}
-
-.modal-file-size {
-  margin-top: 0;
-  margin-bottom: 16px;
-  color: #7f8c8d;
-}
-
-.modal-file-size strong {
   color: #2c3e50;
   font-family: 'Monaco', 'Courier New', monospace;
   font-size: 0.95em;
@@ -2889,9 +2891,11 @@ body {
     z-index: 10001;
   }
 
-  /* Hide close X button on mobile - use Done button instead */
+  /* Show close X on mobile - use default styling, mirror expand button position */
   #image-modal .modal-content > .close {
-    display: none !important;
+    display: flex !important;
+    top: 18px;
+    right: 28px;
   }
 
   .mobile-modal-tab {
@@ -2930,21 +2934,30 @@ body {
   }
 
   /* ===== PREVIEW TAB LAYOUT ===== */
-  /* Image container - flexible but constrained */
+  /* Image container - fixed height for consistent layout */
   #image-modal .modal-content[data-mobile-tab="preview"] .modal-image-container {
     display: flex !important;
-    flex: 1 1 auto;
-    min-height: 120px;
-    max-height: 40vh;
+    flex: 0 0 auto;
+    min-height: 0;
+    height: 200px;
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    line-height: 0;
+  }
+
+  #image-modal .modal-content[data-mobile-tab="preview"] .modal-image-stage {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    line-height: 0;
   }
 
   #image-modal .modal-content[data-mobile-tab="preview"] .modal-image-container img {
     max-width: 100%;
-    max-height: 100%;
+    max-height: 200px;
     object-fit: contain;
+    display: block;
   }
 
   /* Body scroll becomes non-scrolling flex container for preview */
@@ -2983,10 +2996,14 @@ body {
   }
 
   #image-modal .modal-content[data-mobile-tab="preview"] .modal-actual-filename,
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-dimensions,
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-file-size {
+  #image-modal .modal-content[data-mobile-tab="preview"] .modal-dimensions {
     margin: 2px 0;
     font-size: 13px;
+  }
+
+  /* File size inline on resolution line */
+  #image-modal .modal-content[data-mobile-tab="preview"] .modal-file-size-inline {
+    white-space: nowrap;
   }
 
   /* Matte/Filter dropdowns inline and compact */
@@ -3013,38 +3030,41 @@ body {
     display: none !important;
   }
 
-  /* Show on TV button - compact */
-  #image-modal .mobile-show-tv-wrapper {
-    display: block !important;
-    margin: 8px 0;
+  /* Hide original Show on TV wrapper - we'll put it in the action row */
+  #image-modal .modal-content[data-mobile-tab="preview"] .mobile-show-tv-wrapper {
+    display: none !important;
   }
 
-  #image-modal .mobile-show-tv-wrapper #mobile-show-tv-btn {
-    width: 100%;
-    padding: 12px;
-    font-size: 15px;
-  }
-
-  /* Modal actions fixed at bottom for preview */
+  /* Modal actions row - Delete left, Show on TV right */
   #image-modal .modal-content[data-mobile-tab="preview"] .modal-actions {
     display: flex !important;
     justify-content: space-between;
+    align-items: center;
     flex-shrink: 0;
     padding: 0;
     background: transparent;
     border-top: none;
-    margin: 0;
+    margin: 8px 0 0 0;
   }
 
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-actions-left,
+  /* Hide Done button on mobile preview */
   #image-modal .modal-content[data-mobile-tab="preview"] .modal-actions-right {
-    justify-self: auto;
+    display: none !important;
+  }
+
+  #image-modal .modal-content[data-mobile-tab="preview"] .modal-actions-left {
     margin: 0;
     padding: 0;
   }
 
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-actions .btn-danger,
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-actions .btn-done {
+  #image-modal .modal-content[data-mobile-tab="preview"] .modal-actions .btn-danger {
+    padding: 12px 20px;
+    font-size: 15px;
+    margin: 0;
+  }
+
+  /* Show on TV button injected into action row via JS - style it here */
+  #image-modal .modal-content[data-mobile-tab="preview"] .modal-actions .mobile-show-tv-action {
     padding: 12px 20px;
     font-size: 15px;
     margin: 0;
@@ -3147,15 +3167,75 @@ body {
     display: none !important;
   }
 
-  /* Edit toolbar adjustments for mobile */
+  /* Edit toolbar - simple flex row that wraps */
   #image-modal .image-edit-toolbar {
-    flex-wrap: wrap;
-    padding: 8px;
-    gap: 8px;
+    display: block !important;
+    padding: 8px !important;
   }
 
-  #image-modal .toolbar-group {
-    flex-wrap: wrap;
+  /* Hide dividers and flex spacer */
+  #image-modal .image-edit-toolbar > .toolbar-divider,
+  #image-modal .image-edit-toolbar > .toolbar-flex,
+  #image-modal .image-edit-toolbar .toolbar-divider-inline {
+    display: none !important;
+  }
+
+  /* Hide Revert button on mobile - too wide */
+  #image-modal .image-edit-toolbar #revert-original-btn {
+    display: none !important;
+  }
+
+  /* Row 1 container */
+  #image-modal .image-edit-toolbar .toolbar-group-primary,
+  #image-modal .image-edit-toolbar .toolbar-group-tools {
+    display: inline-flex !important;
+    vertical-align: middle !important;
+    margin-right: 4px !important;
+  }
+
+  /* Cancel/Apply - hidden by default, shown in edit mode */
+  #image-modal .image-edit-toolbar .toolbar-group-secondary {
+    display: none !important;
+  }
+
+  /* When in edit mode on mobile, show Cancel/Apply inline with tools */
+  #image-modal .image-edit-toolbar.editing-mode .toolbar-group-secondary {
+    display: inline !important;
+  }
+
+  #image-modal .image-edit-toolbar .toolbar-group-secondary .toolbar-btn,
+  #image-modal .image-edit-toolbar .toolbar-group-secondary .btn-primary {
+    display: inline-flex !important;
+    margin-left: 4px !important;
+  }
+
+  /* Taller Edit button on mobile */
+  #image-modal .image-edit-toolbar #toolbar-edit-btn {
+    padding: 10px 16px !important;
+    font-size: 0.9rem !important;
+    height: 40px !important;
+  }
+
+  /* Tool icon buttons same height */
+  #image-modal .image-edit-toolbar .toolbar-icon-btn {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  /* Cancel/Apply same height and width, reduced padding */
+  #image-modal .image-edit-toolbar #toolbar-cancel-btn,
+  #image-modal .image-edit-toolbar #toolbar-apply-btn {
+    padding: 0 10px !important;
+    font-size: 0.85rem !important;
+    height: 40px !important;
+    max-height: 40px !important;
+    min-height: 40px !important;
+    width: 65px !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
   }
 
   /* Edit popovers full width on mobile */
@@ -3164,6 +3244,12 @@ body {
     width: 100%;
     max-width: none;
     margin-top: 8px;
+  }
+
+  /* Larger crop handles on mobile for easier touch */
+  .crop-handle {
+    width: 24px !important;
+    height: 24px !important;
   }
 
   #bulk-tag-modal .bulk-modal {

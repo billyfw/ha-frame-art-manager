@@ -3000,12 +3000,16 @@ function initImageEditor() {
   
   editControls.crop.box?.addEventListener('pointerdown', (event) => {
     if (!editState.active || editState.activeTool !== 'crop') return;
+    // Only handle move if the target is the box itself, not a handle
+    if (event.target.classList.contains('crop-handle')) return;
     startCropInteraction('move', 'move', event);
   });
 
   editControls.crop.handles.forEach(handle => {
     handle.addEventListener('pointerdown', (event) => {
       if (!editState.active || editState.activeTool !== 'crop') return;
+      // Stop propagation immediately to prevent box from also receiving the event
+      event.stopPropagation();
       startCropInteraction('resize', handle.dataset.handle, event);
     });
   });
@@ -3013,6 +3017,13 @@ function initImageEditor() {
   // Prevent selection on the modal image during any crop interaction
   modalImage.addEventListener('selectstart', preventSelection);
   modalImage.addEventListener('dragstart', preventSelection);
+
+  // Prevent iOS Safari back gesture during crop interactions
+  document.addEventListener('touchmove', (e) => {
+    if (cropInteraction && e.touches.length === 1) {
+      e.preventDefault();
+    }
+  }, { passive: false });
 
   modalImage.addEventListener('load', handleModalImageLoad);
   modalImage.addEventListener('error', handleModalImageError);
@@ -3123,6 +3134,13 @@ function updateToolbarState() {
   if (!editControls?.toolbar) return;
   const { editBtn, applyBtn, cancelBtn, toolButtons, previewToggleBtn, showTvBtn } = editControls.toolbar;
   const isActive = editState.active;
+  const isMobile = window.innerWidth <= 768;
+  
+  // Add class to toolbar for CSS styling
+  const toolbar = document.getElementById('image-edit-toolbar');
+  if (toolbar) {
+    toolbar.classList.toggle('editing-mode', isActive);
+  }
 
   if (showTvBtn) {
     showTvBtn.classList.toggle('hidden', isActive);
@@ -3136,6 +3154,10 @@ function updateToolbarState() {
       editBtn.setAttribute('aria-disabled', 'true');
     } else {
       editBtn.removeAttribute('aria-disabled');
+    }
+    // Hide Edit button on mobile when in edit mode
+    if (isMobile) {
+      editBtn.classList.toggle('hidden', isActive);
     }
   }
 
@@ -4399,6 +4421,7 @@ function initModal() {
       cancelEdits();
     }
     modal.classList.remove('active');
+    document.body.classList.remove('modal-open');
     renderGallery();
     resetEditState({ hasBackup: false, keepDimensions: false, silent: true });
     clearToolbarStatus();
@@ -4439,6 +4462,25 @@ function initModal() {
       }
     });
   });
+
+  // Create Show on TV button for mobile action row (next to Delete)
+  const modalActions = modal.querySelector('.modal-actions');
+  if (modalActions && window.matchMedia('(max-width: 768px)').matches) {
+    // Create the Show on TV button for mobile
+    const mobileShowTvAction = document.createElement('button');
+    mobileShowTvAction.id = 'mobile-show-tv-action';
+    mobileShowTvAction.className = 'btn-primary mobile-show-tv-action';
+    mobileShowTvAction.textContent = 'Show on TV';
+    modalActions.appendChild(mobileShowTvAction);
+    
+    // Wire up click handler (same as mobile-show-tv-btn)
+    mobileShowTvAction.addEventListener('click', () => {
+      const mobileShowTvBtn = document.getElementById('mobile-show-tv-btn');
+      if (mobileShowTvBtn) {
+        mobileShowTvBtn.click();
+      }
+    });
+  }
 
   // Reset to preview tab when modal opens
   const originalOpenModal = window.openImageModal;
@@ -4621,6 +4663,7 @@ function openImageModal(filename) {
   loadEditStateForImage(filename);
 
   modal.classList.add('active');
+  document.body.classList.add('modal-open');
 }
 
 function showEditFilenameForm() {
