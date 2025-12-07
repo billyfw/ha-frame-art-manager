@@ -411,6 +411,20 @@ body {
   flex-wrap: wrap;
 }
 
+/* Desktop: toolbar-right is just a flex container */
+.toolbar-right {
+  display: contents;
+}
+
+.toolbar-row-1 {
+  display: contents;
+}
+
+/* Desktop: push settings/sync to the right */
+.toolbar-row-1 .control-settings {
+  margin-left: auto;
+}
+
 .btn-add {
   flex-shrink: 0;
   padding: 8px 20px;
@@ -422,51 +436,39 @@ body {
   justify-content: center;
 }
 
-.btn-settings {
+/* Toolbar buttons (Stats, Settings) - teal/muted green */
+.btn-toolbar {
   flex-shrink: 0;
-  font-size: 28px !important;
-  padding: 8px 6px;
+  padding: 8px 20px;
+  font-size: 0.95rem;
+  white-space: nowrap;
   height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #7f8c8d;
-  transition: color 0.2s;
-  line-height: 1;
+  background: #5f9ea0;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
-.btn-settings:hover {
-  color: #2c3e50;
-}
-
-.btn-analytics {
-  flex-shrink: 0;
-  font-size: 22px !important;
-  padding: 8px 6px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #7f8c8d;
-  transition: color 0.2s;
-  line-height: 1;
-}
-
-.btn-analytics:hover {
-  color: #2c3e50;
+.btn-toolbar:hover {
+  background: #4f8e90;
 }
 
 /* Sync Button/Indicator */
 .btn-sync {
   flex-shrink: 0;
-  padding: 4px 0;
+  padding: 6px 0;
   height: 42px;
   min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   border: 1px solid #e1e4e8;
   border-radius: 6px;
   background: white;
@@ -487,6 +489,7 @@ body {
 #sync-icon {
   font-size: 18px;
   line-height: 1;
+  margin-top: 5px;
 }
 
 #sync-text {
@@ -530,8 +533,8 @@ body {
 
 .btn-sync.error {
   color: #e74c3c;
-  border-color: #e1e4e8;
-  background: white;
+  border-color: transparent;
+  background: transparent;
 }
 
 /* Spinning animation for syncing state */
@@ -2559,160 +2562,219 @@ body {
     white-space: nowrap;
   }
 
-  /* Gallery toolbar on mobile - 3 row layout */
+  /* Mobile: Tall Add button on left, everything else on right */
   .gallery-toolbar {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
+    gap: 8px;
+    align-items: stretch;
   }
 
-  /* Row 1: Add, Batch Add, Analytics, Settings, Sync - all on one line */
-  .btn-add {
-    order: 1;
+  /* Add button - tall on left */
+  .gallery-toolbar > .btn-add {
     flex: 0 0 auto;
-    padding: 8px 12px;
-    font-size: 0.85rem;
-    height: 38px;
-    min-height: 38px;
-  }
-
-  .gallery-toolbar .control-settings {
-    order: 2;
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    padding: 0;
-    margin-left: auto;
-  }
-
-  .gallery-toolbar .control-sync {
-    order: 3;
-    flex: 0 0 auto;
-    padding: 0;
-  }
-
-  /* Make icons smaller on mobile */
-  .gallery-toolbar .btn-analytics {
-    font-size: 18px !important;
-    padding: 4px !important;
-    height: 38px;
-  }
-
-  .gallery-toolbar .btn-settings {
-    font-size: 22px !important;
-    padding: 4px !important;
-    height: 38px;
-  }
-
-  .gallery-toolbar .btn-sync {
-    height: 38px;
-    min-width: 50px;
-    padding: 2px 4px;
-  }
-
-  .gallery-toolbar #sync-icon {
-    font-size: 14px;
-  }
-
-  .gallery-toolbar #sync-text {
-    font-size: 9px;
-  }
-
-  /* Row 2 & 3: Controls container takes full width and forces new line */
-  .gallery-toolbar .controls {
-    order: 4;
-    flex: 1 0 100%;
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 0;
-    background: transparent;
-    border: none;
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    font-weight: normal;
     height: auto;
+    min-height: auto;
+    max-width: 70px;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
   }
 
-  /* Row 2: Search + Sort on same line */
-  .gallery-toolbar .control-search {
+  /* Right side container */
+  .toolbar-right {
+    flex: 1;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  /* Row 1: Batch Add, Stats, Settings, Sync - show first on mobile */
+  .toolbar-row-1 {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    order: -1 !important;
+  }
+
+  /* Controls row - search, sort, tags */
+  .toolbar-right .controls {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    height: auto !important;
+    order: 0 !important;
+  }
+
+  /* Search and sort wrapper - keep on same line */
+  .toolbar-right .controls .control-search {
     order: 1;
-    flex: 1 1 0;
-    min-width: 100px;
+    flex: 1.5;
+    min-width: 120px;
+  }
+
+  .toolbar-right .controls .control-sort {
+    order: 2;
+    flex: 0 0 auto;
+    max-width: 100px;
+    overflow: hidden;
+    padding-left: 15px !important;
+    padding-right: 4px !important;
+  }
+
+  /* Hide sort label on mobile */
+  .toolbar-right .controls .control-sort .sort-label {
+    display: none;
+  }
+
+  .toolbar-right .controls .control-sort select {
+    max-width: none;
+    text-overflow: ellipsis;
+    text-align: left;
+    text-align-last: left;
+    direction: ltr;
+    overflow: hidden;
+    padding-left: 0 !important;
+  }
+
+  .toolbar-right .controls .control-sort .sort-direction-btn {
+    margin-right: 4px;
+    padding: 4px !important;
+  }
+
+  /* Tags take full width on next line */
+  .toolbar-right .controls .control-filter {
+    order: 3;
+    flex: 1 0 100%;
+  }
+
+  .toolbar-row-1 .btn-add {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    height: 36px;
+  }
+
+  .toolbar-row-1 .control-settings {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    margin-left: 0;
+  }
+
+  .toolbar-row-1 .control-sync {
+    padding: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  .toolbar-row-1 .btn-toolbar {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+    height: 36px;
+    min-height: 36px;
+  }
+
+  .toolbar-row-1 .btn-sync {
+    height: 36px;
+    min-width: 44px;
+    padding: 2px 3px;
+  }
+
+  .toolbar-row-1 #sync-icon {
+    font-size: 12px;
+  }
+
+  .toolbar-row-1 #sync-text {
+    font-size: 8px;
+  }
+
+  /* Search + Sort on same line - use flex-basis to prevent wrapping */
+  .toolbar-right .control-search {
+    flex: 1 1 60px;
+    min-width: 60px;
     background: #f8f9fa;
     border: 1px solid #e1e4e8;
     border-radius: 6px;
     padding: 0 8px;
-    height: 40px;
+    height: 36px;
   }
 
-  .gallery-toolbar .control-sort {
-    order: 2;
+  .toolbar-right .control-sort {
     flex: 0 0 auto;
     background: #f8f9fa;
     border: 1px solid #e1e4e8;
     border-radius: 6px;
-    padding: 0 8px;
-    height: 40px;
+    padding: 0 6px;
+    height: 36px;
+    white-space: nowrap;
+    max-width: 115px;
+    overflow: hidden;
   }
 
-  /* Row 3: Tag filter takes full width */
-  .gallery-toolbar .control-filter {
-    order: 3;
-    flex: 1 0 100%;
-    width: 100%;
-    max-width: none;
+  /* Tags on its own line */
+  .toolbar-right .control-filter {
+    flex: 1 0 100% !important;
+    width: 100% !important;
     background: #f8f9fa;
     border: 1px solid #e1e4e8;
     border-radius: 6px;
     padding: 0 8px;
-    height: 40px;
+    height: 36px;
   }
 
-  /* Reset control-item borders for mobile */
-  .gallery-toolbar .control-item {
+  .toolbar-right .control-item {
     border-right: none !important;
     border-bottom: none !important;
   }
 
-  /* Make inputs/selects fit nicely */
-  .gallery-toolbar .control-search input {
+  .toolbar-right .control-search input {
     width: 100%;
-    min-width: 0;
     font-size: 16px;
-    padding: 8px 0;
+    padding: 6px 0;
     border: none;
     background: transparent;
   }
 
-  .gallery-toolbar .control-sort select {
-    font-size: 14px;
-    padding: 4px 2px;
+  .toolbar-right .control-sort select {
+    font-size: 16px;
     border: none;
     background: transparent;
+    padding-left: 8px !important;
+    padding-right: 6px !important;
+    color: #666 !important;
+    -webkit-appearance: none;
+    text-align: left !important;
+    text-align-last: left !important;
+    direction: ltr !important;
   }
 
-  .gallery-toolbar .control-sort .sort-label {
+  .toolbar-right .control-sort .sort-direction-btn {
+    font-size: 16px;
+    color: #666 !important;
+  }
+
+  .toolbar-right .control-sort .sort-label {
     font-size: 12px;
-    margin: 0 2px 0 0;
   }
 
-  .gallery-toolbar .control-sort .sort-direction-btn {
-    padding: 2px 4px;
-    font-size: 14px;
-  }
-
-  .gallery-toolbar .control-filter .custom-multiselect {
+  .toolbar-right .control-filter .multiselect-button {
     width: 100%;
-  }
-
-  .gallery-toolbar .control-filter .multiselect-button {
-    width: 100%;
-    font-size: 14px;
+    font-size: 16px;
     border: none;
     background: transparent;
-    padding: 8px 0;
+    color: #666 !important;
+  }
+
+  .toolbar-right .control-filter .dropdown-arrow {
+    font-size: 20px !important;
+    color: #666 !important;
   }
 
   .image-grid {
