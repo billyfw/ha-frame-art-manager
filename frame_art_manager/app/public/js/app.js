@@ -3239,7 +3239,12 @@ function enterEditMode() {
     }
   }
   updateToolbarState();
-  if (editState.activeTool) {
+  
+  // On mobile, auto-activate crop tool when entering edit mode
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile && !editState.activeTool) {
+    setActiveTool('crop', { force: true, silent: true });
+  } else if (editState.activeTool) {
     setActiveTool(editState.activeTool, { force: true, silent: true });
   } else {
     hidePopovers();
@@ -4463,15 +4468,16 @@ function initModal() {
     });
   });
 
-  // Create Show on TV button for mobile action row (next to Delete)
+  // Create Show on TV button for mobile action row (next to Delete on left side)
   const modalActions = modal.querySelector('.modal-actions');
-  if (modalActions && window.matchMedia('(max-width: 768px)').matches) {
+  const modalActionsLeft = modal.querySelector('.modal-actions-left');
+  if (modalActionsLeft && window.matchMedia('(max-width: 768px)').matches) {
     // Create the Show on TV button for mobile
     const mobileShowTvAction = document.createElement('button');
     mobileShowTvAction.id = 'mobile-show-tv-action';
     mobileShowTvAction.className = 'btn-primary mobile-show-tv-action';
     mobileShowTvAction.textContent = 'Show on TV';
-    modalActions.appendChild(mobileShowTvAction);
+    modalActionsLeft.appendChild(mobileShowTvAction);
     
     // Wire up click handler (same as mobile-show-tv-btn)
     mobileShowTvAction.addEventListener('click', () => {
