@@ -2029,16 +2029,33 @@ body {
   gap: 8px;
   align-items: center;
   margin-bottom: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .edit-filename-form input {
   flex: 1;
-  min-width: 200px;
+  min-width: 100px;
   padding: 8px 12px;
   border: 2px solid #3498db;
   border-radius: 5px;
-  font-size: 14px;
+  font-size: 16px; /* 16px prevents iOS zoom */
+}
+
+/* Mobile adjustments for filename edit form */
+@media (max-width: 768px) {
+  .edit-filename-form {
+    flex-wrap: nowrap !important;
+  }
+  
+  .edit-filename-form input {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+  
+  .edit-filename-form .btn-small {
+    flex-shrink: 0 !important;
+    padding: 6px 10px !important;
+  }
 }
 
 .btn-small {
@@ -2879,16 +2896,7 @@ body {
   }
 
   .mobile-modal-tabs {
-    display: flex !important;
-    background: #f8f9fa;
-    border-top: 1px solid #e1e4e8;
-    padding: 0;
-    flex-shrink: 0;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 10001;
+    display: none !important;
   }
 
   /* Show close X on mobile - use default styling, mirror expand button position */
@@ -2917,25 +2925,18 @@ body {
     background: white;
   }
 
-  /* Hide sections based on active tab */
-  #image-modal .modal-content[data-mobile-tab="preview"] .mobile-section-edit:not(.modal-image-container),
-  #image-modal .modal-content[data-mobile-tab="preview"] .mobile-section-tags {
-    display: none !important;
+  /* ===== MOBILE MODAL LAYOUT (no tabs) ===== */
+  
+  /* Show edit toolbar on mobile */
+  #image-modal .image-edit-toolbar {
+    display: flex !important;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    gap: 8px;
   }
 
-  #image-modal .modal-content[data-mobile-tab="edit"] .mobile-section-preview,
-  #image-modal .modal-content[data-mobile-tab="edit"] .mobile-section-tags {
-    display: none !important;
-  }
-
-  #image-modal .modal-content[data-mobile-tab="tags"] .mobile-section-preview,
-  #image-modal .modal-content[data-mobile-tab="tags"] .mobile-section-edit {
-    display: none !important;
-  }
-
-  /* ===== PREVIEW TAB LAYOUT ===== */
-  /* Image container - fixed height for consistent layout */
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-image-container {
+  /* Image container - 200px normally, 350px when editing */
+  #image-modal .modal-image-container {
     display: flex !important;
     flex: 0 0 auto;
     min-height: 0;
@@ -2946,38 +2947,84 @@ body {
     line-height: 0;
   }
 
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-image-stage {
+  #image-modal .modal-image-stage {
     display: flex;
     justify-content: center;
     align-items: center;
     line-height: 0;
   }
 
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-image-container img {
+  #image-modal .modal-image-container img {
     max-width: 100%;
     max-height: 200px;
     object-fit: contain;
     display: block;
   }
 
-  /* Body scroll becomes non-scrolling flex container for preview */
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-body-scroll {
-    flex: 0 0 auto !important;
-    overflow: visible !important;
+  /* When editing active - larger image */
+  body.editing-active #image-modal .modal-image-container {
+    height: auto;
+    max-height: 350px;
+  }
+
+  body.editing-active #image-modal .modal-image-container img {
+    max-height: 350px;
+  }
+
+  /* For crop to work properly when editing */
+  body.editing-active #image-modal .modal-image-stage {
+    display: inline-block;
+    line-height: 0;
+  }
+
+  /* When editing active - hide info/tags/actions, show edit tools */
+  body.editing-active #image-modal .modal-body-scroll {
+    display: none !important;
+  }
+
+  body.editing-active #image-modal .modal-actions {
+    display: none !important;
+  }
+
+  /* Show edit popover container when editing */
+  body.editing-active #image-modal .edit-popover-container {
+    display: block !important;
+  }
+
+  /* Hide edit popover when not editing */
+  #image-modal .edit-popover-container {
+    display: none;
+  }
+
+  /* ===== NORMAL (not editing) LAYOUT ===== */
+  
+  /* Body scroll - scrollable middle section, stops above action buttons */
+  #image-modal .modal-body-scroll {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
     padding: 12px !important;
-    display: flex;
-    flex-direction: column;
+    display: block !important;
+    min-height: 0;
+    margin-bottom: 50px !important; /* space for action buttons */
+  }
+
+  /* Modal actions - pull out of scroll via display:contents on parent */
+  #image-modal .modal-details {
+    display: contents !important;
+  }
+
+  #image-modal .modal-header-section {
+    display: block !important;
   }
 
   /* Preview info section - compact */
-  #image-modal .modal-content[data-mobile-tab="preview"] .mobile-section-preview {
+  #image-modal .mobile-section-preview {
     display: block !important;
-    flex: 0 0 auto;
     position: relative;
   }
 
-  /* Stats button position on mobile preview */
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-stats-link {
+  /* Stats button position on mobile */
+  #image-modal .modal-stats-link {
     position: absolute;
     top: 0;
     right: 0;
@@ -2985,168 +3032,209 @@ body {
     font-size: 1.3rem;
   }
 
-  /* Compact file info for preview tab */
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-filename-container {
+  /* Compact file info */
+  #image-modal .modal-filename-container {
     margin-bottom: 4px;
   }
 
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-filename-container h3 {
+  #image-modal .modal-filename-container h3 {
     font-size: 16px;
     margin: 0;
   }
 
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-actual-filename,
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-dimensions {
+  #image-modal .modal-actual-filename,
+  #image-modal .modal-dimensions {
     margin: 2px 0;
     font-size: 13px;
   }
 
   /* File size inline on resolution line */
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-file-size-inline {
+  #image-modal .modal-file-size-inline {
     white-space: nowrap;
   }
 
   /* Matte/Filter dropdowns inline and compact */
-  #image-modal .modal-content[data-mobile-tab="preview"] .form-group-compact {
+  #image-modal .modal-body-scroll .form-group-compact {
     display: inline-flex;
     align-items: center;
     margin-right: 16px;
     margin-bottom: 8px;
   }
 
-  #image-modal .modal-content[data-mobile-tab="preview"] .form-group-compact label {
+  #image-modal .modal-body-scroll .form-group-compact label {
     font-size: 13px;
     margin-right: 6px;
     margin-bottom: 0;
   }
 
-  #image-modal .modal-content[data-mobile-tab="preview"] .form-group-compact select {
+  #image-modal .modal-body-scroll .form-group-compact select {
     font-size: 14px;
     padding: 4px 8px;
   }
 
-  /* Hide "Edit Image" button on mobile preview - use Edit tab */
-  #image-modal .modal-content[data-mobile-tab="preview"] .image-edit-entry {
+  /* Hide "Edit Image" button on mobile - use toolbar instead */
+  #image-modal .image-edit-entry {
     display: none !important;
   }
 
-  /* Hide original Show on TV wrapper - we'll put it in the action row */
-  #image-modal .modal-content[data-mobile-tab="preview"] .mobile-show-tv-wrapper {
+  /* Hide original Show on TV wrapper - we put it in action row */
+  #image-modal .mobile-show-tv-wrapper {
     display: none !important;
   }
 
-  /* Modal actions row - Delete left, Show on TV right */
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-actions {
-    display: flex !important;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-    padding: 0;
-    background: transparent;
-    border-top: none;
-    margin: 8px 0 0 0;
-  }
-
-  /* Hide Done button on mobile preview */
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-actions-right {
-    display: none !important;
-  }
-
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-actions-left {
-    margin: 0;
-    padding: 0;
-  }
-
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-actions .btn-danger {
-    padding: 12px 20px;
-    font-size: 15px;
-    margin: 0;
-  }
-
-  /* Show on TV button injected into action row via JS - style it here */
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-actions .mobile-show-tv-action {
-    padding: 12px 20px;
-    font-size: 15px;
-    margin: 0;
-  }
-
-  /* Hide modal-details wrapper stuff, edit panel on preview */
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-edit-panel {
-    display: none !important;
-  }
-
-  /* Flatten modal-details structure on mobile preview */
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-details {
-    display: contents;
-  }
-
-  #image-modal .modal-content[data-mobile-tab="preview"] .modal-header-section {
-    display: contents;
-  }
-
-  /* ===== EDIT TAB LAYOUT ===== */
-  #image-modal .modal-content[data-mobile-tab="edit"] .modal-image-container {
-    display: flex !important;
-    flex: 1 1 auto;
-    min-height: 100px;
-    max-height: 35vh;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-  }
-
-  #image-modal .modal-content[data-mobile-tab="edit"] .mobile-section-edit {
+  /* Show tags section */
+  #image-modal .mobile-section-tags {
     display: block !important;
+    margin-top: 12px;
   }
 
-  #image-modal .modal-content[data-mobile-tab="edit"] .modal-body-scroll {
-    display: none !important;
+  /* Tags section styling on mobile */
+  #image-modal .mobile-section-tags .form-group-compact {
+    display: block !important;
+    margin-bottom: 12px;
   }
 
-  /* ===== TAGS TAB LAYOUT ===== */
-  #image-modal .modal-content[data-mobile-tab="tags"] .modal-image-container {
-    display: none !important;
+  #image-modal .mobile-section-tags .form-group-compact label {
+    display: block;
+    margin-bottom: 6px;
   }
 
-  #image-modal .modal-content[data-mobile-tab="tags"] .modal-body-scroll {
+  #image-modal .mobile-section-tags .inline-input-group {
+    display: flex;
+    gap: 8px;
+  }
+
+  #image-modal .mobile-section-tags .inline-input-group input {
     flex: 1;
-    overflow-y: auto;
-    padding: 12px;
   }
 
-  #image-modal .modal-content[data-mobile-tab="tags"] .mobile-section-tags {
-    display: flex !important;
-    flex-direction: column;
-    flex: 1;
+  #image-modal .mobile-section-tags .tv-tags-wrapper {
+    display: block;
+    margin-top: 8px;
   }
 
-  #image-modal .modal-content[data-mobile-tab="tags"] .modal-actions {
+  #image-modal .mobile-section-tags .tv-tags-label {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  #image-modal .mobile-section-tags .image-tag-section {
+    margin-bottom: 12px;
+  }
+
+  #image-modal .mobile-section-tags .image-tag-section-header label {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* Remove individual scroll from tag sections - whole area scrolls together */
+  #image-modal .mobile-section-tags .tag-cloud {
+    overflow-y: visible !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  #image-modal .mobile-section-tags .tv-tags-helper {
+    overflow-y: visible !important;
+    max-height: none !important;
+  }
+
+  /* Modal actions - fixed at bottom of modal-content */
+  #image-modal .modal-actions {
     display: flex !important;
     justify-content: space-between;
-    flex-shrink: 0;
+    align-items: center;
+    padding: 12px;
+    background: #f5f5f5;
+    border-top: 1px solid #ddd;
+    margin: 0;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+  }
+
+  /* Show Done button on mobile */
+  #image-modal .modal-actions-right {
+    display: flex !important;
+    margin: 0;
     padding: 0;
-    background: transparent;
-    border-top: none;
-    margin: 0;
   }
 
-  #image-modal .modal-content[data-mobile-tab="tags"] .modal-actions-left,
-  #image-modal .modal-content[data-mobile-tab="tags"] .modal-actions-right {
-    justify-self: auto;
+  #image-modal .modal-actions-left {
+    display: flex !important;
+    gap: 8px;
     margin: 0;
     padding: 0;
   }
 
-  #image-modal .modal-content[data-mobile-tab="tags"] .modal-actions .btn-danger,
-  #image-modal .modal-content[data-mobile-tab="tags"] .modal-actions .btn-done {
-    padding: 12px 20px;
-    font-size: 15px;
+  #image-modal .modal-actions .btn-danger {
+    padding: 12px 12px !important;
     margin: 0;
+    font-size: 0 !important; /* Hide original text */
+    min-height: auto !important;
+    min-width: auto !important;
+    width: 80px !important;
+    box-sizing: border-box !important;
   }
 
-  /* Hide modal-header-section wrapper on mobile, let children flow */
+  #image-modal .modal-actions .btn-danger::after {
+    content: 'Delete';
+    font-size: 13px;
+  }
+
+  /* Done button styling on mobile */
+  #image-modal .modal-actions .btn-done {
+    padding: 12px 16px !important;
+    font-size: 14px !important;
+    min-width: auto !important;
+  }
+
+  /* Show on TV button on left side with Delete */
+  #image-modal .modal-actions .mobile-show-tv-action {
+    padding: 12px 8px !important;
+    font-size: 13px !important;
+    margin: 0;
+    min-height: auto !important;
+    width: auto !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
+  }
+
+  /* Flatten modal-details structure on mobile */
+  #image-modal .modal-details {
+    display: contents;
+  }
+
   #image-modal .modal-header-section {
-    display: block;
+    display: contents;
+  }
+
+  /* Hide expand and close buttons when actively editing (after clicking Edit, before Cancel/Apply) */
+  body.editing-active #image-modal .expand-image-btn,
+  body.editing-active #image-modal .modal-content > .close {
+    display: none !important;
+  }
+
+  /* ===== EDITING MODE LAYOUT ===== */
+  /* When editing is active, expand image container for better crop/edit area */
+  body.editing-active #image-modal .modal-image-container {
+    max-height: 350px !important;
+  }
+
+  body.editing-active #image-modal .modal-image-container img {
+    max-height: 350px !important;
+  }
+
+  /* Hide scrollable content when editing */
+  body.editing-active #image-modal .modal-body-scroll {
+    display: none !important;
+  }
+
+  /* Hide action buttons when editing */
+  body.editing-active #image-modal .modal-actions {
+    display: none !important;
   }
 
   /* Mobile-specific adjustments for modal-info sections */
@@ -3180,25 +3268,39 @@ body {
     display: none !important;
   }
 
-  /* Hide Revert button on mobile - too wide */
+  /* Revert button on mobile - smaller text, shown when image has backup */
   #image-modal .image-edit-toolbar #revert-original-btn {
+    font-size: 0.8rem !important;
+    padding: 8px 10px !important;
+    height: 40px !important;
+    white-space: nowrap !important;
+  }
+
+  /* Hide Revert button when in editing mode on mobile */
+  #image-modal .image-edit-toolbar.editing-mode #revert-original-btn {
     display: none !important;
   }
 
-  /* Row 1 container */
-  #image-modal .image-edit-toolbar .toolbar-group-primary,
-  #image-modal .image-edit-toolbar .toolbar-group-tools {
+  /* Edit button shown by default */
+  #image-modal .image-edit-toolbar .toolbar-group-primary {
     display: inline-flex !important;
     vertical-align: middle !important;
     margin-right: 4px !important;
   }
 
-  /* Cancel/Apply - hidden by default, shown in edit mode */
+  /* Tool icons and Cancel/Apply - hidden by default, shown in edit mode */
+  #image-modal .image-edit-toolbar .toolbar-group-tools,
   #image-modal .image-edit-toolbar .toolbar-group-secondary {
     display: none !important;
   }
 
-  /* When in edit mode on mobile, show Cancel/Apply inline with tools */
+  /* When in edit mode on mobile, show tools and Cancel/Apply */
+  #image-modal .image-edit-toolbar.editing-mode .toolbar-group-tools {
+    display: inline-flex !important;
+    vertical-align: middle !important;
+    margin-right: 4px !important;
+  }
+
   #image-modal .image-edit-toolbar.editing-mode .toolbar-group-secondary {
     display: inline !important;
   }
