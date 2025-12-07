@@ -4421,6 +4421,38 @@ function initModal() {
     }
   });
 
+  // Mobile modal tab switching
+  const modalContent = modal.querySelector('.modal-content');
+  const mobileTabs = modal.querySelectorAll('.mobile-modal-tab');
+  
+  mobileTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetTab = tab.dataset.modalTab;
+      
+      // Update active tab button
+      mobileTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      
+      // Update modal content data attribute to control visibility
+      if (modalContent) {
+        modalContent.dataset.mobileTab = targetTab;
+      }
+    });
+  });
+
+  // Reset to preview tab when modal opens
+  const originalOpenModal = window.openImageModal;
+  if (typeof originalOpenModal === 'function') {
+    window.openImageModal = function(...args) {
+      // Reset to preview tab
+      mobileTabs.forEach(t => t.classList.toggle('active', t.dataset.modalTab === 'preview'));
+      if (modalContent) {
+        modalContent.dataset.mobileTab = 'preview';
+      }
+      return originalOpenModal.apply(this, args);
+    };
+  }
+
   if (deleteBtn) {
     deleteBtn.addEventListener('click', deleteImage);
   }
@@ -5273,13 +5305,14 @@ async function deleteBulkImages() {
 function initTvModal() {
   const tvModal = document.getElementById('tv-select-modal');
   const showTvBtn = document.getElementById('modal-show-tv-btn');
+  const mobileShowTvBtn = document.getElementById('mobile-show-tv-btn');
   const closeBtn = document.getElementById('tv-modal-close');
   const tvListContainer = document.getElementById('tv-list-container');
   const logContainer = document.getElementById('tv-upload-logs');
 
-  if (!tvModal || !showTvBtn) return;
+  if (!tvModal) return;
 
-  showTvBtn.addEventListener('click', async () => {
+  const handleShowTvClick = async () => {
     if (!currentImage) return;
     
     tvModal.classList.add('active');
@@ -5304,7 +5337,11 @@ function initTvModal() {
       console.error('Error fetching TVs:', error);
       tvListContainer.innerHTML = `<div class="error-message">Error connecting to Home Assistant: ${escapeHtml(error.message)}</div>`;
     }
-  });
+  };
+
+  // Attach handler to both desktop and mobile Show on TV buttons
+  showTvBtn?.addEventListener('click', handleShowTvClick);
+  mobileShowTvBtn?.addEventListener('click', handleShowTvClick);
 
   const closeModal = () => {
     tvModal.classList.remove('active');
