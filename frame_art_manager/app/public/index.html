@@ -245,6 +245,14 @@
             </div>
           </div>
 
+          <!-- Mobile tabs for columns (hidden on desktop) - right below pills -->
+          <div class="analytics-mobile-tabs">
+            <button class="analytics-mobile-tab active" data-column="time">Time</button>
+            <button class="analytics-mobile-tab" data-column="tvs">TVs</button>
+            <button class="analytics-mobile-tab" data-column="tags">Tags</button>
+            <button class="analytics-mobile-tab" data-column="images">Images</button>
+          </div>
+
           <!-- Overall chart by image -->
           <div class="analytics-top-chart">
             <div class="top-chart-container">
@@ -259,7 +267,7 @@
           <!-- Three column layout -->
           <div class="analytics-columns">
             <!-- Column 1: TVs -->
-            <div class="analytics-column analytics-tvs">
+            <div class="analytics-column analytics-tvs" data-column="tvs">
               <div class="column-header">
                 <h4>TVs</h4>
                 <select id="analytics-tv-select" class="analytics-select">
@@ -273,7 +281,7 @@
             </div>
 
             <!-- Column 2: Tags -->
-            <div class="analytics-column analytics-tags">
+            <div class="analytics-column analytics-tags" data-column="tags">
               <div class="column-header">
                 <h4>Tags</h4>
                 <select id="analytics-tag-select" class="analytics-select">
@@ -287,7 +295,7 @@
             </div>
 
             <!-- Column 3: Images -->
-            <div class="analytics-column analytics-images">
+            <div class="analytics-column analytics-images" data-column="images">
               <div class="column-header">
                 <div class="column-header-row">
                   <h4>Images</h4>
