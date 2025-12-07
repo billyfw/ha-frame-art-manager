@@ -480,6 +480,18 @@ function formatDate(dateString) {
   return `${month} ${day}, ${year}`;
 }
 
+// Short date format for mobile: m/d/yy
+function formatDateShort(dateString) {
+  if (!dateString) return '';
+  
+  const date = new Date(dateString);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const year = String(date.getFullYear()).slice(-2);
+  
+  return `${month}/${day}/${year}`;
+}
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', async () => {
   initTabs();
@@ -1114,6 +1126,9 @@ function initSettingsNavigation() {
 
   // Initialize advanced sub-tabs
   initAdvancedSubTabs();
+  
+  // Initialize analytics mobile tabs
+  initAnalyticsMobileTabs();
 }
 
 function initAdvancedSubTabs() {
@@ -1126,6 +1141,27 @@ function initAdvancedSubTabs() {
       const requestedTab = typeof button.dataset.tab === 'string' ? button.dataset.tab : '';
       const safeTab = VALID_ADVANCED_TABS.has(requestedTab) ? requestedTab : ADVANCED_TAB_DEFAULT;
       navigateTo(`/advanced/${safeTab}`);
+    });
+  });
+}
+
+function initAnalyticsMobileTabs() {
+  const tabButtons = document.querySelectorAll('.analytics-mobile-tab');
+  
+  tabButtons.forEach((button) => {
+    button.setAttribute('type', 'button');
+    button.addEventListener('click', () => {
+      const targetColumn = button.dataset.column;
+      
+      // Update tab buttons
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+      
+      // Update visibility via data attribute on page content container
+      const pageContent = document.querySelector('.analytics-page-content');
+      if (pageContent) {
+        pageContent.dataset.activeColumn = targetColumn;
+      }
     });
   });
 }
@@ -5913,6 +5949,15 @@ function renderOverallPieChart() {
       toggleBucketDetail(bucketIndex);
     });
   });
+
+  // On mobile, auto-select the first clickable bar to show the table
+  if (window.innerWidth <= 768) {
+    const firstClickableBar = container.querySelector('.histogram-bar.clickable');
+    if (firstClickableBar) {
+      const bucketIndex = parseInt(firstClickableBar.dataset.bucketIndex);
+      toggleBucketDetail(bucketIndex);
+    }
+  }
 }
 
 // Helper to format days ago
@@ -5973,13 +6018,15 @@ function renderBucketDetailTable() {
     } else if (bucketSortColumn === 'count') {
       cmp = (a.displayCount || 0) - (b.displayCount || 0);
     }
-    // Secondary sort by upload date ascending
+    // Apply primary sort direction
+    cmp = bucketSortAsc ? cmp : -cmp;
+    // Secondary sort by upload date ascending (oldest to newest) - always ascending
     if (cmp === 0) {
       const dateA = allImages[a.name]?.added || '';
       const dateB = allImages[b.name]?.added || '';
       cmp = dateA.localeCompare(dateB);
     }
-    return bucketSortAsc ? cmp : -cmp;
+    return cmp;
   });
   
   // Build table rows
@@ -5992,16 +6039,17 @@ function renderBucketDetailTable() {
     const displayTime = formatHoursNice(img.seconds);
     const isZeroTime = img.seconds === 0;
     const displayCount = img.displayCount || 0;
-    const addedDate = imageData.added ? formatDate(imageData.added) : '—';
+    const addedDateShort = imageData.added ? formatDateShort(imageData.added) : '—';
     const daysAgo = imageData.added ? formatDaysAgo(imageData.added) : '';
-    const uploadDisplay = imageData.added ? `${addedDate} (${daysAgo})` : '—';
+    // Mobile-friendly format: m/d/yy (Xd)
+    const uploadDisplay = imageData.added ? `${addedDateShort} (${daysAgo})` : '—';
     const displayName = getAnalyticsDisplayName(img.name);
     
     return `
       <div class="bucket-row" data-filename="${escapeHtml(img.name)}">
         <span class="bucket-time${isZeroTime ? ' zero' : ''}">${displayTime}</span>
         <span class="bucket-count">${displayCount}</span>
-        <span class="bucket-filename" title="${escapeHtml(img.name)}">${escapeHtml(displayName)}<button class="bucket-open-btn" title="Open image">⧉</button></span>
+        <span class="bucket-filename" title="${escapeHtml(img.name)}"><span class="bucket-filename-text">${escapeHtml(displayName)}</span><button class="bucket-open-btn" title="Open image">⧉</button></span>
         <span class="bucket-tags">${tagsHtml}</span>
         <span class="bucket-date">${uploadDisplay}</span>
       </div>
@@ -6015,10 +6063,10 @@ function renderBucketDetailTable() {
     <div class="bucket-table-wrapper">
       <div class="bucket-table-header">
         <span class="sortable" data-sort="time">Time${timeArrow}</span>
-        <span class="sortable center" data-sort="count">Count${countArrow}</span>
+        <span class="sortable center" data-sort="count">#${countArrow}</span>
         <span>Filename</span>
         <span>Tags</span>
-        <span>Upload Date</span>
+        <span class="bucket-date">Upload Date</span>
       </div>
       <div class="bucket-table-scroll">
         ${rows}
@@ -6040,25 +6088,28 @@ function renderBucketDetailTable() {
     });
   });
   
-  // Add click handlers for rows (select image in 3rd column)
+  // Add click handlers for rows (select image in 3rd column, or open modal on mobile)
   detailContainer.querySelectorAll('.bucket-row').forEach(row => {
     row.addEventListener('click', (e) => {
-      // Don't select if clicking the open button
+      // Don't handle if clicking the open button
       if (e.target.classList.contains('bucket-open-btn')) return;
       
       const filename = row.dataset.filename;
       if (filename) {
-        // Remove selected from all rows, add to this one
-        detailContainer.querySelectorAll('.bucket-row').forEach(r => r.classList.remove('selected'));
-        row.classList.add('selected');
-        
-        // Update the 3rd column display
-        selectAnalyticsImage(filename);
+        // On mobile, open the image modal directly
+        if (window.innerWidth <= 768) {
+          if (allImages[filename]) openImageModal(filename);
+        } else {
+          // On desktop, select the row and update 3rd column display
+          detailContainer.querySelectorAll('.bucket-row').forEach(r => r.classList.remove('selected'));
+          row.classList.add('selected');
+          selectAnalyticsImage(filename);
+        }
       }
     });
   });
   
-  // Add click handlers for open buttons
+  // Add click handlers for open buttons (desktop only, hidden on mobile)
   detailContainer.querySelectorAll('.bucket-open-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -6567,11 +6618,11 @@ function renderImageDetail(filename) {
     const lastDisplayText = lastDisplay ? lastDisplay.timeAgo : 'Never';
     statsContainer.innerHTML = `
       <div class="stat-row-inline">
-        <span class="stat-inline"><strong>${formatHoursNice(imageStats.totalSeconds)}</strong> display time</span>
+        <span class="stat-inline"><strong>${formatHoursNice(imageStats.totalSeconds)}</strong> time</span>
         <span class="stat-sep">·</span>
         <span class="stat-inline"><strong>${imageStats.eventCount}</strong> appearances</span>
         <span class="stat-sep">·</span>
-        <span class="stat-inline">Last displayed <strong>${lastDisplayText}</strong></span>
+        <span class="stat-inline">Last display <strong>${lastDisplayText}</strong></span>
       </div>
     `;
   }

@@ -6068,6 +6068,346 @@ body {
 
 /* Responsive: Mobile */
 @media (max-width: 768px) {
+  /* ===== ANALYTICS TAB - MOBILE FULL SCREEN ===== */
+  #analytics-tab.active {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 1000 !important;
+    background: white !important;
+    overflow-y: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #analytics-tab .section {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 15px !important;
+    margin: 0 !important;
+  }
+
+  /* Close button styling like image modal */
+  #analytics-tab #go-home-analytics-btn {
+    color: #222222 !important;
+    background: #e0e0e0 !important;
+    border-radius: 6px !important;
+    padding: 6px 10px !important;
+    font-size: 24px !important;
+    width: auto !important;
+    height: auto !important;
+    line-height: 1 !important;
+  }
+
+  #analytics-tab #go-home-analytics-btn:hover {
+    background: #d5d5d5 !important;
+  }
+
+  /* Analytics header */
+  #analytics-tab .analytics-header {
+    margin-bottom: 10px !important;
+  }
+
+  #analytics-tab .analytics-header h2 {
+    font-size: 1.3rem !important;
+  }
+
+  /* Time range pills - shorter labels, fixed width */
+  #analytics-tab .analytics-chart-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    margin-bottom: 0 !important;
+  }
+
+  #analytics-tab .time-range-pills {
+    display: flex !important;
+    gap: 3px !important;
+    flex-wrap: nowrap !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  #analytics-tab .time-range-pills .time-pill {
+    padding: 6px 0 !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
+    flex: 1 1 0 !important;
+    min-height: 32px !important;
+    width: auto !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Shorter pill text via CSS content replacement */
+  #analytics-tab .time-pill[data-range="1h"] { font-size: 0 !important; }
+  #analytics-tab .time-pill[data-range="1h"]::after { content: '1h'; font-size: 12px; }
+  #analytics-tab .time-pill[data-range="12h"] { font-size: 0 !important; }
+  #analytics-tab .time-pill[data-range="12h"]::after { content: '12h'; font-size: 12px; }
+  #analytics-tab .time-pill[data-range="1d"] { font-size: 0 !important; }
+  #analytics-tab .time-pill[data-range="1d"]::after { content: '1d'; font-size: 12px; }
+  #analytics-tab .time-pill[data-range="1w"] { font-size: 0 !important; }
+  #analytics-tab .time-pill[data-range="1w"]::after { content: '1w'; font-size: 12px; }
+  #analytics-tab .time-pill[data-range="1mo"] { font-size: 0 !important; }
+  #analytics-tab .time-pill[data-range="1mo"]::after { content: '1mo'; font-size: 12px; }
+  #analytics-tab .time-pill[data-range="6mo"] { font-size: 0 !important; }
+  #analytics-tab .time-pill[data-range="6mo"]::after { content: '6mo'; font-size: 12px; }
+
+  /* Date range hint */
+  #analytics-tab .date-range-hint {
+    font-size: 11px !important;
+  }
+
+  /* Mobile tabs - right below pills */
+  .analytics-mobile-tabs {
+    display: flex !important;
+    gap: 0 !important;
+    margin: 10px -15px 15px !important;
+    padding: 0 !important;
+    border-bottom: 2px solid #e1e4e8 !important;
+    background: #f8f9fa !important;
+  }
+
+  /* Hide top chart area by default on mobile - shown via Time tab */
+  #analytics-tab .analytics-top-chart {
+    display: none !important;
+  }
+
+  /* Show chart when Time tab is active */
+  #analytics-tab .analytics-page-content[data-active-column="time"] .analytics-top-chart {
+    display: block !important;
+    margin-bottom: 10px !important;
+  }
+
+  /* Default to Time tab - show chart */
+  #analytics-tab .analytics-page-content:not([data-active-column]) .analytics-top-chart {
+    display: block !important;
+    margin-bottom: 10px !important;
+  }
+
+  #analytics-tab .top-chart-container {
+    padding: 10px !important;
+  }
+
+  /* Histogram bars - fit all without scrolling */
+  .image-pie-chart-area {
+    overflow-x: hidden !important;
+  }
+
+  .histogram-chart {
+    width: 100% !important;
+  }
+
+  .histogram-bars {
+    gap: 2px !important;
+    padding: 0 5px !important;
+    width: 100% !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .histogram-bars::after {
+    bottom: 16px !important;
+  }
+
+  .histogram-bar {
+    min-width: 0 !important;
+    flex: 1 1 0 !important;
+  }
+
+  .histogram-bar-inner {
+    width: 100% !important;
+  }
+
+  .histogram-label {
+    font-size: 0.5rem !important;
+    margin-top: 4px !important;
+  }
+
+  .histogram-label::before {
+    top: -4px !important;
+    height: 3px !important;
+  }
+
+  .histogram-count {
+    font-size: 0.55rem !important;
+  }
+
+  /* Distribution stats - metrics stacked, right justified, no space */
+  #analytics-tab .distribution-stats {
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 0 !important;
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+  }
+
+  #analytics-tab .distribution-stats .dist-title {
+    display: none !important;
+  }
+
+  #analytics-tab .distribution-stats .dist-metrics {
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 0 !important;
+  }
+
+  #analytics-tab .distribution-stats .dist-stat {
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Remove dot separators */
+  #analytics-tab .distribution-stats .dist-stat-sep,
+  #analytics-tab .distribution-stats .stat-sep {
+    display: none !important;
+  }
+
+  #analytics-tab .distribution-stats .stat-row,
+  #analytics-tab .distribution-stats .stat-row-inline {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.2 !important;
+  }
+
+  #analytics-tab .bucket-detail-container {
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+  }
+
+  /* Bucket table - mobile column widths */
+  .bucket-table-header,
+  .bucket-row {
+    grid-template-columns: 28px 18px 1.5fr 1fr 65px !important;
+    gap: 3px !important;
+  }
+
+  #analytics-tab .bucket-time,
+  #analytics-tab .bucket-count {
+    font-size: 10px !important;
+  }
+
+  .bucket-filename {
+    font-size: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    min-width: 0 !important;
+  }
+
+  /* Hide open button on mobile - whole row is clickable */
+  .bucket-open-btn {
+    display: none !important;
+  }
+
+  .bucket-filename-text {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  #analytics-tab .bucket-tags {
+    font-size: 9px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    min-width: 0 !important;
+  }
+
+  #analytics-tab .bucket-date {
+    font-size: 9px !important;
+    text-align: right !important;
+  }
+
+  .analytics-mobile-tab {
+    flex: 1 !important;
+    padding: 10px 8px !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 3px solid transparent !important;
+    cursor: pointer !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #586069 !important;
+    transition: all 0.2s !important;
+    margin-bottom: -2px !important;
+    text-align: center !important;
+  }
+
+  .analytics-mobile-tab:hover {
+    color: #24292e !important;
+    background: #f0f2f4 !important;
+  }
+
+  .analytics-mobile-tab.active {
+    color: #3498db !important;
+    border-bottom-color: #3498db !important;
+    font-weight: 600 !important;
+  }
+
+  /* Hide columns by default on mobile */
+  #analytics-tab .analytics-columns {
+    display: none !important;
+  }
+
+  /* Show columns container only when a column tab is active */
+  #analytics-tab .analytics-page-content[data-active-column="tvs"] .analytics-columns,
+  #analytics-tab .analytics-page-content[data-active-column="tags"] .analytics-columns,
+  #analytics-tab .analytics-page-content[data-active-column="images"] .analytics-columns {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
+  }
+
+  #analytics-tab .analytics-column {
+    display: none !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+
+  /* Show active column based on data attribute */
+  #analytics-tab .analytics-page-content[data-active-column="tvs"] .analytics-column[data-column="tvs"],
+  #analytics-tab .analytics-page-content[data-active-column="tags"] .analytics-column[data-column="tags"],
+  #analytics-tab .analytics-page-content[data-active-column="images"] .analytics-column[data-column="images"] {
+    display: flex !important;
+  }
+
+  #analytics-tab .analytics-column.analytics-images {
+    grid-column: span 1 !important;
+  }
+
+  /* Column header */
+  #analytics-tab .column-header {
+    padding: 12px 15px !important;
+  }
+
+  #analytics-tab .column-header h4 {
+    font-size: 1rem !important;
+    margin-bottom: 10px !important;
+  }
+
+  /* Larger select dropdowns for touch */
+  #analytics-tab .analytics-select {
+    padding: 12px !important;
+    font-size: 16px !important; /* Prevents iOS zoom */
+    min-height: 44px !important;
+  }
+
+  /* Detail panels - take remaining height */
+  #analytics-tab .analytics-detail-panel {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    min-height: 200px !important;
+  }
+
+  /* Summary compact */
   .analytics-summary-compact {
     flex-direction: column;
     align-items: flex-start;
@@ -6079,21 +6419,31 @@ body {
     gap: 8px;
   }
   
-  .analytics-columns {
-    grid-template-columns: 1fr;
-  }
-  
-  .analytics-column.analytics-images {
-    grid-column: span 1;
-  }
-  
-  .analytics-column {
-    max-height: 350px;
-  }
-  
   .image-pie-large {
     width: 100px;
     height: 100px;
+  }
+
+  /* Empty/Error states */
+  #analytics-tab .analytics-empty-state,
+  #analytics-tab .analytics-error-state {
+    padding: 30px 20px !important;
+  }
+
+  /* Hide mobile time content placeholder - we use CSS to show/hide actual chart */
+  .analytics-mobile-time-content {
+    display: none !important;
+  }
+}
+
+/* Hide mobile tabs on desktop */
+@media (min-width: 769px) {
+  .analytics-mobile-tabs {
+    display: none !important;
+  }
+  
+  .analytics-mobile-time-content {
+    display: none !important;
   }
 }
 
