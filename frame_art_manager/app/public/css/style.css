@@ -428,6 +428,8 @@ body {
   margin-left: auto;
 }
 
+
+
 .btn-add {
   flex-shrink: 0;
   padding: 8px 20px;
@@ -644,7 +646,7 @@ body {
 .control-settings {
   flex: 0 0 auto;
   border-right: none !important;
-  padding: 0;
+  padding: 0 !important;
 }
 
 .control-icon {
