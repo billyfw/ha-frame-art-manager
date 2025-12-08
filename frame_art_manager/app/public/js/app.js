@@ -2090,6 +2090,36 @@ function renderGallery(filter = '') {
     );
   }
 
+  // Filter for "None" - images not shown on any TV
+  const noneCheckbox = document.querySelector('.tv-none-checkbox');
+  if (noneCheckbox && noneCheckbox.checked) {
+    filteredImages = filteredImages.filter(([_, data]) => {
+      const imageTagSet = new Set(data.tags || []);
+      
+      // Check if this image is eligible for ANY TV
+      for (const tv of allTVs) {
+        const includeTags = tv.tags || [];
+        const excludeTags = tv.exclude_tags || [];
+        
+        // Check include tags: if set, image must have at least one
+        if (includeTags.length > 0 && !includeTags.some(tag => imageTagSet.has(tag))) {
+          continue;
+        }
+        
+        // Check exclude tags: if set, image must not have any
+        if (excludeTags.length > 0 && excludeTags.some(tag => imageTagSet.has(tag))) {
+          continue;
+        }
+        
+        // Image is eligible for this TV, so it's NOT a "None" image
+        return false;
+      }
+      
+      // Image is not eligible for any TV
+      return true;
+    });
+  }
+
   // Sort images
   filteredImages.sort((a, b) => {
     const [filenameA, dataA] = a;
@@ -2112,6 +2142,7 @@ function renderGallery(filter = '') {
 
   if (filteredImages.length === 0) {
     grid.innerHTML = '<div class="empty-state">No images found</div>';
+    updateSearchPlaceholder(0);
     return;
   }
 
@@ -2211,7 +2242,15 @@ function renderGallery(filter = '') {
     });
   });
 
+  updateSearchPlaceholder(filteredImages.length);
   updateBulkActionsBar();
+}
+
+function updateSearchPlaceholder(count) {
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    searchInput.placeholder = `Search ${count} images`;
+  }
 }
 
 // Search and Filter
@@ -2234,6 +2273,11 @@ document.addEventListener('DOMContentLoaded', () => {
       // Uncheck all tag checkboxes
       const checkboxes = document.querySelectorAll('.tag-checkbox:checked');
       checkboxes.forEach(cb => cb.checked = false);
+      // Uncheck "None" checkbox
+      const noneCheckbox = document.querySelector('.tv-none-checkbox');
+      if (noneCheckbox) {
+        noneCheckbox.checked = false;
+      }
       updateTagFilterDisplay();
       // Close the dropdown if it's open
       if (!DEBUG_ALWAYS_SHOW_TAG_DROPDOWN) {
@@ -2784,6 +2828,63 @@ async function loadTags() {
   }
 }
 
+// Count images that match a TV's include/exclude tag criteria
+function countImagesForTV(tv) {
+  const includeTags = tv.tags || [];
+  const excludeTags = tv.exclude_tags || [];
+  
+  let count = 0;
+  for (const [filename, data] of Object.entries(allImages)) {
+    const imageTagSet = new Set(data.tags || []);
+    
+    // Check include tags: if set, image must have at least one
+    if (includeTags.length > 0 && !includeTags.some(tag => imageTagSet.has(tag))) {
+      continue;
+    }
+    
+    // Check exclude tags: if set, image must not have any
+    if (excludeTags.length > 0 && excludeTags.some(tag => imageTagSet.has(tag))) {
+      continue;
+    }
+    
+    count++;
+  }
+  return count;
+}
+
+// Count images that don't match any TV's criteria
+function countImagesForNone() {
+  let count = 0;
+  for (const [filename, data] of Object.entries(allImages)) {
+    const imageTagSet = new Set(data.tags || []);
+    let matchesAnyTV = false;
+    
+    for (const tv of allTVs) {
+      const includeTags = tv.tags || [];
+      const excludeTags = tv.exclude_tags || [];
+      
+      // Check include tags: if set, image must have at least one
+      if (includeTags.length > 0 && !includeTags.some(tag => imageTagSet.has(tag))) {
+        continue;
+      }
+      
+      // Check exclude tags: if set, image must not have any
+      if (excludeTags.length > 0 && excludeTags.some(tag => imageTagSet.has(tag))) {
+        continue;
+      }
+      
+      // Image matches this TV
+      matchesAnyTV = true;
+      break;
+    }
+    
+    if (!matchesAnyTV) {
+      count++;
+    }
+  }
+  return count;
+}
+
 async function loadTagsForFilter() {
   try {
     const response = await fetch(`${API_BASE}/tags`);
@@ -2805,6 +2906,9 @@ async function loadTagsForFilter() {
         const safeTags = JSON.stringify(tv.tags || []).replace(/"/g, '&quot;');
         const id = tv.device_id || tv.entity_id;
         
+        // Count images that match this TV's criteria
+        const matchCount = countImagesForTV(tv);
+        
         let subtitleHtml = '';
         if (tv.tags && tv.tags.length > 0) {
           subtitleHtml += `<div class="tv-tags-subtitle">+ ${tv.tags.join(', ')}</div>`;
@@ -2820,11 +2924,24 @@ async function loadTagsForFilter() {
                  class="tv-checkbox"
                  data-tags="${safeTags}">
           <label for="tv-shortcut-${id}">
-            <div class="tv-name">${escapeHtml(tv.name)}</div>
+            <div class="tv-name">${escapeHtml(tv.name)} <span class="tv-count">(${matchCount})</span></div>
             ${subtitleHtml}
           </label>
         </div>
       `}).join('');
+      // Add "None" checkbox at end of TV list
+      const noneCount = countImagesForNone();
+      html += `
+        <div class="multiselect-option tv-shortcut">
+          <input type="checkbox" id="tv-shortcut-none" 
+                 value="none" 
+                 class="tv-none-checkbox">
+          <label for="tv-shortcut-none">
+            <div class="tv-name">None <span class="tv-count">(${noneCount})</span></div>
+            <div class="tv-tags-subtitle">Will not shuffle onto any TV</div>
+          </label>
+        </div>
+      `;
       html += `<div class="tv-shortcuts-divider"></div>`;
       html += `<div class="tags-header">Tags</div>`;
     }
@@ -2855,6 +2972,11 @@ async function loadTagsForFilter() {
       }
       
       checkbox.addEventListener('change', () => {
+        // Clear "None" checkbox when manually selecting tags
+        const noneCheckbox = document.querySelector('.tv-none-checkbox');
+        if (noneCheckbox) {
+          noneCheckbox.checked = false;
+        }
         updateTagFilterDisplay();
         updateTVShortcutStates();
       });
@@ -2865,6 +2987,12 @@ async function loadTagsForFilter() {
     tvCheckboxes.forEach(checkbox => {
       checkbox.addEventListener('change', (e) => handleTVShortcutChange(e));
     });
+
+    // Add listener for "None" checkbox
+    const noneCheckbox = dropdownOptions.querySelector('.tv-none-checkbox');
+    if (noneCheckbox) {
+      noneCheckbox.addEventListener('change', (e) => handleNoneShortcutChange(e));
+    }
 
     updateTagFilterDisplay();
     updateTVShortcutStates();
@@ -2895,6 +3023,12 @@ function handleTVShortcutChange(event) {
   
   const isChecked = tvCheckbox.checked;
   
+  // Clear "None" checkbox when selecting a TV
+  const noneCheckbox = document.querySelector('.tv-none-checkbox');
+  if (noneCheckbox) {
+    noneCheckbox.checked = false;
+  }
+  
   if (isChecked) {
     // When selecting a TV, enforce exact match by clearing other tags first
     const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
@@ -2918,6 +3052,23 @@ function handleTVShortcutChange(event) {
   
   updateTagFilterDisplay();
   updateTVShortcutStates(); 
+}
+
+function handleNoneShortcutChange(event) {
+  const noneCheckbox = event.target;
+  const isChecked = noneCheckbox.checked;
+  
+  if (isChecked) {
+    // Clear all TV shortcuts and tags when selecting "None"
+    const allTvCheckboxes = document.querySelectorAll('.tv-checkbox');
+    allTvCheckboxes.forEach(cb => cb.checked = false);
+    
+    const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
+    allTagCheckboxes.forEach(cb => cb.checked = false);
+  }
+  
+  updateTagFilterDisplay();
+  updateTVShortcutStates();
 }
 
 function updateTVShortcutStates() {
@@ -2973,13 +3124,18 @@ function updateTVShortcutStates() {
 function updateTagFilterDisplay() {
   const checkboxes = document.querySelectorAll('.tag-checkbox:checked');
   const selectedTags = Array.from(checkboxes).map(cb => cb.value);
+  const noneCheckbox = document.querySelector('.tv-none-checkbox');
+  const noneSelected = noneCheckbox && noneCheckbox.checked;
   const buttonText = document.getElementById('tag-filter-text');
   const clearBtn = document.getElementById('clear-tag-filter-btn');
   
   let label = 'All Tags';
   let showClear = false;
 
-  if (selectedTags.length === 1) {
+  if (noneSelected) {
+    label = 'None';
+    showClear = true;
+  } else if (selectedTags.length === 1) {
     label = selectedTags[0];
     showClear = true;
   } else if (selectedTags.length > 1) {
