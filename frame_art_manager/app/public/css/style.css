@@ -968,6 +968,39 @@ body {
   height: auto;
 }
 
+/* Custom three-state checkbox for tags */
+.multiselect-option input[type="checkbox"].tag-checkbox {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #666;
+  border-radius: 2px;
+  background: #fff;
+  position: relative;
+  vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Checkmark for included state */
+.multiselect-option[data-state="included"] input[type="checkbox"].tag-checkbox::after {
+  content: '✓';
+  color: #333;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* X mark for excluded state */
+.multiselect-option[data-state="excluded"] input[type="checkbox"].tag-checkbox::after {
+  content: '✕';
+  color: #333;
+  font-size: 12px;
+  font-weight: bold;
+}
+
 .multiselect-option label {
   cursor: pointer;
   margin: 0;
@@ -977,6 +1010,11 @@ body {
   display: block;
   font-weight: normal;
   color: inherit;
+}
+
+/* Excluded tag label styling */
+.multiselect-option[data-state="excluded"] label {
+  text-decoration: line-through;
 }
 
 /* TV Shortcuts Subtitle */
