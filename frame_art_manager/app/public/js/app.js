@@ -5822,46 +5822,33 @@ async function loadAnalytics(selectedImage = null) {
     
     // If an image was specified, try to select it
     if (selectedImage) {
-      console.log('[Analytics] selectedImage from URL:', selectedImage);
-      
-      // On mobile, switch to the Images tab regardless of whether image is found
+      // On mobile, switch to the Images tab
       const pageContent = document.querySelector('.analytics-page-content');
-      console.log('[Analytics] pageContent found:', !!pageContent);
       if (pageContent) {
         pageContent.dataset.activeColumn = 'images';
-        console.log('[Analytics] Set activeColumn to images');
         // Update tab button states
         document.querySelectorAll('.analytics-mobile-tab').forEach(btn => {
-          const isActive = btn.dataset.column === 'images';
-          btn.classList.toggle('active', isActive);
-          console.log('[Analytics] Tab button:', btn.dataset.column, 'active:', isActive);
+          btn.classList.toggle('active', btn.dataset.column === 'images');
         });
       }
       
       // Try to select the image in the dropdown
       const imageSelect = document.getElementById('analytics-image-select');
-      console.log('[Analytics] imageSelect found:', !!imageSelect);
       if (imageSelect) {
         // Check if the exact filename exists as an option
         const options = Array.from(imageSelect.options);
-        console.log('[Analytics] Available options:', options.map(o => o.value));
         const exactMatch = options.find(opt => opt.value === selectedImage);
         
         if (exactMatch) {
-          console.log('[Analytics] Found exact match');
           imageSelect.value = selectedImage;
           imageSelect.dispatchEvent(new Event('change'));
         } else {
           // Try partial match (filename without path)
           const baseFilename = selectedImage.split('/').pop();
-          console.log('[Analytics] No exact match, trying partial with:', baseFilename);
           const partialMatch = options.find(opt => opt.value.includes(baseFilename) || baseFilename.includes(opt.value));
           if (partialMatch) {
-            console.log('[Analytics] Found partial match:', partialMatch.value);
             imageSelect.value = partialMatch.value;
             imageSelect.dispatchEvent(new Event('change'));
-          } else {
-            console.log('[Analytics] No match found for image');
           }
         }
       }
@@ -6597,13 +6584,21 @@ function renderTagSelector() {
 
 function renderImageSelector() {
   const select = document.getElementById('analytics-image-select');
-  if (!select || !analyticsData) return;
+  if (!select) return;
   
-  const images = analyticsData.images || {};
-  const imageNames = Object.keys(images);
+  // Use ALL gallery images, not just ones with analytics data
+  const analyticsImages = analyticsData?.images || {};
+  const galleryImageNames = Object.keys(allImages || {});
   
-  // Sort by display time descending
-  imageNames.sort((a, b) => (images[b].total_display_seconds || 0) - (images[a].total_display_seconds || 0));
+  // If no gallery images loaded yet, fall back to analytics images only
+  const imageNames = galleryImageNames.length > 0 ? galleryImageNames : Object.keys(analyticsImages);
+  
+  // Sort by display time descending (images without analytics data will have 0)
+  imageNames.sort((a, b) => {
+    const timeA = analyticsImages[a]?.total_display_seconds || 0;
+    const timeB = analyticsImages[b]?.total_display_seconds || 0;
+    return timeB - timeA;
+  });
   
   select.innerHTML = imageNames.map(filename => {
       const displayName = truncateFilename(filename, 40);
@@ -6718,7 +6713,7 @@ function renderImageDetail(filename) {
   const statsContainer = document.getElementById('analytics-image-stats');
   const tagsContainer = document.getElementById('analytics-image-tags');
   
-  if (!container || !analyticsData) return;
+  if (!container) return;
   
   if (!filename) {
     container.innerHTML = '<div class="empty-state-small">Select an image to view details</div>';
@@ -6727,20 +6722,11 @@ function renderImageDetail(filename) {
     return;
   }
   
-  const imageData = analyticsData.images?.[filename];
-  if (!imageData) {
-    container.innerHTML = '<div class="empty-state-small">Image not found in analytics data</div>';
-    if (statsContainer) statsContainer.innerHTML = '';
-    if (tagsContainer) tagsContainer.innerHTML = '';
-    return;
-  }
+  const imageData = analyticsData?.images?.[filename];
+  const galleryData = allImages?.[filename];
   
-  // Get time-filtered data for this image
-  const perTv = getPerTVStatsForImageInRange(filename);
-  const tags = imageData.tags || [];
-  
-  // Calculate stats for selected time range
-  const imageStats = calculateImageStatsForRange(filename);
+  // Get tags from gallery data if no analytics data, or from analytics data
+  const tags = imageData?.tags || galleryData?.tags || [];
   
   // Render tags in header row (next to title)
   if (tagsContainer) {
@@ -6749,10 +6735,16 @@ function renderImageDetail(filename) {
       : '<span class="image-tag-pill-small untagged">(untagged)</span>';
   }
   
+  // Get time-filtered data for this image (will be empty arrays/zeros if no analytics data)
+  const perTv = imageData ? getPerTVStatsForImageInRange(filename) : [];
+  
+  // Calculate stats for selected time range (will be zeros if no analytics data)
+  const imageStats = imageData ? calculateImageStatsForRange(filename) : { totalSeconds: 0, eventCount: 0 };
+  
   // Render stats below dropdown
   if (statsContainer) {
-    const lastDisplay = getLastDisplayInfo(filename);
-    const lastDisplayText = lastDisplay ? lastDisplay.timeAgo : 'Never';
+    const lastDisplay = imageData ? getLastDisplayInfo(filename) : null;
+    const lastDisplayText = lastDisplay ? lastDisplay.timeAgo : 'N/A';
     statsContainer.innerHTML = `
       <div class="stat-row-inline">
         <span class="stat-inline"><strong>${formatHoursNice(imageStats.totalSeconds)}</strong> time</span>
@@ -6777,7 +6769,7 @@ function renderImageDetail(filename) {
   `;
   
   // TV breakdown - stacked horizontal bar (only if multiple TVs)
-  const totalTvCount = Object.keys(analyticsData.tvs || {}).length;
+  const totalTvCount = Object.keys(analyticsData?.tvs || {}).length;
   if (perTv.length > 0 && totalTvCount > 1) {
     const segments = perTv.map((tv, index) => {
       const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
