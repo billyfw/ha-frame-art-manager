@@ -331,6 +331,41 @@ function openTagDropdownPortal() {
   tagDropdownState.originalParent = dropdown.parentNode;
   tagDropdownState.originalNextSibling = dropdown.nextSibling;
 
+  // Remove any existing shield first
+  const existingShield = document.getElementById('dropdown-click-shield');
+  if (existingShield) existingShield.remove();
+  
+  // Create fresh click shield to catch outside clicks without triggering elements underneath
+  const shield = document.createElement('div');
+  shield.id = 'dropdown-click-shield';
+  shield.className = 'dropdown-click-shield';
+  
+  // Absorb all touch events to prevent them reaching cards underneath
+  shield.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, { passive: false });
+  shield.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Close on touchend instead of touchstart, so shield absorbs the full touch sequence
+    closeTagDropdownPortal();
+  }, { passive: false });
+  shield.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, { passive: false });
+  // Also handle click for mouse/desktop
+  shield.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeTagDropdownPortal();
+  });
+  document.body.appendChild(shield);
+
+  // Disable hover effects on gallery cards while dropdown is open
+  document.body.classList.add('dropdown-open');
+
   // Move to body and show
   document.body.appendChild(dropdown);
   dropdown.classList.add('active');
@@ -367,6 +402,13 @@ function openTagDropdownPortal() {
 
 function closeTagDropdownPortal() {
   const { btn, dropdown } = getTagFilterElements();
+  
+  // Remove click shield and re-enable hover effects
+  const shield = document.getElementById('dropdown-click-shield');
+  if (shield) shield.remove();
+  // Delay removing dropdown-open class to ensure hover suppression stays active through touch end
+  setTimeout(() => document.body.classList.remove('dropdown-open'), 300);
+  
   if (!dropdown || !tagDropdownState.isOpen) {
     // Also ensure inline display is off even if we think it's closed
     if (dropdown) {
@@ -2230,17 +2272,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Close dropdown when clicking outside
+  // Fallback: Close dropdown when clicking outside (shield handles most cases, this is backup)
   document.addEventListener('click', (e) => {
     if (DEBUG_ALWAYS_SHOW_TAG_DROPDOWN) return;
     const { btn, dropdown } = getTagFilterElements();
     if (!dropdown || !btn) return;
+    
+    // Only act if dropdown is open
+    if (!tagDropdownState.isOpen) return;
+    
     const clickInsideDropdown = dropdown.contains(e.target);
     const clickOnButton = btn.contains(e.target);
+    const clickOnShield = e.target.id === 'dropdown-click-shield';
     // IMPORTANT: Don't intercept clicks on the gear button
     const clickOnGear = e.target.closest('#open-advanced-btn');
-    if (!clickInsideDropdown && !clickOnButton && !clickOnGear) {
-      console.log('[TagDropdown] outside click - closing');
+    if (!clickInsideDropdown && !clickOnButton && !clickOnShield && !clickOnGear) {
+      console.log('[TagDropdown] outside click (fallback) - closing');
       closeTagDropdownPortal();
     }
   });
@@ -7113,8 +7160,9 @@ function getAnalyticsDisplayName(filename) {
     return filename;
   }
   
-  // Check if removing the hash would cause ambiguity with other files in analytics data
-  const allFilenames = Object.keys(analyticsData?.images || {});
+  // Check if removing the hash would cause ambiguity with other files
+  // Use allImages (all gallery files) since we now show all images in the dropdown
+  const allFilenames = Object.keys(allImages || {});
   const baseWithExt = base + ext;
   const sharedBaseCount = allFilenames.filter(fn => {
     const parsed = extractBaseComponents(fn);

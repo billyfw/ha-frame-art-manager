@@ -895,6 +895,17 @@ body {
   display: block;
 }
 
+/* Click shield - invisible overlay to catch clicks when dropdown is open */
+.dropdown-click-shield {
+  position: fixed;
+  inset: 0;
+  z-index: 9998; /* Just below dropdown (9999) */
+  background: transparent;
+  cursor: default;
+  touch-action: manipulation; /* Ensure touch events are captured */
+  -webkit-tap-highlight-color: transparent; /* No highlight on tap */
+}
+
 /* Debug style: force dropdown visibility when JS adds .debug-visible */
 .multiselect-dropdown.debug-visible {
   display: block !important;
@@ -1032,6 +1043,12 @@ body {
 .image-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+/* Disable hover effects when dropdown is open */
+body.dropdown-open .image-card:hover {
+  transform: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .image-card.selected {
