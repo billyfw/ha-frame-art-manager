@@ -12,7 +12,7 @@
     <!-- Gallery Tab -->
     <div id="gallery-tab" class="tab-content active">
       <div class="gallery-toolbar">
-        <button type="button" id="open-upload-btn" class="btn-primary btn-add">Add Image</button>
+        <button type="button" id="open-upload-btn" class="btn-primary btn-add">Add Image1</button>
         
         <div class="toolbar-right">
           <div class="controls" role="toolbar" aria-label="Gallery controls">
@@ -357,6 +357,7 @@
         <div class="toolbar-group toolbar-group-primary">
           <button id="toolbar-edit-btn" class="toolbar-btn">Edit</button>
           <button id="revert-original-btn" class="toolbar-btn" disabled>Revert to Original Unedited</button>
+          <button id="modal-stats-link" class="toolbar-btn">Stats</button>
         </div>
         <div class="toolbar-divider"></div>
         <div class="toolbar-group toolbar-group-tools">
@@ -400,7 +401,7 @@
         </div>
         <div class="toolbar-flex"></div>
         <div class="toolbar-group toolbar-group-secondary">
-          <button id="modal-show-tv-btn" class="toolbar-btn" style="margin-right: 8px;">Show on TV</button>
+          <button id="modal-show-tv-btn" class="toolbar-btn">Show on TV</button>
           <button id="toolbar-cancel-btn" class="toolbar-btn" disabled>Cancel</button>
           <button id="toolbar-apply-btn" class="btn-primary toolbar-apply" disabled>Apply</button>
         </div>
@@ -471,7 +472,6 @@
         <div class="modal-details">
         <div class="modal-header-section">
           <div class="modal-info-left mobile-section-preview">
-            <button id="modal-stats-link" class="modal-stats-link" title="View Stats">📊</button>
             <div class="modal-filename-container">
               <h3 id="modal-filename"></h3>
               <button id="edit-filename-btn" class="btn-icon" title="Edit name">✏️</button>
@@ -541,6 +541,7 @@
             <div class="image-tag-section image-tag-section-fill">
               <div class="image-tag-section-header">
                 <label>Applied tags:</label>
+                <span id="tv-shuffle-indicator" class="tv-shuffle-indicator"></span>
               </div>
               <div id="modal-tags-badges" class="tag-cloud">
                 <!-- Populated by JavaScript -->

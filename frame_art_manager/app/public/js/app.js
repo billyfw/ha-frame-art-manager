@@ -1570,14 +1570,16 @@ async function saveBulkTags() {
 }
 
 // Get TV tags that aren't already applied to the current image
+// Returns aggregated data: each tag appears once with lists of include/exclude TVs
 function getAvailableTvTags() {
   if (!currentImage || !allTVs || allTVs.length === 0) return [];
   
   const imageData = allImages[currentImage];
   const appliedTags = new Set(imageData?.tags || []);
   
-  // Collect all TV tags with metadata
-  const tvTagsMap = new Map(); // tag -> { tvNames: [], isExclude: boolean }
+  // Collect all TV tags with metadata - aggregate by tag
+  // tag -> { includeTvNames: [], excludeTvNames: [] }
+  const tvTagsMap = new Map();
   
   for (const tv of allTVs) {
     const tvName = tv.name || 'Unknown TV';
@@ -1586,41 +1588,40 @@ function getAvailableTvTags() {
     for (const tag of (tv.tags || [])) {
       if (!appliedTags.has(tag)) {
         if (!tvTagsMap.has(tag)) {
-          tvTagsMap.set(tag, { tvNames: [], isExclude: false });
+          tvTagsMap.set(tag, { includeTvNames: [], excludeTvNames: [] });
         }
-        const entry = tvTagsMap.get(tag);
-        if (!entry.isExclude) { // Don't override if already marked as include
-          entry.tvNames.push(tvName);
-        }
+        tvTagsMap.get(tag).includeTvNames.push(tvName);
       }
     }
     
     // Exclude tags
     for (const tag of (tv.exclude_tags || [])) {
       if (!appliedTags.has(tag)) {
-        const key = tag + '__exclude__';
-        if (!tvTagsMap.has(key)) {
-          tvTagsMap.set(key, { tvNames: [], isExclude: true, tag });
+        if (!tvTagsMap.has(tag)) {
+          tvTagsMap.set(tag, { includeTvNames: [], excludeTvNames: [] });
         }
-        tvTagsMap.get(key).tvNames.push(tvName);
+        tvTagsMap.get(tag).excludeTvNames.push(tvName);
       }
     }
   }
   
-  // Convert to array and sort (include tags first, then exclude)
+  // Convert to array and sort
   const result = [];
-  for (const [key, data] of tvTagsMap) {
-    const actualTag = data.isExclude ? data.tag : key;
+  for (const [tag, data] of tvTagsMap) {
+    const totalTvs = data.includeTvNames.length + data.excludeTvNames.length;
+    const allExclude = data.includeTvNames.length === 0;
     result.push({
-      tag: actualTag,
-      tvNames: data.tvNames,
-      isExclude: data.isExclude
+      tag,
+      includeTvNames: data.includeTvNames,
+      excludeTvNames: data.excludeTvNames,
+      totalTvs,
+      allExclude
     });
   }
   
   result.sort((a, b) => {
-    // Include tags first
-    if (a.isExclude !== b.isExclude) return a.isExclude ? 1 : -1;
+    // Tags with includes first, then exclude-only tags
+    if (a.allExclude !== b.allExclude) return a.allExclude ? 1 : -1;
     // Then alphabetically
     return a.tag.localeCompare(b.tag);
   });
@@ -1645,14 +1646,41 @@ function renderTvTagsHelper() {
   if (wrapper) wrapper.style.display = 'block';
   
   const pillsHtml = availableTags.map(item => {
-    const excludeClass = item.isExclude ? ' exclude' : '';
-    const tvLabel = item.tvNames.length > 1 
-      ? `${item.tvNames.length} TVs` 
-      : item.tvNames[0];
-    const tooltip = item.tvNames.join(', ') + (item.isExclude ? ' (exclude)' : '');
-    return `<button class="tv-tag-pill${excludeClass}" data-tag="${escapeHtml(item.tag)}" title="${escapeHtml(tooltip)}">
+    const excludeClass = item.allExclude ? ' exclude' : '';
+    const excludeCount = item.excludeTvNames.length;
+    const hasExcludes = excludeCount > 0;
+    
+    // Build tooltip showing all TV names
+    const tooltipParts = [];
+    if (item.includeTvNames.length > 0) {
+      tooltipParts.push(item.includeTvNames.join(', '));
+    }
+    if (item.excludeTvNames.length > 0) {
+      tooltipParts.push(item.excludeTvNames.map(n => `${n} (exclude)`).join(', '));
+    }
+    const tooltip = tooltipParts.join(', ');
+    
+    // Build TV label - similar to applied tags format
+    let tvLabelHtml;
+    if (item.totalTvs === 1) {
+      // Single TV
+      const tvName = item.includeTvNames[0] || item.excludeTvNames[0];
+      const prefix = item.allExclude ? 'ex:' : '';
+      tvLabelHtml = `<span class="tv-name">${escapeHtml(prefix + tvName)}</span>`;
+    } else if (item.allExclude) {
+      // All exclude
+      tvLabelHtml = `<span class="tv-name">${item.totalTvs} TVs</span>`;
+    } else if (hasExcludes) {
+      // Mixed: some include, some exclude - show "X TVs (Y ex)" with Y ex in red
+      tvLabelHtml = `<span class="tv-name">${item.totalTvs} TVs <span class="tv-info-exclude">(${excludeCount} ex)</span></span>`;
+    } else {
+      // All include
+      tvLabelHtml = `<span class="tv-name">${item.totalTvs} TVs</span>`;
+    }
+    
+    return `<button class="tv-tag-pill${excludeClass}" data-tag="${escapeHtml(item.tag)}" title="${escapeHtml(tooltip)}" tabindex="-1">
       <span class="tag-label">${escapeHtml(item.tag)}</span>
-      <span class="tv-name">${escapeHtml(tvLabel)}</span>
+      ${tvLabelHtml}
     </button>`;
   }).join('');
   
@@ -1660,7 +1688,12 @@ function renderTvTagsHelper() {
   
   // Add click handlers
   container.querySelectorAll('.tv-tag-pill').forEach(pill => {
-    pill.addEventListener('click', async () => {
+    pill.addEventListener('click', async (e) => {
+      // Immediately blur the clicked button to prevent focus transfer on mobile
+      pill.blur();
+      e.target.blur();
+      if (document.activeElement) document.activeElement.blur();
+      
       const tag = pill.dataset.tag;
       await addTagFromHelper(tag);
     });
@@ -1780,6 +1813,72 @@ function renderImageTagBadges(tags) {
     </div>
   `;
   }).join('');
+  
+  // Update the TV shuffle indicator
+  updateTvShuffleIndicator(tags);
+}
+
+/**
+ * Calculate and display which TVs will shuffle this image based on its applied tags.
+ * 
+ * This logic mirrors the shuffle eligibility check in frame-art-shuffler's shuffle.py:
+ * - If a TV has include_tags set, the image must have at least ONE of those tags
+ * - If a TV has exclude_tags set, the image must NOT have ANY of those tags
+ * - If a TV has no include_tags and no exclude_tags, the image is always eligible
+ * 
+ * NOTE: If frame-art-shuffler's shuffle implementation changes, this logic may need updating.
+ */
+function updateTvShuffleIndicator(imageTags) {
+  const indicator = document.getElementById('tv-shuffle-indicator');
+  if (!indicator) return;
+  
+  if (!allTVs || allTVs.length === 0) {
+    indicator.textContent = '';
+    indicator.title = '';
+    return;
+  }
+  
+  const imageTagSet = new Set(imageTags || []);
+  const eligibleTvNames = [];
+  
+  for (const tv of allTVs) {
+    const tvName = tv.name || 'Unknown TV';
+    const includeTags = tv.tags || [];
+    const excludeTags = tv.exclude_tags || [];
+    
+    // Check include tags: if set, image must have at least one
+    if (includeTags.length > 0 && !includeTags.some(tag => imageTagSet.has(tag))) {
+      continue;
+    }
+    
+    // Check exclude tags: if set, image must not have any
+    if (excludeTags.length > 0 && excludeTags.some(tag => imageTagSet.has(tag))) {
+      continue;
+    }
+    
+    // Image is eligible for this TV
+    eligibleTvNames.push(tvName);
+  }
+  
+  if (eligibleTvNames.length === 0) {
+    indicator.innerHTML = 'Will shuffle on: <span style="white-space:nowrap">none</span>';
+    indicator.title = 'No TVs will shuffle this image with current tags';
+  } else if (eligibleTvNames.length === allTVs.length) {
+    indicator.innerHTML = 'Will shuffle on: <span style="white-space:nowrap">all TVs</span>';
+    indicator.title = eligibleTvNames.join(', ');
+  } else if (eligibleTvNames.length === 1) {
+    // Single TV - keep on same line
+    indicator.innerHTML = `Will shuffle on: <span style="white-space:nowrap">${escapeHtml(eligibleTvNames[0])}</span>`;
+    indicator.title = eligibleTvNames[0];
+  } else {
+    // Multiple TVs - use mobile-br class that only breaks on mobile
+    const wrappedNames = eligibleTvNames.slice(0, 3).map(name => 
+      `<span style="white-space:nowrap">${escapeHtml(name)}</span>`
+    ).join(', ');
+    const suffix = eligibleTvNames.length > 3 ? `, +${eligibleTvNames.length - 3} more` : '';
+    indicator.innerHTML = `Will shuffle on:<span class="mobile-br"></span> ${wrappedNames}${suffix}`;
+    indicator.title = eligibleTvNames.join(', ');
+  }
 }
 
 async function removeImageTag(tagName) {
@@ -5728,6 +5827,16 @@ async function loadAnalytics(selectedImage = null) {
         imageSelect.value = selectedImage;
         imageSelect.dispatchEvent(new Event('change'));
       }
+      
+      // On mobile, also switch to the Images tab
+      const pageContent = document.querySelector('.analytics-page-content');
+      if (pageContent) {
+        pageContent.dataset.activeColumn = 'images';
+        // Update tab button states
+        document.querySelectorAll('.analytics-mobile-tab').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.column === 'images');
+        });
+      }
     }
     
   } catch (error) {
@@ -7019,22 +7128,26 @@ function formatHours(seconds) {
   return (seconds / 3600).toFixed(1);
 }
 
-// Helper: format seconds to nice hours display (no unnecessary decimals)
+// Helper: format seconds to nice hours display (XhYm format, no decimals)
 function formatHoursNice(seconds) {
-  const hours = seconds / 3600;
+  const totalMinutes = Math.round(seconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  
   // Show days for >= 48 hours
   if (hours >= 48) {
     const days = Math.round(hours / 24);
     return days + 'd';
   }
+  // Just minutes if under 1 hour
   if (hours < 1) {
-    const mins = Math.round(seconds / 60);
     return mins + 'm';
   }
-  if (hours < 10) {
-    return hours.toFixed(1).replace(/\.0$/, '') + 'h';
+  // XhYm format for hours >= 1
+  if (mins === 0) {
+    return hours + 'h';
   }
-  return Math.round(hours) + 'h';
+  return hours + 'h' + mins + 'm';
 }
 
 // Helper: format percentage nicely (no unnecessary decimals)
