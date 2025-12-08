@@ -5820,22 +5820,50 @@ async function loadAnalytics(selectedImage = null) {
     renderImageSelector();
     setupAnalyticsEventListeners();
     
-    // If an image was specified, select it after rendering
-    if (selectedImage && analyticsData.images?.[selectedImage]) {
-      const imageSelect = document.getElementById('analytics-image-select');
-      if (imageSelect) {
-        imageSelect.value = selectedImage;
-        imageSelect.dispatchEvent(new Event('change'));
-      }
+    // If an image was specified, try to select it
+    if (selectedImage) {
+      console.log('[Analytics] selectedImage from URL:', selectedImage);
       
-      // On mobile, also switch to the Images tab
+      // On mobile, switch to the Images tab regardless of whether image is found
       const pageContent = document.querySelector('.analytics-page-content');
+      console.log('[Analytics] pageContent found:', !!pageContent);
       if (pageContent) {
         pageContent.dataset.activeColumn = 'images';
+        console.log('[Analytics] Set activeColumn to images');
         // Update tab button states
         document.querySelectorAll('.analytics-mobile-tab').forEach(btn => {
-          btn.classList.toggle('active', btn.dataset.column === 'images');
+          const isActive = btn.dataset.column === 'images';
+          btn.classList.toggle('active', isActive);
+          console.log('[Analytics] Tab button:', btn.dataset.column, 'active:', isActive);
         });
+      }
+      
+      // Try to select the image in the dropdown
+      const imageSelect = document.getElementById('analytics-image-select');
+      console.log('[Analytics] imageSelect found:', !!imageSelect);
+      if (imageSelect) {
+        // Check if the exact filename exists as an option
+        const options = Array.from(imageSelect.options);
+        console.log('[Analytics] Available options:', options.map(o => o.value));
+        const exactMatch = options.find(opt => opt.value === selectedImage);
+        
+        if (exactMatch) {
+          console.log('[Analytics] Found exact match');
+          imageSelect.value = selectedImage;
+          imageSelect.dispatchEvent(new Event('change'));
+        } else {
+          // Try partial match (filename without path)
+          const baseFilename = selectedImage.split('/').pop();
+          console.log('[Analytics] No exact match, trying partial with:', baseFilename);
+          const partialMatch = options.find(opt => opt.value.includes(baseFilename) || baseFilename.includes(opt.value));
+          if (partialMatch) {
+            console.log('[Analytics] Found partial match:', partialMatch.value);
+            imageSelect.value = partialMatch.value;
+            imageSelect.dispatchEvent(new Event('change'));
+          } else {
+            console.log('[Analytics] No match found for image');
+          }
+        }
       }
     }
     
