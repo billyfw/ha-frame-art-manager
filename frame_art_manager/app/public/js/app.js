@@ -352,9 +352,13 @@ function openTagDropdownPortal() {
     try { void loadTagsForFilter(); } catch {}
   }
 
-  // Reposition on resize/scroll while open
+  // Reposition on resize/scroll while open (but ignore scroll events from within the dropdown)
   tagDropdownState.resizeHandler = () => positionTagDropdownToButton();
-  tagDropdownState.scrollHandler = () => positionTagDropdownToButton();
+  tagDropdownState.scrollHandler = (e) => {
+    // Don't reposition if scrolling inside the dropdown itself
+    if (dropdown.contains(e.target)) return;
+    positionTagDropdownToButton();
+  };
   window.addEventListener('resize', tagDropdownState.resizeHandler);
   window.addEventListener('scroll', tagDropdownState.scrollHandler, true);
 

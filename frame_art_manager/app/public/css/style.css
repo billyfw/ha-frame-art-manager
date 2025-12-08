@@ -868,6 +868,8 @@ body {
   max-height: 400px;
   overflow-y: auto;
   box-sizing: border-box;
+  -webkit-overflow-scrolling: touch; /* Smooth momentum scrolling on iOS */
+  overscroll-behavior: contain; /* Prevent scroll chaining to parent/body */
 }
 
 /* Show scrollbar only when content overflows */
