@@ -1300,8 +1300,8 @@ function selectAllImages() {
   // Get all currently visible/filtered images
   const searchInput = document.getElementById('search-input');
   const searchTerm = (searchInput?.value || '').toLowerCase();
-  const selectedTagCheckboxes = document.querySelectorAll('.tag-checkbox:checked');
-  const selectedTags = Array.from(selectedTagCheckboxes).map(cb => cb.value);
+  const includedTags = getIncludedTags();
+  const excludedTags = getExcludedTags();
 
   let filteredImages = Object.entries(allImages);
 
@@ -1312,10 +1312,44 @@ function selectAllImages() {
     );
   }
 
-  if (selectedTags.length > 0) {
+  // Filter by included tags
+  if (includedTags.length > 0) {
     filteredImages = filteredImages.filter(([_, data]) => 
-      data.tags && selectedTags.some(tag => data.tags.includes(tag))
+      data.tags && includedTags.some(tag => data.tags.includes(tag))
     );
+  }
+
+  // Filter by excluded tags
+  if (excludedTags.length > 0) {
+    filteredImages = filteredImages.filter(([_, data]) => {
+      const imageTags = data.tags || [];
+      return !excludedTags.some(tag => imageTags.includes(tag));
+    });
+  }
+
+  // Filter for "None" - images not shown on any TV
+  const noneCheckbox = document.querySelector('.tv-none-checkbox');
+  if (noneCheckbox && noneCheckbox.checked) {
+    filteredImages = filteredImages.filter(([_, data]) => {
+      const imageTagSet = new Set(data.tags || []);
+      
+      for (const tv of allTVs) {
+        const tvIncludeTags = tv.tags || [];
+        const tvExcludeTags = tv.exclude_tags || [];
+        
+        if (tvIncludeTags.length > 0 && !tvIncludeTags.some(tag => imageTagSet.has(tag))) {
+          continue;
+        }
+        
+        if (tvExcludeTags.length > 0 && tvExcludeTags.some(tag => imageTagSet.has(tag))) {
+          continue;
+        }
+        
+        return false;
+      }
+      
+      return true;
+    });
   }
 
   // Add all filtered images to selection
@@ -2069,8 +2103,8 @@ function renderGallery(filter = '') {
 
   const searchInput = document.getElementById('search-input');
   const searchTerm = (searchInput?.value || '').toLowerCase();
-  const selectedTagCheckboxes = document.querySelectorAll('.tag-checkbox:checked');
-  const selectedTags = Array.from(selectedTagCheckboxes).map(cb => cb.value);
+  const includedTags = getIncludedTags();
+  const excludedTags = getExcludedTags();
   const sortOrderSelect = document.getElementById('sort-order');
   const sortOrder = sortOrderSelect ? sortOrderSelect.value : initialSortOrderPreference;
 
@@ -2083,11 +2117,19 @@ function renderGallery(filter = '') {
     );
   }
 
-  // Filter by tags (image must have ANY of the selected tags)
-  if (selectedTags.length > 0) {
+  // Filter by included tags (image must have ANY of the included tags)
+  if (includedTags.length > 0) {
     filteredImages = filteredImages.filter(([_, data]) => 
-      data.tags && selectedTags.some(tag => data.tags.includes(tag))
+      data.tags && includedTags.some(tag => data.tags.includes(tag))
     );
+  }
+
+  // Filter by excluded tags (image must NOT have ANY of the excluded tags)
+  if (excludedTags.length > 0) {
+    filteredImages = filteredImages.filter(([_, data]) => {
+      const imageTags = data.tags || [];
+      return !excludedTags.some(tag => imageTags.includes(tag));
+    });
   }
 
   // Filter for "None" - images not shown on any TV
@@ -2270,15 +2312,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (clearTagFilterBtn) {
     clearTagFilterBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      // Uncheck all tag checkboxes
-      const checkboxes = document.querySelectorAll('.tag-checkbox:checked');
-      checkboxes.forEach(cb => cb.checked = false);
+      // Reset all tag checkboxes to unchecked state
+      const checkboxes = document.querySelectorAll('.tag-checkbox');
+      checkboxes.forEach(cb => setTagState(cb, 'unchecked'));
       // Uncheck "None" checkbox
       const noneCheckbox = document.querySelector('.tv-none-checkbox');
       if (noneCheckbox) {
         noneCheckbox.checked = false;
       }
       updateTagFilterDisplay();
+      updateTVShortcutStates();
       // Close the dropdown if it's open
       if (!DEBUG_ALWAYS_SHOW_TAG_DROPDOWN) {
         closeTagDropdownPortal();
@@ -2950,36 +2993,54 @@ async function loadTagsForFilter() {
     html += allTags.map(tag => {
       const safeValue = tag.replace(/"/g, '&quot;');
       return `
-      <div class="multiselect-option">
-        <input type="checkbox" value="${safeValue}" class="tag-checkbox">
+      <div class="multiselect-option" data-state="unchecked">
+        <input type="checkbox" value="${safeValue}" class="tag-checkbox" data-state="unchecked">
         <label>${escapeHtml(tag)}</label>
       </div>
     `}).join('');
 
     dropdownOptions.innerHTML = html;
 
-    // Add listeners for tags
+    // Add listeners for tags (three-state: unchecked → included → excluded → unchecked)
     const checkboxes = dropdownOptions.querySelectorAll('.tag-checkbox');
     checkboxes.forEach(checkbox => {
-      // Toggle checkbox when label is clicked (since we removed ID association)
-      const label = checkbox.nextElementSibling;
-      if (label) {
-        label.addEventListener('click', (e) => {
-          e.preventDefault();
-          checkbox.checked = !checkbox.checked;
-          checkbox.dispatchEvent(new Event('change'));
-        });
-      }
+      const option = checkbox.closest('.multiselect-option');
       
-      checkbox.addEventListener('change', () => {
+      // Handle click on checkbox or label to cycle through states
+      const cycleTagState = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const currentState = checkbox.dataset.state || 'unchecked';
+        let newState;
+        
+        // Cycle: unchecked → included → excluded → unchecked
+        if (currentState === 'unchecked') {
+          newState = 'included';
+        } else if (currentState === 'included') {
+          newState = 'excluded';
+        } else {
+          newState = 'unchecked';
+        }
+        
+        setTagState(checkbox, newState);
+        
         // Clear "None" checkbox when manually selecting tags
         const noneCheckbox = document.querySelector('.tv-none-checkbox');
         if (noneCheckbox) {
           noneCheckbox.checked = false;
         }
+        
         updateTagFilterDisplay();
         updateTVShortcutStates();
-      });
+      };
+      
+      checkbox.addEventListener('click', cycleTagState);
+      
+      const label = checkbox.nextElementSibling;
+      if (label) {
+        label.addEventListener('click', cycleTagState);
+      }
     });
 
     // Add listeners for TV shortcuts
@@ -3007,20 +3068,55 @@ function getTagCheckbox(tagName) {
   return checkboxes.find(cb => cb.value.toLowerCase() === tagName.toLowerCase());
 }
 
-function handleTVShortcutChange(event) {
-  const tvCheckbox = event.target;
-  const tagsJson = tvCheckbox.dataset.tags;
+// Set a tag checkbox to one of three states: unchecked, included, excluded
+function setTagState(checkbox, state) {
+  const option = checkbox.closest('.multiselect-option');
   
-  if (!tagsJson) return;
-  
-  let tags = [];
-  try {
-    tags = JSON.parse(tagsJson);
-  } catch (e) {
-    console.error('Failed to parse tags JSON:', e);
-    return;
+  checkbox.dataset.state = state;
+  if (option) {
+    option.dataset.state = state;
   }
   
+  // We don't actually use the checked property for display anymore,
+  // but keep it somewhat in sync for any code that might check it
+  if (state === 'unchecked') {
+    checkbox.checked = false;
+  } else {
+    checkbox.checked = true;
+  }
+}
+
+// Get the current state of a tag checkbox
+function getTagState(checkbox) {
+  return checkbox.dataset.state || 'unchecked';
+}
+
+// Get all included tags
+function getIncludedTags() {
+  const checkboxes = document.querySelectorAll('.tag-checkbox');
+  return Array.from(checkboxes)
+    .filter(cb => getTagState(cb) === 'included')
+    .map(cb => cb.value);
+}
+
+// Get all excluded tags
+function getExcludedTags() {
+  const checkboxes = document.querySelectorAll('.tag-checkbox');
+  return Array.from(checkboxes)
+    .filter(cb => getTagState(cb) === 'excluded')
+    .map(cb => cb.value);
+}
+
+function handleTVShortcutChange(event) {
+  const tvCheckbox = event.target;
+  const tvId = tvCheckbox.value;
+  
+  // Find the TV object to get both include and exclude tags
+  const tv = allTVs.find(t => (t.device_id || t.entity_id) === tvId);
+  if (!tv) return;
+  
+  const includeTags = tv.tags || [];
+  const excludeTags = tv.exclude_tags || [];
   const isChecked = tvCheckbox.checked;
   
   // Clear "None" checkbox when selecting a TV
@@ -3029,23 +3125,24 @@ function handleTVShortcutChange(event) {
     noneCheckbox.checked = false;
   }
   
+  // Clear all tag states first
+  const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
+  allTagCheckboxes.forEach(cb => setTagState(cb, 'unchecked'));
+  
   if (isChecked) {
-    // When selecting a TV, enforce exact match by clearing other tags first
-    const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
-    allTagCheckboxes.forEach(cb => cb.checked = false);
-    
-    tags.forEach(tag => {
+    // Set include tags to 'included' state
+    includeTags.forEach(tag => {
       const tagCheckbox = getTagCheckbox(tag);
       if (tagCheckbox) {
-        tagCheckbox.checked = true;
+        setTagState(tagCheckbox, 'included');
       }
     });
-  } else {
-    // When deselecting, just uncheck the TV's tags
-    tags.forEach(tag => {
+    
+    // Set exclude tags to 'excluded' state
+    excludeTags.forEach(tag => {
       const tagCheckbox = getTagCheckbox(tag);
       if (tagCheckbox) {
-        tagCheckbox.checked = false;
+        setTagState(tagCheckbox, 'excluded');
       }
     });
   }
@@ -3059,12 +3156,13 @@ function handleNoneShortcutChange(event) {
   const isChecked = noneCheckbox.checked;
   
   if (isChecked) {
-    // Clear all TV shortcuts and tags when selecting "None"
+    // Clear all TV shortcuts when selecting "None"
     const allTvCheckboxes = document.querySelectorAll('.tv-checkbox');
     allTvCheckboxes.forEach(cb => cb.checked = false);
     
+    // Reset all tag checkboxes to unchecked state
     const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
-    allTagCheckboxes.forEach(cb => cb.checked = false);
+    allTagCheckboxes.forEach(cb => setTagState(cb, 'unchecked'));
   }
   
   updateTagFilterDisplay();
@@ -3072,9 +3170,9 @@ function handleNoneShortcutChange(event) {
 }
 
 function updateTVShortcutStates() {
-  // Get all currently selected tags (lowercase for comparison)
-  const selectedTagCheckboxes = document.querySelectorAll('.tag-checkbox:checked');
-  const selectedTagsSet = new Set(Array.from(selectedTagCheckboxes).map(cb => cb.value.toLowerCase()));
+  // Get currently included and excluded tags (lowercase for comparison)
+  const includedTagsSet = new Set(getIncludedTags().map(t => t.toLowerCase()));
+  const excludedTagsSet = new Set(getExcludedTags().map(t => t.toLowerCase()));
 
   // Create a Set of all available tags (lowercase)
   const availableTagsSet = new Set(
@@ -3084,34 +3182,28 @@ function updateTVShortcutStates() {
   const tvCheckboxes = document.querySelectorAll('.tv-checkbox');
   
   tvCheckboxes.forEach(tvCheckbox => {
-    const tagsJson = tvCheckbox.dataset.tags;
-    if (!tagsJson) {
+    const tvId = tvCheckbox.value;
+    const tv = allTVs.find(t => (t.device_id || t.entity_id) === tvId);
+    
+    if (!tv) {
       tvCheckbox.checked = false;
       tvCheckbox.indeterminate = false;
       return;
     }
     
-    let tvTags = [];
-    try {
-      tvTags = JSON.parse(tagsJson);
-    } catch (e) {
-      return;
-    }
+    const tvIncludeTags = (tv.tags || []).filter(tag => availableTagsSet.has(tag.toLowerCase()));
+    const tvExcludeTags = (tv.exclude_tags || []).filter(tag => availableTagsSet.has(tag.toLowerCase()));
     
-    // Filter TV tags to only those that exist in the system (case-insensitive check)
-    const existingTvTags = tvTags.filter(tag => availableTagsSet.has(tag.toLowerCase()));
+    // Check for exact match on both include and exclude tags
+    const includeMatch = 
+      tvIncludeTags.length === includedTagsSet.size &&
+      tvIncludeTags.every(tag => includedTagsSet.has(tag.toLowerCase()));
     
-    if (existingTvTags.length === 0) {
-      tvCheckbox.checked = false;
-      tvCheckbox.indeterminate = false;
-      return;
-    }
+    const excludeMatch = 
+      tvExcludeTags.length === excludedTagsSet.size &&
+      tvExcludeTags.every(tag => excludedTagsSet.has(tag.toLowerCase()));
     
-    // Check for exact match: same size and all EXISTING TV tags are present in selection
-    const isExactMatch = (existingTvTags.length === selectedTagsSet.size) && 
-                         existingTvTags.every(tag => selectedTagsSet.has(tag.toLowerCase()));
-
-    if (isExactMatch) {
+    if (includeMatch && excludeMatch) {
       tvCheckbox.checked = true;
       tvCheckbox.indeterminate = false;
     } else {
@@ -3122,8 +3214,8 @@ function updateTVShortcutStates() {
 }
 
 function updateTagFilterDisplay() {
-  const checkboxes = document.querySelectorAll('.tag-checkbox:checked');
-  const selectedTags = Array.from(checkboxes).map(cb => cb.value);
+  const includedTags = getIncludedTags();
+  const excludedTags = getExcludedTags();
   const noneCheckbox = document.querySelector('.tv-none-checkbox');
   const noneSelected = noneCheckbox && noneCheckbox.checked;
   const buttonText = document.getElementById('tag-filter-text');
@@ -3135,11 +3227,12 @@ function updateTagFilterDisplay() {
   if (noneSelected) {
     label = 'None';
     showClear = true;
-  } else if (selectedTags.length === 1) {
-    label = selectedTags[0];
-    showClear = true;
-  } else if (selectedTags.length > 1) {
-    label = selectedTags.join(', ');
+  } else if (includedTags.length > 0 || excludedTags.length > 0) {
+    // Build label with includes and excludes (excludes prefixed with -)
+    const parts = [];
+    parts.push(...includedTags);
+    parts.push(...excludedTags.map(t => `-${t}`));
+    label = parts.join(', ');
     showClear = true;
   }
 
