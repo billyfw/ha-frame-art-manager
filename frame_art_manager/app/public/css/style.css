@@ -4617,6 +4617,7 @@ body {
 /* Histogram chart */
 .histogram-chart {
   position: relative;
+  width: 100%;
 }
 
 .histogram-bars {
