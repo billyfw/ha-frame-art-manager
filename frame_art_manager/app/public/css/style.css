@@ -1062,6 +1062,23 @@ body {
   gap: 20px;
 }
 
+/* Gallery infinite scroll load-more indicator */
+.gallery-load-more {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 20px;
+  color: #6b7280;
+  font-size: 14px;
+  font-style: italic;
+}
+
+.gallery-load-more span {
+  background: #f3f4f6;
+  padding: 8px 16px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
 .image-card {
   background: white;
   border-radius: 8px;
