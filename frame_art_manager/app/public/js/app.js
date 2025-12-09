@@ -1473,7 +1473,7 @@ function renderBulkTagBadges(containerId, tags, isPartial) {
     const clickHandler = `onclick="removeBulkTag('${escapeHtml(tag)}', ${isPartial})"`;
     
     return `
-    <div class="tag-item${isPartial ? ' partial' : '''}${hasMatchClass} clickable" ${tooltip ? `title="${escapeHtml(tooltip)}"` : ''} ${clickHandler}>
+    <div class="tag-item${isPartial ? ' partial' : ''}${hasMatchClass} clickable" ${tooltip ? `title="${escapeHtml(tooltip)}"` : ''} ${clickHandler}>
       <div class="tag-content">
         <span class="tag-name">${escapeHtml(tag)}</span>
         ${tvInfoHtml}
