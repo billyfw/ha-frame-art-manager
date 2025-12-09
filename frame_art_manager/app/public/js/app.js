@@ -1108,6 +1108,11 @@ function switchToTab(tabName) {
     loadTags();
     loadMetadata();
   }
+  if (tabName === 'upload') {
+    // Render suggested tags when entering upload tab
+    renderUploadTvTagsHelper();
+    renderUploadAppliedTags();
+  }
 }
 
 function initUploadNavigation() {
@@ -1274,10 +1279,21 @@ function handleImageClick(filename, index, event) {
   renderGallery();
 }
 
-function updateBulkActionsBar() {
+function updateBulkActionsBar(totalSelectableCount) {
   const bulkActions = document.getElementById('bulk-actions');
   const selectedCount = document.getElementById('selected-count');
   const selectedCountMobile = document.getElementById('selected-count-mobile');
+  const selectAllBtn = document.getElementById('select-all-btn');
+  
+  // Update Select All button with count (use provided count or fallback to total images)
+  const count = totalSelectableCount ?? Object.keys(allImages).length;
+  
+  if (selectAllBtn) {
+    const desktopText = selectAllBtn.querySelector('.desktop-text');
+    const mobileText = selectAllBtn.querySelector('.mobile-text');
+    if (desktopText) desktopText.textContent = `Select All (${count})`;
+    if (mobileText) mobileText.innerHTML = `Select<br>All (${count})`;
+  }
   
   if (selectedImages.size > 0) {
     bulkActions.classList.add('visible');
@@ -1395,6 +1411,9 @@ function openBulkTagModal() {
   renderBulkTagBadges('bulk-all-tags', allTags, false);
   renderBulkTagBadges('bulk-some-tags', someTags, true);
   
+  // Render suggested TV tags
+  renderBulkTvTagsHelper(allTags);
+  
   modal.classList.add('visible');
   console.log('modal classes after add:', modal.className);
 }
@@ -1407,15 +1426,245 @@ function renderBulkTagBadges(containerId, tags, isPartial) {
     return;
   }
   
-  container.innerHTML = tags.sort().map(tag => `
-    <div class="tag-item${isPartial ? ' partial' : ''}">
+  container.innerHTML = tags.sort().map(tag => {
+    // Get TV info for this tag (same as image modal)
+    const tvMatches = getTvMatchesForTag(tag);
+    let tooltip = '';
+    let tvInfoHtml = '';
+    
+    if (tvMatches.length > 0) {
+      const matchStrings = tvMatches
+        .sort((a, b) => a.tvName.localeCompare(b.tvName))
+        .map(m => m.isExclude ? `${m.tvName} (exclude)` : m.tvName);
+      tooltip = matchStrings.join(', ');
+      
+      const excludeCount = tvMatches.filter(m => m.isExclude).length;
+      const allExclude = excludeCount === tvMatches.length;
+      const someExclude = excludeCount > 0 && !allExclude;
+      
+      let tvLabel;
+      let colorClass = '';
+      
+      if (tvMatches.length === 1) {
+        tvLabel = tvMatches[0].isExclude ? `ex:${tvMatches[0].tvName}` : tvMatches[0].tvName;
+        if (tvMatches[0].isExclude) colorClass = ' tv-info-exclude';
+      } else if (allExclude) {
+        tvLabel = `${tvMatches.length} TVs`;
+        colorClass = ' tv-info-exclude';
+      } else if (someExclude) {
+        tvInfoHtml = `<span class="tag-tv-info">${tvMatches.length} TVs <span class="tv-info-exclude">(${excludeCount} ex)</span></span>`;
+      } else {
+        tvLabel = `${tvMatches.length} TVs`;
+      }
+      
+      if (!tvInfoHtml) {
+        if (tvLabel.length > 12) {
+          tvLabel = tvLabel.substring(0, 11) + '…';
+        }
+        tvInfoHtml = `<span class="tag-tv-info${colorClass}">${escapeHtml(tvLabel)}</span>`;
+      }
+    }
+    
+    const hasMatchClass = tvMatches.length > 0 ? ' has-tv-match' : '';
+    
+    // Both tag types are fully clickable - clicking removes the tag
+    // For "on all" tags: removes from all selected images
+    // For "on some" tags: removes from images that have it
+    const clickHandler = `onclick="removeBulkTag('${escapeHtml(tag)}', ${isPartial})"`;
+    
+    return `
+    <div class="tag-item${isPartial ? ' partial' : '''}${hasMatchClass} clickable" ${tooltip ? `title="${escapeHtml(tooltip)}"` : ''} ${clickHandler}>
       <div class="tag-content">
-        <span class="tag-name">${tag}</span>
-        ${isPartial ? `<a href="#" class="tag-make-all" onclick="makeTagAll('${tag}'); return false;">make all</a>` : ''}
+        <span class="tag-name">${escapeHtml(tag)}</span>
+        ${tvInfoHtml}
       </div>
-      <button class="tag-remove" onclick="removeBulkTag('${tag}', ${isPartial})" title="Remove tag">×</button>
+      <button class="tag-remove" onclick="event.stopPropagation(); removeBulkTag('${escapeHtml(tag)}', ${isPartial})" title="Remove tag">×</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
+}
+
+// Render suggested TV tags for bulk modal
+// Shows TV tags that are NOT already applied to ALL selected images
+function renderBulkTvTagsHelper(allAppliedTags) {
+  const container = document.getElementById('bulk-tv-tags-helper');
+  const wrapper = document.getElementById('bulk-tv-tags-wrapper');
+  if (!container) return;
+  
+  const appliedTagsSet = new Set(allAppliedTags);
+  
+  // Collect all TV tags - aggregate by tag
+  const tvTagsMap = new Map();
+  
+  for (const tv of allTVs) {
+    const tvName = tv.name || 'Unknown TV';
+    
+    // Include tags
+    for (const tag of (tv.tags || [])) {
+      // Show tag if not applied to ALL selected images
+      if (!appliedTagsSet.has(tag)) {
+        if (!tvTagsMap.has(tag)) {
+          tvTagsMap.set(tag, { includeTvNames: [], excludeTvNames: [] });
+        }
+        tvTagsMap.get(tag).includeTvNames.push(tvName);
+      }
+    }
+    
+    // Exclude tags
+    for (const tag of (tv.exclude_tags || [])) {
+      if (!appliedTagsSet.has(tag)) {
+        if (!tvTagsMap.has(tag)) {
+          tvTagsMap.set(tag, { includeTvNames: [], excludeTvNames: [] });
+        }
+        tvTagsMap.get(tag).excludeTvNames.push(tvName);
+      }
+    }
+  }
+  
+  // Convert to array and sort
+  const availableTags = [];
+  for (const [tag, data] of tvTagsMap) {
+    const totalTvs = data.includeTvNames.length + data.excludeTvNames.length;
+    const allExclude = data.includeTvNames.length === 0;
+    availableTags.push({
+      tag,
+      includeTvNames: data.includeTvNames,
+      excludeTvNames: data.excludeTvNames,
+      totalTvs,
+      allExclude
+    });
+  }
+  
+  availableTags.sort((a, b) => {
+    if (a.allExclude !== b.allExclude) return a.allExclude ? 1 : -1;
+    return a.tag.localeCompare(b.tag);
+  });
+  
+  if (availableTags.length === 0) {
+    container.innerHTML = '';
+    if (wrapper) wrapper.style.display = 'none';
+    return;
+  }
+  
+  if (wrapper) wrapper.style.display = 'block';
+  
+  const pillsHtml = availableTags.map(item => {
+    const excludeClass = item.allExclude ? ' exclude' : '';
+    const excludeCount = item.excludeTvNames.length;
+    const hasExcludes = excludeCount > 0;
+    
+    const tooltipParts = [];
+    if (item.includeTvNames.length > 0) {
+      tooltipParts.push(item.includeTvNames.join(', '));
+    }
+    if (item.excludeTvNames.length > 0) {
+      tooltipParts.push(item.excludeTvNames.map(n => `${n} (exclude)`).join(', '));
+    }
+    const tooltip = tooltipParts.join(', ');
+    
+    let tvLabelHtml;
+    if (item.totalTvs === 1) {
+      const tvName = item.includeTvNames[0] || item.excludeTvNames[0];
+      const prefix = item.allExclude ? 'ex:' : '';
+      tvLabelHtml = `<span class="tv-name">${escapeHtml(prefix + tvName)}</span>`;
+    } else if (item.allExclude) {
+      tvLabelHtml = `<span class="tv-name">${item.totalTvs} TVs</span>`;
+    } else if (hasExcludes) {
+      tvLabelHtml = `<span class="tv-name">${item.totalTvs} TVs <span class="tv-info-exclude">(${excludeCount} ex)</span></span>`;
+    } else {
+      tvLabelHtml = `<span class="tv-name">${item.totalTvs} TVs</span>`;
+    }
+    
+    return `<button class="tv-tag-pill${excludeClass}" data-tag="${escapeHtml(item.tag)}" title="${escapeHtml(tooltip)}" tabindex="-1">
+      <span class="tag-label">${escapeHtml(item.tag)}</span>
+      ${tvLabelHtml}
+    </button>`;
+  }).join('');
+  
+  container.innerHTML = pillsHtml;
+  
+  // Add click handlers for bulk suggested tags
+  container.querySelectorAll('.tv-tag-pill').forEach(pill => {
+    pill.addEventListener('click', async (e) => {
+      pill.blur();
+      e.target.blur();
+      if (document.activeElement) document.activeElement.blur();
+      
+      const tag = pill.dataset.tag;
+      await addBulkTagFromHelper(tag);
+    });
+  });
+}
+
+// Add a tag to all selected images from bulk helper
+async function addBulkTagFromHelper(tagName) {
+  const selectedArray = Array.from(selectedImages);
+  let successCount = 0;
+  
+  for (const filename of selectedArray) {
+    try {
+      const imageData = allImages[filename];
+      const existingTags = imageData.tags || [];
+      
+      // Only add if image doesn't already have this tag
+      if (!existingTags.includes(tagName)) {
+        const newTags = [...existingTags, tagName];
+        
+        const response = await fetch(`${API_BASE}/images/${filename}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tags: newTags })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+          successCount++;
+          allImages[filename].tags = newTags;
+        }
+      }
+    } catch (error) {
+      console.error(`Error adding tag to ${filename}:`, error);
+    }
+  }
+  
+  // Refresh the bulk modal to show updated state
+  refreshBulkTagModal();
+  
+  // Reload gallery in background
+  loadGallery();
+  loadTags();
+  await updateSyncStatus();
+}
+
+// Refresh the bulk tag modal with current state
+function refreshBulkTagModal() {
+  const selectedArray = Array.from(selectedImages);
+  const countSpan = document.getElementById('bulk-count');
+  if (countSpan) countSpan.textContent = selectedImages.size;
+  
+  const tagCounts = {};
+  selectedArray.forEach(filename => {
+    const imageData = allImages[filename];
+    const tags = imageData.tags || [];
+    tags.forEach(tag => {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+  });
+  
+  const allTags = [];
+  const someTags = [];
+  
+  Object.entries(tagCounts).forEach(([tag, count]) => {
+    if (count === selectedArray.length) {
+      allTags.push(tag);
+    } else {
+      someTags.push(tag);
+    }
+  });
+  
+  renderBulkTagBadges('bulk-all-tags', allTags, false);
+  renderBulkTagBadges('bulk-some-tags', someTags, true);
+  renderBulkTvTagsHelper(allTags);
 }
 
 async function removeBulkTag(tagName, isPartial) {
@@ -1657,6 +1906,17 @@ function getAvailableTvTags() {
   const imageData = allImages[currentImage];
   const appliedTags = new Set(imageData?.tags || []);
   
+  return getTvTagsExcluding(appliedTags);
+}
+
+// Get all TV tags regardless of current image (for upload form)
+function getAllTvTags() {
+  if (!allTVs || allTVs.length === 0) return [];
+  return getTvTagsExcluding(new Set());
+}
+
+// Helper: Get TV tags excluding specified tags
+function getTvTagsExcluding(excludeSet) {
   // Collect all TV tags with metadata - aggregate by tag
   // tag -> { includeTvNames: [], excludeTvNames: [] }
   const tvTagsMap = new Map();
@@ -1666,7 +1926,7 @@ function getAvailableTvTags() {
     
     // Include tags
     for (const tag of (tv.tags || [])) {
-      if (!appliedTags.has(tag)) {
+      if (!excludeSet.has(tag)) {
         if (!tvTagsMap.has(tag)) {
           tvTagsMap.set(tag, { includeTvNames: [], excludeTvNames: [] });
         }
@@ -1676,7 +1936,7 @@ function getAvailableTvTags() {
     
     // Exclude tags
     for (const tag of (tv.exclude_tags || [])) {
-      if (!appliedTags.has(tag)) {
+      if (!excludeSet.has(tag)) {
         if (!tvTagsMap.has(tag)) {
           tvTagsMap.set(tag, { includeTvNames: [], excludeTvNames: [] });
         }
@@ -1884,12 +2144,12 @@ function renderImageTagBadges(tags) {
     const hasMatchClass = tvMatches.length > 0 ? ' has-tv-match' : '';
     
     return `
-    <div class="tag-item${hasMatchClass}" ${tooltip ? `title="${escapeHtml(tooltip)}"` : ''}>
+    <div class="tag-item${hasMatchClass}" ${tooltip ? `title="${escapeHtml(tooltip)}"` : ''} onclick="removeImageTag('${escapeHtml(tag)}')">
       <div class="tag-content">
         <span class="tag-name">${escapeHtml(tag)}</span>
         ${tvInfoHtml}
       </div>
-      <button class="tag-remove" onclick="removeImageTag('${escapeHtml(tag)}')">×</button>
+      <span class="tag-remove">×</span>
     </div>
   `;
   }).join('');
@@ -2285,7 +2545,7 @@ function renderGallery(filter = '') {
   });
 
   updateSearchPlaceholder(filteredImages.length);
-  updateBulkActionsBar();
+  updateBulkActionsBar(filteredImages.length);
 }
 
 function updateSearchPlaceholder(count) {
@@ -2610,6 +2870,9 @@ async function updateUploadPreview(file) {
   }
 }
 
+// Track active upload XHR for cancellation
+let activeUploadXhr = null;
+
 function initUploadForm() {
   const form = document.getElementById('upload-form');
   if (!form) return;
@@ -2642,61 +2905,369 @@ function initUploadForm() {
   });
   updateUploadPreview(null);
 
+  // Cancel button handler
+  const cancelBtn = document.getElementById('upload-cancel-btn');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      if (activeUploadXhr) {
+        activeUploadXhr.abort();
+        activeUploadXhr = null;
+      }
+    });
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const formData = new FormData(form);
     const statusDiv = document.getElementById('upload-status');
     const submitButton = form.querySelector('button[type="submit"]');
+    const progressContainer = document.getElementById('upload-progress-container');
+    const progressBar = document.getElementById('upload-progress-bar');
+    const progressText = document.getElementById('upload-progress-text');
     
-    statusDiv.innerHTML = '<div class="info">Uploading...</div>';
+    // Reset and show progress UI
+    statusDiv.innerHTML = '';
     submitButton.disabled = true;
+    submitButton.style.display = 'none';
+    progressContainer.classList.remove('hidden');
+    progressBar.style.width = '0%';
+    progressBar.classList.remove('success', 'error');
+    progressText.textContent = 'Uploading... 0%';
 
-    try {
-      const response = await fetch(`${API_BASE}/images/upload`, {
-        method: 'POST',
-        body: formData
-      });
+    // Create XHR for progress tracking
+    const xhr = new XMLHttpRequest();
+    activeUploadXhr = xhr;
 
-      const result = await response.json();
-
-      if (result.success) {
-        // Set sort to Date Added, descending (newest first) BEFORE navigation
-        sortAscending = false; // descending
-        const sortOrderSelect = document.getElementById('sort-order');
-        if (sortOrderSelect) {
-          sortOrderSelect.value = 'date';
-          // Trigger resize to accommodate "Date Added" text width
-          const event = new Event('change', { bubbles: true });
-          sortOrderSelect.dispatchEvent(event);
-        }
-        updateSortDirectionIcon();
-        const orderValue = sortOrderSelect ? sortOrderSelect.value : 'date';
-        saveSortPreference(orderValue, sortAscending);
-        
-        // Reset form for next use
-  form.reset();
-        statusDiv.innerHTML = '';
-        submitButton.disabled = false;
-        
-        // Reload tags in case new ones were added
-        await loadTags();
-        
-        // Close upload modal and return to gallery (this will call loadGallery automatically)
-        navigateTo('/');
-        
-        // Trigger auto-sync (has built-in guards for sync-in-progress)
-        await manualSync();
-      } else {
-        statusDiv.innerHTML = `<div class="error">Upload failed: ${result.error}</div>`;
-        submitButton.disabled = false;
+    // Track upload progress
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        progressBar.style.width = percent + '%';
+        progressText.textContent = `Uploading... ${percent}%`;
       }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      statusDiv.innerHTML = '<div class="error">Upload failed</div>';
-      submitButton.disabled = false;
+    });
+
+    // Handle completion
+    xhr.addEventListener('load', async () => {
+      activeUploadXhr = null;
+      
+      try {
+        const result = JSON.parse(xhr.responseText);
+        
+        if (xhr.status >= 200 && xhr.status < 300 && result.success) {
+          // Show success state briefly
+          progressBar.style.width = '100%';
+          progressBar.classList.add('success');
+          progressText.textContent = 'Upload complete!';
+          
+          // Set sort to Date Added, descending (newest first) BEFORE navigation
+          sortAscending = false;
+          const sortOrderSelect = document.getElementById('sort-order');
+          if (sortOrderSelect) {
+            sortOrderSelect.value = 'date';
+            const event = new Event('change', { bubbles: true });
+            sortOrderSelect.dispatchEvent(event);
+          }
+          updateSortDirectionIcon();
+          const orderValue = sortOrderSelect ? sortOrderSelect.value : 'date';
+          saveSortPreference(orderValue, sortAscending);
+          
+          // Brief delay to show success, then reset and navigate
+          setTimeout(async () => {
+            // Reset form for next use
+            form.reset();
+            resetUploadProgressUI(submitButton, progressContainer, progressBar);
+            
+            // Clear upload applied tags
+            uploadAppliedTags = [];
+            renderUploadAppliedTags();
+            renderUploadTvTagsHelper();
+            
+            // Reload tags in case new ones were added
+            await loadTags();
+            
+            // Close upload modal and return to gallery
+            navigateTo('/');
+            
+            // Trigger auto-sync
+            await manualSync();
+          }, 500);
+        } else {
+          // Server returned error
+          progressBar.classList.add('error');
+          progressText.textContent = 'Upload failed';
+          statusDiv.innerHTML = `<div class="error">Upload failed: ${result.error || 'Unknown error'}</div>`;
+          resetUploadProgressUI(submitButton, progressContainer, progressBar);
+        }
+      } catch (parseError) {
+        // JSON parse error
+        progressBar.classList.add('error');
+        progressText.textContent = 'Upload failed';
+        statusDiv.innerHTML = '<div class="error">Upload failed: Invalid server response</div>';
+        resetUploadProgressUI(submitButton, progressContainer, progressBar);
+      }
+    });
+
+    // Handle network errors
+    xhr.addEventListener('error', () => {
+      activeUploadXhr = null;
+      progressBar.classList.add('error');
+      progressText.textContent = 'Upload failed';
+      statusDiv.innerHTML = '<div class="error">Upload failed: Network error</div>';
+      resetUploadProgressUI(submitButton, progressContainer, progressBar);
+    });
+
+    // Handle cancellation
+    xhr.addEventListener('abort', () => {
+      activeUploadXhr = null;
+      statusDiv.innerHTML = '<div class="info">Upload cancelled</div>';
+      resetUploadProgressUI(submitButton, progressContainer, progressBar);
+    });
+
+    // Send the request
+    xhr.open('POST', `${API_BASE}/images/upload`);
+    xhr.send(formData);
+  });
+  
+  // Initialize upload tags functionality
+  initUploadTags();
+}
+
+// Helper to reset upload progress UI
+function resetUploadProgressUI(submitButton, progressContainer, progressBar) {
+  submitButton.disabled = false;
+  submitButton.style.display = '';
+  progressContainer.classList.add('hidden');
+  progressBar.style.width = '0%';
+  progressBar.classList.remove('success', 'error');
+}
+
+// Track applied tags for upload form
+let uploadAppliedTags = [];
+
+// Initialize upload tags - suggested tags and applied tags
+function initUploadTags() {
+  const addTagsBtn = document.getElementById('upload-add-tags-btn');
+  const tagsInput = document.getElementById('tags-input');
+  
+  if (addTagsBtn && tagsInput) {
+    addTagsBtn.addEventListener('click', () => {
+      addUploadTags();
+    });
+    
+    tagsInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addUploadTags();
+      }
+    });
+  }
+  
+  // Render initial state
+  renderUploadTvTagsHelper();
+  renderUploadAppliedTags();
+}
+
+// Add tags from upload form input
+function addUploadTags() {
+  const tagsInput = document.getElementById('tags-input');
+  if (!tagsInput) return;
+  
+  const inputValue = tagsInput.value;
+  const tags = inputValue.split(',').map(t => t.trim()).filter(t => t);
+  
+  if (tags.length === 0) return;
+  
+  // Add new tags to applied list (avoiding duplicates)
+  tags.forEach(tag => {
+    if (!uploadAppliedTags.includes(tag)) {
+      uploadAppliedTags.push(tag);
     }
   });
+  
+  // Clear input
+  tagsInput.value = '';
+  
+  // Update hidden form field with comma-separated tags
+  updateUploadTagsFormField();
+  
+  // Re-render
+  renderUploadAppliedTags();
+  renderUploadTvTagsHelper();
+}
+
+// Update the hidden tags input field with current applied tags
+function updateUploadTagsFormField() {
+  // We need to update what gets submitted - the tags-input now just adds tags
+  // So we create/update a hidden field with the actual tags
+  let hiddenField = document.getElementById('upload-tags-hidden');
+  if (!hiddenField) {
+    hiddenField = document.createElement('input');
+    hiddenField.type = 'hidden';
+    hiddenField.id = 'upload-tags-hidden';
+    hiddenField.name = 'tags';
+    const form = document.getElementById('upload-form');
+    if (form) form.appendChild(hiddenField);
+  }
+  hiddenField.value = uploadAppliedTags.join(', ');
+  
+  // Remove name from original input so it doesn't conflict
+  const tagsInput = document.getElementById('tags-input');
+  if (tagsInput) tagsInput.removeAttribute('name');
+}
+
+// Add a tag from the suggested helper
+function addUploadTagFromHelper(tagName) {
+  if (!uploadAppliedTags.includes(tagName)) {
+    uploadAppliedTags.push(tagName);
+    updateUploadTagsFormField();
+    renderUploadAppliedTags();
+    renderUploadTvTagsHelper();
+  }
+}
+
+// Remove a tag from upload applied tags
+function removeUploadTag(tagName) {
+  uploadAppliedTags = uploadAppliedTags.filter(t => t !== tagName);
+  updateUploadTagsFormField();
+  renderUploadAppliedTags();
+  renderUploadTvTagsHelper();
+}
+
+// Render the TV tags helper for upload form (suggested tags)
+function renderUploadTvTagsHelper() {
+  const container = document.getElementById('upload-tv-tags-helper');
+  const wrapper = document.getElementById('upload-tv-tags-wrapper');
+  if (!container) return;
+  
+  // Get all TV tags (not dependent on currentImage)
+  const availableTags = getAllTvTags();
+  
+  // Filter out tags that are already applied
+  const suggestedTags = availableTags.filter(item => !uploadAppliedTags.includes(item.tag));
+  
+  if (suggestedTags.length === 0) {
+    container.innerHTML = '';
+    if (wrapper) wrapper.style.display = 'none';
+    return;
+  }
+  
+  if (wrapper) wrapper.style.display = 'block';
+  
+  const pillsHtml = suggestedTags.map(item => {
+    const excludeClass = item.allExclude ? ' exclude' : '';
+    const excludeCount = item.excludeTvNames.length;
+    const hasExcludes = excludeCount > 0;
+    
+    // Build tooltip showing all TV names
+    const tooltipParts = [];
+    if (item.includeTvNames.length > 0) {
+      tooltipParts.push(item.includeTvNames.join(', '));
+    }
+    if (item.excludeTvNames.length > 0) {
+      tooltipParts.push(item.excludeTvNames.map(n => `${n} (exclude)`).join(', '));
+    }
+    const tooltip = tooltipParts.join(', ');
+    
+    // Build TV label
+    let tvLabelHtml;
+    if (item.totalTvs === 1) {
+      const tvName = item.includeTvNames[0] || item.excludeTvNames[0];
+      const prefix = item.allExclude ? 'ex:' : '';
+      tvLabelHtml = `<span class="tv-name">${escapeHtml(prefix + tvName)}</span>`;
+    } else if (item.allExclude) {
+      tvLabelHtml = `<span class="tv-name">${item.totalTvs} TVs</span>`;
+    } else if (hasExcludes) {
+      tvLabelHtml = `<span class="tv-name">${item.totalTvs} TVs <span class="tv-info-exclude">(${excludeCount} ex)</span></span>`;
+    } else {
+      tvLabelHtml = `<span class="tv-name">${item.totalTvs} TVs</span>`;
+    }
+    
+    return `<button type="button" class="tv-tag-pill${excludeClass}" data-tag="${escapeHtml(item.tag)}" title="${escapeHtml(tooltip)}" tabindex="-1">
+      <span class="tag-label">${escapeHtml(item.tag)}</span>
+      ${tvLabelHtml}
+    </button>`;
+  }).join('');
+  
+  container.innerHTML = pillsHtml;
+  
+  // Add click handlers
+  container.querySelectorAll('.tv-tag-pill').forEach(pill => {
+    pill.addEventListener('click', (e) => {
+      e.preventDefault();
+      pill.blur();
+      const tag = pill.dataset.tag;
+      addUploadTagFromHelper(tag);
+    });
+  });
+}
+
+// Render the applied tags for upload form
+function renderUploadAppliedTags() {
+  const container = document.getElementById('upload-applied-tags');
+  if (!container) return;
+  
+  if (uploadAppliedTags.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  const tagsHtml = uploadAppliedTags.map(tag => {
+    // Get TV matches for this tag (reuse existing function)
+    const tvMatches = getTvMatchesForTag(tag);
+    let tooltip = '';
+    let tvInfoHtml = '';
+    
+    if (tvMatches.length > 0) {
+      const matchStrings = tvMatches
+        .sort((a, b) => a.tvName.localeCompare(b.tvName))
+        .map(m => m.isExclude ? `${m.tvName} (exclude)` : m.tvName);
+      tooltip = matchStrings.join(', ');
+      
+      // Build compact TV info display
+      const excludeCount = tvMatches.filter(m => m.isExclude).length;
+      const allExclude = excludeCount === tvMatches.length;
+      const someExclude = excludeCount > 0 && !allExclude;
+      
+      let tvLabel;
+      let colorClass = '';
+      
+      if (tvMatches.length === 1) {
+        tvLabel = tvMatches[0].isExclude ? `ex:${tvMatches[0].tvName}` : tvMatches[0].tvName;
+        if (tvMatches[0].isExclude) colorClass = ' tv-info-exclude';
+      } else if (allExclude) {
+        tvLabel = `${tvMatches.length} TVs`;
+        colorClass = ' tv-info-exclude';
+      } else if (someExclude) {
+        // Show "X TVs (Y ex)" with Y ex in red
+        tvInfoHtml = `<span class="tag-tv-info">${tvMatches.length} TVs <span class="tv-info-exclude">(${excludeCount} ex)</span></span>`;
+      } else {
+        tvLabel = `${tvMatches.length} TVs`;
+      }
+      
+      // Only build tvInfoHtml if not already set (for partial exclude case)
+      if (!tvInfoHtml) {
+        // Truncate to keep tags uniform width
+        if (tvLabel.length > 12) {
+          tvLabel = tvLabel.substring(0, 11) + '…';
+        }
+        tvInfoHtml = `<span class="tag-tv-info${colorClass}">${escapeHtml(tvLabel)}</span>`;
+      }
+    }
+    
+    const hasMatchClass = tvMatches.length > 0 ? ' has-tv-match' : '';
+    
+    return `<div class="tag-item${hasMatchClass}" onclick="removeUploadTag('${escapeHtml(tag)}')" ${tooltip ? `title="${escapeHtml(tooltip)}"` : 'title="Click to remove"'}>
+      <div class="tag-content">
+        <span class="tag-name">${escapeHtml(tag)}</span>
+        ${tvInfoHtml}
+      </div>
+      <span class="tag-remove">×</span>
+    </div>`;
+  }).join('');
+  
+  container.innerHTML = tagsHtml;
 }
 
 // Batch Upload Functions
@@ -2739,23 +3310,45 @@ async function uploadBatchImages(files) {
   let errorCount = 0;
   let skippedCount = 0;
   const skippedFiles = [];
+  const uploadedFilenames = []; // Track successfully uploaded filenames
   const totalFiles = files.length;
+  let cancelled = false;
   
-  // Show progress indicator in gallery
+  // Show progress indicator in gallery with progress bar
   const grid = document.getElementById('image-grid');
   const progressDiv = document.createElement('div');
-  progressDiv.className = 'loading';
-  progressDiv.style.fontSize = '1.2rem';
-  progressDiv.style.padding = '40px';
-  progressDiv.innerHTML = `Uploading ${totalFiles} image${totalFiles !== 1 ? 's' : ''}...<br><span style="font-size: 1.5rem; font-weight: bold;">0 / ${totalFiles}</span>`;
+  progressDiv.className = 'loading batch-upload-progress';
+  progressDiv.style.fontSize = '1rem';
+  progressDiv.style.padding = '30px';
+  progressDiv.innerHTML = `
+    <div style="margin-bottom: 12px;">Uploading ${totalFiles} image${totalFiles !== 1 ? 's' : ''}...</div>
+    <div style="font-size: 1.3rem; font-weight: bold; margin-bottom: 10px;">0 / ${totalFiles}</div>
+    <div class="batch-progress-bar-wrapper" style="width: 100%; max-width: 300px; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; margin: 0 auto 10px;">
+      <div class="batch-progress-bar" style="width: 0%; height: 100%; background: #4a90d9; transition: width 0.15s ease;"></div>
+    </div>
+    <div class="batch-progress-file" style="font-size: 0.85rem; color: #666; margin-bottom: 12px;"></div>
+    <button class="batch-cancel-btn btn-secondary" style="padding: 6px 16px; font-size: 0.9rem;">Cancel</button>
+  `;
   grid.innerHTML = '';
   grid.appendChild(progressDiv);
   
-  // Upload each file with default metadata
+  const counterEl = progressDiv.querySelector('div:nth-child(2)');
+  const progressBar = progressDiv.querySelector('.batch-progress-bar');
+  const fileLabel = progressDiv.querySelector('.batch-progress-file');
+  const cancelBtn = progressDiv.querySelector('.batch-cancel-btn');
+  
+  cancelBtn.addEventListener('click', () => {
+    cancelled = true;
+    cancelBtn.textContent = 'Cancelling...';
+    cancelBtn.disabled = true;
+  });
+  
+  // Upload each file with XHR for progress
   for (let i = 0; i < files.length; i++) {
+    if (cancelled) break;
+    
     const file = files[i];
     
-       
     // Check file size before uploading
     if (file.size > MAX_FILE_SIZE) {
       skippedCount++;
@@ -2765,42 +3358,45 @@ async function uploadBatchImages(files) {
       });
       console.warn(`Skipped ${file.name}: ${formatFileSize(file.size)} exceeds 20MB limit`);
       
-      // Update progress
       const completedCount = i + 1;
-      progressDiv.innerHTML = `Processing ${totalFiles} image${totalFiles !== 1 ? 's' : ''}...<br><span style="font-size: 1.5rem; font-weight: bold;">${completedCount} / ${totalFiles}</span>`;
+      counterEl.textContent = `${completedCount} / ${totalFiles}`;
       continue;
     }
     
+    // Show current file being uploaded
+    const shortName = file.name.length > 30 ? file.name.substring(0, 27) + '...' : file.name;
+    fileLabel.textContent = `Uploading: ${shortName}`;
+    progressBar.style.width = '0%';
+    
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-      formData.append('matte', 'none'); // Default metadata
-      formData.append('filter', 'none'); // Default metadata
-      formData.append('tags', ''); // No tags by default
-      
-      const response = await fetch(`${API_BASE}/images/upload`, {
-        method: 'POST',
-        body: formData
+      const result = await uploadSingleFileWithProgress(file, (percent) => {
+        progressBar.style.width = `${percent}%`;
       });
-      
-      const result = await response.json();
       
       if (result.success) {
         successCount++;
+        if (result.filename) {
+          uploadedFilenames.push(result.filename);
+        }
       } else {
         errorCount++;
         console.error(`Failed to upload ${file.name}:`, result.error);
       }
       
-      // Update progress
       const completedCount = i + 1;
-      progressDiv.innerHTML = `Processing ${totalFiles} image${totalFiles !== 1 ? 's' : ''}...<br><span style="font-size: 1.5rem; font-weight: bold;">${completedCount} / ${totalFiles}</span>`;
+      counterEl.textContent = `${completedCount} / ${totalFiles}`;
+      progressBar.style.width = '100%';
       
     } catch (error) {
       errorCount++;
       console.error(`Error uploading ${file.name}:`, error);
+      
+      const completedCount = i + 1;
+      counterEl.textContent = `${completedCount} / ${totalFiles}`;
     }
   }
+  
+  fileLabel.textContent = '';
   
   // Build summary message
   let summaryParts = [];
@@ -2817,8 +3413,15 @@ async function uploadBatchImages(files) {
     summaryParts.push(`${errorCount} failed`);
   }
   
+  if (cancelled) {
+    const remaining = totalFiles - (successCount + errorCount + skippedCount);
+    if (remaining > 0) {
+      summaryParts.push(`${remaining} cancelled`);
+    }
+  }
+  
   // Show result summary if there were issues
-  if (skippedCount > 0 || errorCount > 0) {
+  if (skippedCount > 0 || errorCount > 0 || cancelled) {
     let message = 'Batch upload completed:\n\n' + summaryParts.join('\n');
     
     if (skippedFiles.length > 0) {
@@ -2839,8 +3442,57 @@ async function uploadBatchImages(files) {
   await loadGallery();
   await loadTags();
   
+  // Auto-select the uploaded images for easy batch tagging
+  if (uploadedFilenames.length > 0) {
+    selectedImages.clear();
+    uploadedFilenames.forEach(filename => {
+      selectedImages.add(filename);
+    });
+    renderGallery(); // Re-render to show selection
+    updateBulkActionsBar();
+  }
+  
   // Trigger auto-sync
   await manualSync();
+}
+
+// Upload a single file with XHR progress tracking
+function uploadSingleFileWithProgress(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('matte', 'none');
+    formData.append('filter', 'none');
+    formData.append('tags', '');
+    
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        onProgress(percent);
+      }
+    });
+    
+    xhr.addEventListener('load', () => {
+      try {
+        const result = JSON.parse(xhr.responseText);
+        resolve(result);
+      } catch (e) {
+        resolve({ success: false, error: 'Invalid response' });
+      }
+    });
+    
+    xhr.addEventListener('error', () => {
+      reject(new Error('Network error'));
+    });
+    
+    xhr.addEventListener('abort', () => {
+      resolve({ success: false, error: 'Cancelled' });
+    });
+    
+    xhr.open('POST', `${API_BASE}/images/upload`);
+    xhr.send(formData);
+  });
 }
 
 // Tag Management
@@ -5056,10 +5708,10 @@ function openImageModal(filename) {
     return;
   }
 
-  // Clear multi-select when opening image detail modal
-  // This ensures the multi-select toolbar disappears since we're focusing on a single image
-  if (selectedImages.size > 0) {
-    clearSelection();
+  // Hide bulk actions bar while modal is open (selection is preserved)
+  const bulkActions = document.getElementById('bulk-actions');
+  if (bulkActions) {
+    bulkActions.classList.remove('visible');
   }
 
   // Set image
@@ -7063,13 +7715,14 @@ function renderImageDetail(filename) {
   
   let html = '';
   
-  // Image thumbnail
+  // Image thumbnail with fallback handling for deleted images
   const displayName = getAnalyticsDisplayName(filename);
   html += `
     <div class="analytics-image-preview">
       <img src="thumbs/thumb_${encodeURIComponent(filename)}" 
-           onerror="this.src='library/${encodeURIComponent(filename)}'" 
+           onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';" 
            alt="${escapeHtml(displayName)}" />
+      <div class="analytics-image-unavailable" style="display:none;">Image not available</div>
     </div>
   `;
   

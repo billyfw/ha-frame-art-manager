@@ -1443,6 +1443,69 @@ body.dropdown-open .image-card:hover {
   font-style: italic;
 }
 
+/* Mobile hint hidden by default on desktop, shown on mobile */
+.form-hint-mobile {
+  display: none;
+}
+
+.form-hint-desktop {
+  display: block;
+}
+
+/* Upload matte/filter row - side by side */
+.upload-matte-filter-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.upload-matte-filter-row .form-group-compact {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+/* Upload applied tags section */
+.upload-applied-tags-section {
+  margin-bottom: 20px;
+}
+
+.upload-applied-tags-section label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.upload-tag-cloud {
+  margin-top: 0;
+  min-height: 40px;
+}
+
+.upload-tag-cloud:empty::before {
+  content: 'No tags added';
+  color: #95a5a6;
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+/* Upload tag items - same as image modal but clickable to remove */
+.upload-tag-cloud .tag-item {
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  gap: 6px;
+  min-height: 32px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.upload-tag-cloud .tag-item:hover {
+  background: #d4ecf5;
+}
+
+.upload-tag-cloud .tag-item:active {
+  background: #c0e0ed;
+}
+
 .upload-preview {
   margin-top: 12px;
   display: flex;
@@ -1452,6 +1515,69 @@ body.dropdown-open .image-card:hover {
   gap: 12px;
   text-align: center;
   min-height: 140px;
+}
+
+/* Upload Progress Bar */
+.upload-progress-container {
+  margin-top: 12px;
+}
+
+.upload-progress-container.hidden {
+  display: none;
+}
+
+.upload-progress-bar-wrapper {
+  width: 100%;
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.upload-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #3498db, #2ecc71);
+  border-radius: 4px;
+  transition: width 0.15s ease-out;
+}
+
+.upload-progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
+
+#upload-progress-text {
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.upload-cancel-btn {
+  background: transparent;
+  border: none;
+  color: #e74c3c;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.upload-cancel-btn:hover {
+  background: #fdeaea;
+}
+
+/* Success state */
+.upload-progress-bar.success {
+  background: #2ecc71;
+}
+
+/* Error state */
+.upload-progress-bar.error {
+  background: #e74c3c;
 }
 
 .upload-preview img {
@@ -1664,6 +1790,18 @@ body.dropdown-open .image-card:hover {
   border: 2px dashed #3498db;
   color: #3498db;
   padding: 4px 8px 4px 15px;
+}
+
+.tag-item.clickable {
+  cursor: pointer;
+}
+
+.tag-item.clickable:hover {
+  background: rgba(52, 152, 219, 0.15);
+}
+
+.tag-item.partial.clickable:hover {
+  background: rgba(52, 152, 219, 0.1);
 }
 
 .tag-content {
@@ -2443,6 +2581,16 @@ body.dropdown-open .image-card:hover {
   min-height: 32px;
   align-self: flex-start;
   align-items: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.image-tag-section .tag-item:hover {
+  background: #d4ecf5;
+}
+
+.image-tag-section .tag-item:active {
+  background: #c0e0ed;
 }
 
 .image-tag-section .tag-item .tag-content {
@@ -2523,6 +2671,10 @@ body.dropdown-open .image-card:hover {
   margin-top: 20px;
   padding: 15px;
   border-radius: 5px;
+}
+
+#upload-status:empty {
+  display: none;
 }
 
 .success {
@@ -3066,9 +3218,11 @@ body.dropdown-open .image-card:hover {
     flex: 1 1 auto !important;
     overflow-y: auto !important;
     padding: 12px !important;
+    padding-bottom: 0 !important;
     display: block !important;
     min-height: 0;
-    margin-bottom: 50px !important; /* space for action buttons */
+    /* Account for action bar height: ~52px + safe area */
+    margin-bottom: calc(52px + env(safe-area-inset-bottom, 16px)) !important;
   }
 
   /* Modal actions - pull out of scroll via display:contents on parent */
@@ -3222,8 +3376,9 @@ body.dropdown-open .image-card:hover {
   #image-modal .modal-actions {
     display: flex !important;
     justify-content: space-between;
-    align-items: center;
-    padding: 12px;
+    align-items: flex-start;
+    padding: 8px 12px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 16px));
     background: #f5f5f5;
     border-top: 1px solid #ddd;
     margin: 0;
@@ -3572,6 +3727,189 @@ body.dropdown-open .image-card:hover {
   #advanced-tab .sync-log-container {
     max-height: 60vh !important;
     overflow-y: auto !important;
+  }
+
+  /* ===== UPLOAD TAB - MOBILE FULL SCREEN ===== */
+  #upload-tab.active {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 1000 !important;
+    background: white !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #upload-tab .upload-section {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 12px !important;
+    padding-bottom: 0 !important;
+    margin: 0 !important;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #upload-tab .upload-header {
+    flex-shrink: 0;
+    margin-bottom: 8px !important;
+  }
+
+  #upload-tab #upload-form {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  #upload-tab .upload-form-scroll {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding-bottom: 8px;
+  }
+
+  #upload-tab .upload-form-footer {
+    flex-shrink: 0;
+    background: #f5f5f5;
+    border-top: 1px solid #ddd;
+    padding: 6px 12px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom, 6px));
+    margin: 0 -12px 0 -12px;
+  }
+
+  /* Close button styling like other mobile tabs */
+  #upload-tab #go-home-upload-btn {
+    color: #222222 !important;
+    background: #e0e0e0 !important;
+    border-radius: 6px !important;
+    padding: 6px 10px !important;
+    font-size: 24px !important;
+    width: auto !important;
+    height: auto !important;
+    line-height: 1 !important;
+  }
+
+  #upload-tab #go-home-upload-btn:hover {
+    background: #d5d5d5 !important;
+  }
+
+  /* Upload header */
+  #upload-tab h2 {
+    font-size: 1.2rem !important;
+  }
+
+  /* Hide ALL hint text on mobile for upload */
+  #upload-tab .form-hint-desktop,
+  #upload-tab .form-hint-mobile {
+    display: none !important;
+  }
+
+  /* Compress upload form vertically on mobile */
+  #upload-tab .form-group {
+    margin-bottom: 8px !important;
+  }
+
+  #upload-tab .form-group label {
+    margin-bottom: 2px !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* Shrink file input */
+  #upload-tab .form-group-file {
+    margin-bottom: 6px !important;
+  }
+
+  #upload-tab .file-input-wrapper {
+    font-size: 0.85rem !important;
+  }
+
+  #upload-tab .file-input-wrapper input[type="file"]::file-selector-button,
+  #upload-tab .file-input-wrapper input[type="file"]::-webkit-file-upload-button {
+    padding: 6px 10px !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* Compress image name field */
+  #upload-tab .form-group-name {
+    margin-bottom: 8px !important;
+  }
+
+  #upload-tab .form-group-name input {
+    padding: 6px 10px !important;
+    font-size: 0.9rem !important;
+  }
+
+  #upload-tab .upload-matte-filter-row {
+    margin-bottom: 8px !important;
+    gap: 8px !important;
+  }
+
+  #upload-tab .upload-matte-filter-row select {
+    padding: 6px 8px !important;
+    font-size: 0.9rem !important;
+  }
+
+  /* Tags section compressed */
+  #upload-tab .form-group-tags {
+    margin-bottom: 6px !important;
+  }
+
+  #upload-tab .form-group-tags .inline-input-group input {
+    padding: 6px 10px !important;
+    font-size: 0.9rem !important;
+  }
+
+  #upload-tab .form-group-tags .btn-primary {
+    padding: 6px 12px !important;
+    font-size: 0.85rem !important;
+  }
+
+  #upload-tab .upload-applied-tags-section {
+    margin-bottom: 0 !important;
+  }
+
+  #upload-tab .upload-applied-tags-section label {
+    margin-bottom: 4px !important;
+    font-size: 0.85rem !important;
+  }
+
+  #upload-tab .tv-tags-wrapper {
+    margin-top: 4px !important;
+  }
+
+  /* Upload submit button full width on mobile - COMPACT */
+  #upload-tab .upload-submit-btn {
+    width: 100% !important;
+    padding: 8px 16px !important;
+    font-size: 0.9rem !important;
+    margin: 0 !important;
+  }
+
+  /* Smaller upload preview on mobile */
+  #upload-tab .upload-preview img {
+    max-height: 120px !important;
+  }
+
+  #upload-tab .upload-preview {
+    min-height: 80px !important;
+    margin-top: 4px !important;
+    margin-bottom: 4px !important;
+  }
+
+  /* Progress container in footer */
+  #upload-tab .upload-progress-container {
+    margin-top: 8px !important;
+  }
+
+  #upload-tab #upload-status {
+    margin-top: 8px !important;
   }
 }
 
@@ -5065,6 +5403,18 @@ body.dropdown-open .image-card:hover {
   background: #e9ecef;
 }
 
+.analytics-image-unavailable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  color: #888;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
 /* Event log */
 .event-log {
   margin-top: 12px;
@@ -6226,19 +6576,33 @@ body.dropdown-open .image-card:hover {
     width: auto !important;
     height: auto !important;
     line-height: 1 !important;
+    flex-shrink: 0 !important;
   }
 
   #analytics-tab #go-home-analytics-btn:hover {
     background: #d5d5d5 !important;
   }
 
-  /* Analytics header */
+  /* Analytics header - ensure title doesn't overlap close button */
   #analytics-tab .analytics-header {
     margin-bottom: 10px !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
   }
 
   #analytics-tab .analytics-header h2 {
     font-size: 1.3rem !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    margin-right: 10px !important;
+  }
+
+  /* Date range hint - wrap to avoid overlapping with content */
+  #analytics-tab .date-range-hint {
+    font-size: 11px !important;
+    word-wrap: break-word !important;
+    max-width: 100% !important;
   }
 
   /* Time range pills - shorter labels, fixed width */

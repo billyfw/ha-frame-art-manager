@@ -79,69 +79,101 @@
     <!-- Upload Tab -->
     <div id="upload-tab" class="tab-content">
       <div class="upload-section">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div class="upload-header" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
           <h2 style="margin:0;">Upload New Image</h2>
           <button id="go-home-upload-btn" class="btn-icon close-simple" title="Back to Gallery">✕</button>
         </div>
         <form id="upload-form" enctype="multipart/form-data">
-          <div class="form-group">
-            <label for="image-file">Select Image:</label>
-            <div class="file-input-wrapper">
-              <input type="file" id="image-file" name="image" accept="image/*" required />
-              <button type="button" id="clear-file-btn" class="btn-clear-file hidden" title="Clear selected file">✕</button>
+          <div class="upload-form-scroll">
+            <div class="form-group form-group-file">
+              <label for="image-file">Select Image:</label>
+              <div class="file-input-wrapper">
+                <input type="file" id="image-file" name="image" accept="image/*" required />
+                <button type="button" id="clear-file-btn" class="btn-clear-file hidden" title="Clear selected file">✕</button>
+              </div>
+            </div>
+
+            <div class="upload-preview hidden" id="upload-preview-container">
+              <div id="upload-preview-spinner" class="upload-preview-spinner hidden" aria-hidden="true"></div>
+              <img id="upload-preview-image" alt="Upload preview" class="hidden" />
+              <div id="upload-preview-error" class="upload-preview-error hidden" role="status" aria-live="polite"></div>
+            </div>
+
+            <div class="form-group form-group-name">
+              <label for="image-name">Image Name (optional):</label>
+              <input type="text" id="image-name" name="customName" placeholder="e.g. BillyAmandaWeddingTrees" />
+              <small class="form-hint form-hint-desktop">Leave blank to use original filename. UUID will be added to prevent duplicates. Name will be made lower case and special characters will become dashes.</small>
+              <small class="form-hint form-hint-mobile">Leave blank to use original filename. System will handle automatically.</small>
+            </div>
+
+            <div class="form-group-row upload-matte-filter-row">
+              <div class="form-group form-group-compact">
+                <label for="matte-select">Matte:</label>
+                <select id="matte-select" name="matte">
+                  <option value="none">none</option>
+                  <option value="modernthin">modernthin</option>
+                  <option value="modern">modern</option>
+                  <option value="modernwide">modernwide</option>
+                  <option value="flexible">flexible</option>
+                  <option value="shadowbox">shadowbox</option>
+                  <option value="panoramic">panoramic</option>
+                  <option value="triptych">triptych</option>
+                  <option value="mix">mix</option>
+                  <option value="squares">squares</option>
+                </select>
+              </div>
+              <div class="form-group form-group-compact">
+                <label for="filter-select">Filter:</label>
+                <select id="filter-select" name="filter">
+                  <option value="None">None</option>
+                  <option value="Aqua">Aqua</option>
+                  <option value="ArtDeco">Art Deco</option>
+                  <option value="Ink">Ink</option>
+                  <option value="Wash">Wash</option>
+                  <option value="Pastel">Pastel</option>
+                  <option value="Feuve">Feuve</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group form-group-tags">
+              <label for="tags-input">Tags:</label>
+              <div class="inline-input-group">
+                <input type="text" id="tags-input" name="tags" placeholder="tag1, tag2, tag3" />
+                <button type="button" id="upload-add-tags-btn" class="btn-primary">Add</button>
+              </div>
+              <div class="tv-tags-wrapper" id="upload-tv-tags-wrapper">
+                <span class="tv-tags-label">Suggested:</span>
+                <div class="tv-tags-helper" id="upload-tv-tags-helper">
+                  <!-- Populated by JavaScript -->
+                </div>
+              </div>
+            </div>
+            
+            <div class="upload-applied-tags-section">
+              <label>Applied tags:</label>
+              <div id="upload-applied-tags" class="tag-cloud upload-tag-cloud">
+                <!-- Populated by JavaScript -->
+              </div>
             </div>
           </div>
 
-          <div class="upload-preview hidden" id="upload-preview-container">
-            <div id="upload-preview-spinner" class="upload-preview-spinner hidden" aria-hidden="true"></div>
-            <img id="upload-preview-image" alt="Upload preview" class="hidden" />
-            <div id="upload-preview-error" class="upload-preview-error hidden" role="status" aria-live="polite"></div>
+          <div class="upload-form-footer">
+            <button type="submit" class="btn-primary upload-submit-btn">Upload Image</button>
+            
+            <div id="upload-progress-container" class="upload-progress-container hidden">
+              <div class="upload-progress-bar-wrapper">
+                <div id="upload-progress-bar" class="upload-progress-bar"></div>
+              </div>
+              <div class="upload-progress-info">
+                <span id="upload-progress-text">Uploading... 0%</span>
+                <button type="button" id="upload-cancel-btn" class="upload-cancel-btn">Cancel</button>
+              </div>
+            </div>
+            
+            <div id="upload-status"></div>
           </div>
-
-          <div class="form-group">
-            <label for="image-name">Image Name (optional):</label>
-            <input type="text" id="image-name" name="customName" placeholder="e.g. BillyAmandaWeddingTrees" />
-            <small class="form-hint">Leave blank to use original filename. UUID will be added to prevent duplicates. Name will be made lower case and special characters will become dashes.</small>
-          </div>
-
-          <div class="form-group">
-            <label for="matte-select">Matte:</label>
-            <select id="matte-select" name="matte">
-              <option value="none">none</option>
-              <option value="modernthin">modernthin</option>
-              <option value="modern">modern</option>
-              <option value="modernwide">modernwide</option>
-              <option value="flexible">flexible</option>
-              <option value="shadowbox">shadowbox</option>
-              <option value="panoramic">panoramic</option>
-              <option value="triptych">triptych</option>
-              <option value="mix">mix</option>
-              <option value="squares">squares</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="filter-select">Filter:</label>
-            <select id="filter-select" name="filter">
-              <option value="None">None</option>
-              <option value="Aqua">Aqua</option>
-              <option value="ArtDeco">Art Deco</option>
-              <option value="Ink">Ink</option>
-              <option value="Wash">Wash</option>
-              <option value="Pastel">Pastel</option>
-              <option value="Feuve">Feuve</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="tags-input">Tags (comma-separated):</label>
-            <input type="text" id="tags-input" name="tags" placeholder="nature, landscape, sunset" />
-          </div>
-
-          <button type="submit" class="btn-primary">Upload Image</button>
         </form>
-
-        <div id="upload-status"></div>
       </div>
     </div>
 
@@ -649,6 +681,16 @@
           </div>
           <div id="bulk-some-tags" class="tag-cloud">
             <!-- Populated by JavaScript -->
+          </div>
+        </div>
+        
+        <!-- Suggested TV tags -->
+        <div class="bulk-tag-section">
+          <div class="tv-tags-wrapper" id="bulk-tv-tags-wrapper">
+            <span class="tv-tags-label">Suggested:</span>
+            <div class="tv-tags-helper" id="bulk-tv-tags-helper">
+              <!-- Populated by JavaScript -->
+            </div>
           </div>
         </div>
         
