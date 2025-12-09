@@ -3008,7 +3008,6 @@ async function loadTagsForFilter() {
       
       // Handle click on checkbox or label to cycle through states
       const cycleTagState = (e) => {
-        e.preventDefault();
         e.stopPropagation();
         
         const currentState = checkbox.dataset.state || 'unchecked';
@@ -3023,23 +3022,29 @@ async function loadTagsForFilter() {
           newState = 'unchecked';
         }
         
-        setTagState(checkbox, newState);
-        
-        // Clear "None" checkbox when manually selecting tags
-        const noneCheckbox = document.querySelector('.tv-none-checkbox');
-        if (noneCheckbox) {
-          noneCheckbox.checked = false;
-        }
-        
-        updateTagFilterDisplay();
-        updateTVShortcutStates();
+        // Use setTimeout to let the native click complete first, then override
+        setTimeout(() => {
+          setTagState(checkbox, newState);
+          
+          // Clear "None" checkbox when manually selecting tags
+          const noneCheckbox = document.querySelector('.tv-none-checkbox');
+          if (noneCheckbox) {
+            noneCheckbox.checked = false;
+          }
+          
+          updateTagFilterDisplay();
+          updateTVShortcutStates();
+        }, 0);
       };
       
       checkbox.addEventListener('click', cycleTagState);
       
       const label = checkbox.nextElementSibling;
       if (label) {
-        label.addEventListener('click', cycleTagState);
+        label.addEventListener('click', (e) => {
+          e.preventDefault();
+          cycleTagState(e);
+        });
       }
     });
 
