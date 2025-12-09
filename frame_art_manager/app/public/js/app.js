@@ -71,6 +71,12 @@ let galleryHasLoadedAtLeastOnce = false;
 let currentUploadPreviewUrl = null;
 let activeUploadPreviewToken = 0;
 
+// Chunked gallery rendering state
+const GALLERY_CHUNK_SIZE = 100; // Initial and incremental load size
+let currentFilteredImages = []; // Store filtered/sorted results for chunked loading
+let renderedCount = 0; // How many images currently rendered
+let isLoadingMoreImages = false; // Prevent multiple simultaneous loads
+
 const createDefaultEditState = () => ({
   active: false,
   hasBackup: false,
@@ -570,6 +576,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initSettingsNavigation();
   initUploadNavigation();
   initTvModal();
+  initGalleryInfiniteScroll(); // Initialize infinite scroll for gallery
   
   // Handle initial route
   handleRoute();
@@ -2442,13 +2449,35 @@ function renderGallery(filter = '') {
     return sortAscending ? comparison : -comparison;
   });
 
+  // Store filtered results for chunked loading
+  currentFilteredImages = filteredImages;
+  renderedCount = 0;
+
   if (filteredImages.length === 0) {
     grid.innerHTML = '<div class="empty-state">No images found</div>';
     updateSearchPlaceholder(0);
     return;
   }
 
-  grid.innerHTML = filteredImages.map(([filename, data], index) => {
+  // Clear grid and render first chunk
+  grid.innerHTML = '';
+  renderGalleryChunk(grid, Math.min(GALLERY_CHUNK_SIZE, filteredImages.length));
+
+  updateSearchPlaceholder(filteredImages.length);
+  updateBulkActionsBar(filteredImages.length);
+}
+
+// Render a chunk of gallery images (used for initial load and infinite scroll)
+function renderGalleryChunk(grid, count) {
+  const startIndex = renderedCount;
+  const endIndex = Math.min(startIndex + count, currentFilteredImages.length);
+  
+  if (startIndex >= currentFilteredImages.length) return;
+  
+  const chunk = currentFilteredImages.slice(startIndex, endIndex);
+  
+  const chunkHtml = chunk.map(([filename, data], chunkIndex) => {
+    const index = startIndex + chunkIndex; // Global index for selection
     const isSelected = selectedImages.has(filename);
     
     // Check if image is 16:9 (aspect ratio ~1.78)
@@ -2505,47 +2534,123 @@ function renderGallery(filter = '') {
     </div>
   `;
   }).join('');
-
-  // Add click listeners to image cards
-  const imageCards = grid.querySelectorAll('.image-card');
-  imageCards.forEach(card => {
-    card.addEventListener('click', (e) => {
-      // Check if clicked on stats link
-      if (e.target.closest('.stats-link')) {
-        e.stopPropagation();
-        const filename = e.target.closest('.stats-link').dataset.filename;
-        // Navigate to analytics page and select this image
-        navigateTo('/analytics');
-        // Wait for analytics to load then select the image
-        setTimeout(() => selectAnalyticsImage(filename), 300);
-        return;
-      }
-      
-      // Check if clicked on select badge
-      if (e.target.closest('.select-badge')) {
-        e.stopPropagation();
-        // Create a synthetic event that mimics Cmd/Ctrl+click for toggle behavior
-        const syntheticEvent = {
-          ...e,
-          metaKey: true,
-          stopPropagation: () => e.stopPropagation()
-        };
-        handleImageClick(card.dataset.filename, parseInt(card.dataset.index), syntheticEvent);
-        return;
-      }
-      
-      // If shift or cmd/ctrl is held, select
-      if (e.shiftKey || e.metaKey || e.ctrlKey) {
-        handleImageClick(card.dataset.filename, parseInt(card.dataset.index), e);
-      } else {
-        // Normal click opens modal
-        openImageModal(card.dataset.filename);
-      }
-    });
+  
+  // Append to grid
+  grid.insertAdjacentHTML('beforeend', chunkHtml);
+  renderedCount = endIndex;
+  
+  // Add click listeners to newly added cards
+  const newCards = grid.querySelectorAll(`.image-card[data-index]`);
+  newCards.forEach(card => {
+    const cardIndex = parseInt(card.dataset.index);
+    // Only add listeners to cards in this chunk (avoid duplicates)
+    if (cardIndex >= startIndex && cardIndex < endIndex && !card.dataset.listenerAdded) {
+      card.dataset.listenerAdded = 'true';
+      card.addEventListener('click', (e) => {
+        // Check if clicked on stats link
+        if (e.target.closest('.stats-link')) {
+          e.stopPropagation();
+          const filename = e.target.closest('.stats-link').dataset.filename;
+          navigateTo('/analytics');
+          setTimeout(() => selectAnalyticsImage(filename), 300);
+          return;
+        }
+        
+        // Check if clicked on select badge
+        if (e.target.closest('.select-badge')) {
+          e.stopPropagation();
+          const syntheticEvent = {
+            ...e,
+            metaKey: true,
+            stopPropagation: () => e.stopPropagation()
+          };
+          handleImageClick(card.dataset.filename, parseInt(card.dataset.index), syntheticEvent);
+          return;
+        }
+        
+        // If shift or cmd/ctrl is held, select
+        if (e.shiftKey || e.metaKey || e.ctrlKey) {
+          handleImageClick(card.dataset.filename, parseInt(card.dataset.index), e);
+        } else {
+          openImageModal(card.dataset.filename);
+        }
+      });
+    }
   });
+  
+  // Show/hide "load more" indicator
+  updateLoadMoreIndicator(grid);
+}
 
-  updateSearchPlaceholder(filteredImages.length);
-  updateBulkActionsBar(filteredImages.length);
+// Load more images when scrolling near bottom
+function loadMoreGalleryImages() {
+  if (isLoadingMoreImages) return;
+  if (renderedCount >= currentFilteredImages.length) return;
+  
+  const grid = document.getElementById('image-grid');
+  if (!grid) return;
+  
+  isLoadingMoreImages = true;
+  renderGalleryChunk(grid, GALLERY_CHUNK_SIZE);
+  isLoadingMoreImages = false;
+}
+
+// Update the "load more" indicator at bottom of gallery
+function updateLoadMoreIndicator(grid) {
+  // Remove existing indicator
+  const existingIndicator = grid.querySelector('.gallery-load-more');
+  if (existingIndicator) existingIndicator.remove();
+  
+  // Add indicator if there are more images to load
+  if (renderedCount < currentFilteredImages.length) {
+    const remaining = currentFilteredImages.length - renderedCount;
+    const indicator = document.createElement('div');
+    indicator.className = 'gallery-load-more';
+    indicator.innerHTML = `<span>Scroll for ${remaining} more image${remaining !== 1 ? 's' : ''}...</span>`;
+    grid.appendChild(indicator);
+  }
+}
+
+// Initialize gallery scroll listener for infinite scroll
+function initGalleryInfiniteScroll() {
+  // Use the main content area or window for scroll detection
+  const scrollContainer = document.querySelector('main') || window;
+  
+  const handleScroll = () => {
+    const grid = document.getElementById('image-grid');
+    if (!grid) return;
+    
+    // Check if gallery tab is active
+    const galleryTab = document.getElementById('gallery-tab');
+    if (!galleryTab || !galleryTab.classList.contains('active')) return;
+    
+    // Get scroll position
+    let scrollBottom;
+    if (scrollContainer === window) {
+      scrollBottom = window.innerHeight + window.scrollY;
+    } else {
+      scrollBottom = scrollContainer.scrollTop + scrollContainer.clientHeight;
+    }
+    
+    const gridBottom = grid.offsetTop + grid.offsetHeight;
+    const threshold = 300; // Load more when within 300px of bottom
+    
+    if (scrollBottom >= gridBottom - threshold) {
+      loadMoreGalleryImages();
+    }
+  };
+  
+  // Throttle scroll handler
+  let scrollTimeout;
+  const throttledScroll = () => {
+    if (scrollTimeout) return;
+    scrollTimeout = setTimeout(() => {
+      handleScroll();
+      scrollTimeout = null;
+    }, 100);
+  };
+  
+  scrollContainer.addEventListener('scroll', throttledScroll);
 }
 
 function updateSearchPlaceholder(count) {
