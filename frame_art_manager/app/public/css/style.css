@@ -6978,3 +6978,125 @@ body.dropdown-open .image-card:hover {
   }
 }
 
+/* ============================================
+   Duplicate Detection Styles
+   ============================================ */
+
+/* Warning displayed in upload form when potential duplicates detected */
+.duplicate-warning {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 12px 0;
+  font-size: 14px;
+  color: #856404;
+  line-height: 1.5;
+}
+
+.duplicate-warning .dupe-warning-text {
+  margin-bottom: 10px;
+}
+
+.duplicate-warning .dupe-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.duplicate-warning .dupe-thumb-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 120px;
+}
+
+.duplicate-warning .dupe-thumb-item img {
+  width: 100px;
+  height: 75px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: #fff;
+  border: 1px solid #ddd;
+}
+
+.duplicate-warning .dupe-thumb-name {
+  font-size: 11px;
+  color: #664d03;
+  margin-top: 4px;
+  text-align: center;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================
+   Settings Slider Styles
+   ============================================ */
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.setting-row label {
+  min-width: 80px;
+  font-weight: 500;
+}
+
+.settings-slider {
+  flex: 1;
+  max-width: 300px;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #ddd;
+  border-radius: 3px;
+  outline: none;
+}
+
+.settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #2c82c9;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.settings-slider::-webkit-slider-thumb:hover {
+  background: #236fa8;
+}
+
+.settings-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #2c82c9;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.slider-value {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 600;
+  color: #2c82c9;
+}
+
+.setting-hint {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+
+.setting-hint strong {
+  color: #444;
+}
+

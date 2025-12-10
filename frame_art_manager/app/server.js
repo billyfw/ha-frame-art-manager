@@ -192,5 +192,27 @@ app.listen(PORT, async () => {
   console.log(`Frame art path: ${FRAME_ART_PATH}`);
   await verifyGitConfiguration();
   await initializeDirectories();
+  await backfillSourceHashes();
   console.log('\n✨ Server ready!\n');
 });
+
+// Backfill sourceHash for images that don't have one
+async function backfillSourceHashes() {
+  try {
+    const MetadataHelper = require('./metadata_helper');
+    const { computePerceptualHash } = require('./hash_helper');
+    
+    const helper = new MetadataHelper(FRAME_ART_PATH);
+    const result = await helper.ensureSourceHashes(computePerceptualHash);
+    
+    if (result.updated > 0) {
+      console.log(`✅ Backfilled sourceHash for ${result.updated} image(s)`);
+    }
+    if (result.errors.length > 0) {
+      console.warn(`⚠️  Failed to hash ${result.errors.length} image(s)`);
+    }
+  } catch (error) {
+    console.warn('⚠️  Could not backfill source hashes:', error.message);
+    // Non-fatal - continue startup
+  }
+}

@@ -6,7 +6,8 @@
     "public/**/*.css",
     "public/**/*.html",
     "git_helper.js",
-    "metadata_helper.js"
+    "metadata_helper.js",
+    "hash_helper.js"
   ],
   "ext": "js,json,css,html",
   "ignore": [

@@ -6,6 +6,25 @@ let libraryPath = null; // Store library path for tooltips
 let isSyncInProgress = false; // Track if a sync operation is currently running
 let appEnvironment = 'development'; // 'development' or 'production'
 
+/**
+ * Extract base name from a hashed filename (e.g., "photo-abc123.jpg" -> "photo")
+ * @param {string} filename - The filename with hash
+ * @returns {string} - The base name without hash or extension
+ */
+function getBaseName(filename) {
+  const lastDot = filename.lastIndexOf('.');
+  const nameWithoutExt = lastDot > 0 ? filename.substring(0, lastDot) : filename;
+  const lastDash = nameWithoutExt.lastIndexOf('-');
+  // Check if the part after the last dash looks like a hash (8 hex chars)
+  if (lastDash > 0) {
+    const possibleHash = nameWithoutExt.substring(lastDash + 1);
+    if (/^[a-f0-9]{8}$/i.test(possibleHash)) {
+      return nameWithoutExt.substring(0, lastDash);
+    }
+  }
+  return nameWithoutExt;
+}
+
 // State
 const navigationContext = detectNavigationContext();
 const isInitialTabLoad = navigationContext.isFirstLoadInTab;
@@ -153,6 +172,104 @@ const AVAILABLE_FILTERS = new Set([
 
 const METADATA_DEFAULT_MATTE = 'none';
 const METADATA_DEFAULT_FILTER = 'None';
+
+// ============================================
+// Duplicate Detection State & Functions
+// ============================================
+// When duplicateFilterActive is true, an implicit "duplicates" sort mode
+// is engaged that groups potential duplicates together. This sort mode
+// does NOT appear in the sort dropdown - it auto-activates when entering
+// the "Possible Duplicates" filter and restores the previous sort state
+// when exiting. See the sorting section in renderGallery() for details.
+// ============================================
+let duplicateFilterActive = false;
+let duplicateGroups = []; // Cache of duplicate groups from server
+let preDuplicateSortState = null; // Saved sort state (order + ascending) before entering duplicate filter
+
+/**
+ * Check if a file might be a duplicate of existing images
+ * @param {File} file - The file to check
+ * @returns {Promise<{duplicates: string[]}>}
+ */
+async function checkForDuplicates(file) {
+  try {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await fetch(`${API_BASE}/images/check-duplicate`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error('Duplicate check failed');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.warn('Duplicate check error:', error);
+    return { duplicates: [] };
+  }
+}
+
+/**
+ * Show duplicate warning in upload form
+ * @param {string[]} duplicates - Array of duplicate filenames
+ */
+function showDuplicateWarning(duplicates) {
+  const warningEl = document.getElementById('duplicate-warning');
+  if (!warningEl) return;
+
+  if (!duplicates || duplicates.length === 0) {
+    warningEl.classList.add('hidden');
+    warningEl.innerHTML = '';
+    return;
+  }
+
+  // Build thumbnails for each duplicate
+  const thumbsHtml = duplicates.map(filename => 
+    `<div class="dupe-thumb-item">
+      <img src="thumbs/thumb_${encodeURIComponent(filename)}" alt="${escapeHtml(filename)}" onerror="this.style.display='none'">
+      <span class="dupe-thumb-name">${escapeHtml(filename)}</span>
+    </div>`
+  ).join('');
+
+  warningEl.innerHTML = `
+    <div class="dupe-warning-text">⚠️ This image is potentially a duplicate of:</div>
+    <div class="dupe-thumbs">${thumbsHtml}</div>
+  `;
+  warningEl.classList.remove('hidden');
+}
+
+/**
+ * Fetch all duplicate groups from server
+ */
+async function fetchDuplicateGroups() {
+  try {
+    const response = await fetch(`${API_BASE}/images/duplicates`);
+    if (!response.ok) throw new Error('Failed to fetch duplicates');
+    const data = await response.json();
+    duplicateGroups = data.groups || [];
+    return duplicateGroups;
+  } catch (error) {
+    console.error('Error fetching duplicate groups:', error);
+    duplicateGroups = [];
+    return [];
+  }
+}
+
+/**
+ * Get set of filenames that are potential duplicates
+ */
+function getDuplicateFilenames() {
+  const filenames = new Set();
+  for (const group of duplicateGroups) {
+    for (const filename of group) {
+      filenames.add(filename);
+    }
+  }
+  return filenames;
+}
 
 const ADVANCED_TAB_DEFAULT = 'settings';
 const VALID_ADVANCED_TABS = new Set(['settings', 'metadata', 'sync']);
@@ -574,9 +691,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   initSyncDetail();
   initBulkActions();
   initSettingsNavigation();
+  initDuplicateSettings(); // Initialize duplicate detection settings
   initUploadNavigation();
   initTvModal();
   initGalleryInfiniteScroll(); // Initialize infinite scroll for gallery
+  
+  // Pre-fetch duplicate groups for filter count
+  fetchDuplicateGroups();
   
   // Handle initial route
   handleRoute();
@@ -2429,33 +2550,116 @@ function renderGallery(filter = '') {
     });
   }
 
+  // Filter for "Possible Duplicates" - images that may be duplicates
+  if (duplicateFilterActive) {
+    const dupeFilenames = getDuplicateFilenames();
+    filteredImages = filteredImages.filter(([filename]) => dupeFilenames.has(filename));
+  }
+
+  // ============================================
   // Sort images
-  filteredImages.sort((a, b) => {
-    const [filenameA, dataA] = a;
-    const [filenameB, dataB] = b;
+  // ============================================
+  // There are 3 sort modes:
+  //   1. "name" - alphabetical by filename (visible in dropdown)
+  //   2. "date" - by upload date (visible in dropdown)
+  //   3. "duplicates" - IMPLICIT, auto-activated when "Possible Duplicates" filter is on
+  //
+  // The "duplicates" sort mode groups potential duplicate images together,
+  // then sorts groups by the newest image date in each group.
+  // Within each group, images are sorted by their individual upload date.
+  // This mode does NOT appear in the sort dropdown - it's automatically
+  // engaged when entering duplicate filter mode, and the previous sort
+  // state is restored when exiting.
+  // ============================================
+  
+  if (duplicateFilterActive && duplicateGroups.length > 0) {
+    // IMPLICIT "duplicates" sort mode - groups duplicate images together
+    // Groups are ordered by their newest image's date (asc/desc based on arrow)
+    // Images within each group are sorted by their individual upload date
     
-    let comparison = 0;
-    if (sortOrder === 'date') {
-      // Sort by date added
-      const dateA = new Date(dataA.added || 0);
-      const dateB = new Date(dataB.added || 0);
-      comparison = dateA - dateB; // older first when ascending
-    } else {
-      // Sort by name (alphabetically)
-      comparison = filenameA.localeCompare(filenameB);
-    }
+    // Build a map of filename -> group index and calculate max date per group
+    const filenameToGroupIndex = new Map();
+    const groupMaxDates = [];
     
-    // Reverse if descending
-    return sortAscending ? comparison : -comparison;
-  });
+    duplicateGroups.forEach((group, groupIndex) => {
+      let maxDate = 0;
+      group.forEach(filename => {
+        filenameToGroupIndex.set(filename, groupIndex);
+        const imgData = allImages[filename];
+        if (imgData && imgData.added) {
+          const date = new Date(imgData.added).getTime();
+          if (date > maxDate) maxDate = date;
+        }
+      });
+      groupMaxDates[groupIndex] = maxDate;
+    });
+    
+    filteredImages.sort((a, b) => {
+      const [filenameA, dataA] = a;
+      const [filenameB, dataB] = b;
+      
+      const groupA = filenameToGroupIndex.get(filenameA) ?? -1;
+      const groupB = filenameToGroupIndex.get(filenameB) ?? -1;
+      
+      // Different groups: sort by group's max date
+      if (groupA !== groupB) {
+        const maxDateA = groupMaxDates[groupA] || 0;
+        const maxDateB = groupMaxDates[groupB] || 0;
+        const comparison = maxDateA - maxDateB;
+        return sortAscending ? comparison : -comparison;
+      }
+      
+      // Same group: sort by individual image upload date
+      const dateA = new Date(dataA.added || 0).getTime();
+      const dateB = new Date(dataB.added || 0).getTime();
+      const comparison = dateA - dateB;
+      return sortAscending ? comparison : -comparison;
+    });
+  } else {
+    // Standard sort modes: "name" or "date" (from dropdown)
+    filteredImages.sort((a, b) => {
+      const [filenameA, dataA] = a;
+      const [filenameB, dataB] = b;
+      
+      let comparison = 0;
+      if (sortOrder === 'date') {
+        // Sort by date added
+        const dateA = new Date(dataA.added || 0);
+        const dateB = new Date(dataB.added || 0);
+        comparison = dateA - dateB; // older first when ascending
+      } else {
+        // Sort by name (alphabetically)
+        comparison = filenameA.localeCompare(filenameB);
+      }
+      
+      // Reverse if descending
+      return sortAscending ? comparison : -comparison;
+    });
+  }
 
   // Store filtered results for chunked loading
   currentFilteredImages = filteredImages;
   renderedCount = 0;
 
+  // Deselect any images that are no longer visible after filtering
+  if (selectedImages.size > 0) {
+    const visibleFilenames = new Set(filteredImages.map(([filename]) => filename));
+    let deselectedCount = 0;
+    for (const filename of selectedImages) {
+      if (!visibleFilenames.has(filename)) {
+        selectedImages.delete(filename);
+        deselectedCount++;
+      }
+    }
+    if (deselectedCount > 0) {
+      console.log(`Deselected ${deselectedCount} image(s) no longer visible after filter change`);
+    }
+  }
+
   if (filteredImages.length === 0) {
     grid.innerHTML = '<div class="empty-state">No images found</div>';
     updateSearchPlaceholder(0);
+    updateBulkActionsBar(0);
     return;
   }
 
@@ -2685,6 +2889,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (noneCheckbox) {
         noneCheckbox.checked = false;
       }
+      // Uncheck "Duplicates" checkbox and clear filter
+      const dupesCheckbox = document.querySelector('.duplicates-checkbox');
+      if (dupesCheckbox) {
+        dupesCheckbox.checked = false;
+      }
+      // Restore sort state if we were in duplicate filter mode
+      if (duplicateFilterActive && preDuplicateSortState) {
+        const sortOrderSelect = document.getElementById('sort-order');
+        if (sortOrderSelect) sortOrderSelect.value = preDuplicateSortState.order;
+        sortAscending = preDuplicateSortState.ascending;
+        updateSortDirectionIcon();
+        preDuplicateSortState = null;
+      }
+      duplicateFilterActive = false;
       updateTagFilterDisplay();
       updateTVShortcutStates();
       // Close the dropdown if it's open
@@ -2989,6 +3207,15 @@ function initUploadForm() {
     fileInput.addEventListener('change', async (event) => {
       const file = event.target.files && event.target.files[0] ? event.target.files[0] : null;
       await updateUploadPreview(file);
+      
+      // Check for duplicates if a file was selected
+      if (file) {
+        const result = await checkForDuplicates(file);
+        showDuplicateWarning(result.duplicates);
+      } else {
+        showDuplicateWarning([]);
+      }
+      
       // Show/hide clear button based on file selection
       if (clearFileBtn) {
         clearFileBtn.classList.toggle('hidden', !file);
@@ -3000,12 +3227,14 @@ function initUploadForm() {
     clearFileBtn.addEventListener('click', async () => {
       fileInput.value = '';
       await updateUploadPreview(null);
+      showDuplicateWarning([]);
       clearFileBtn.classList.add('hidden');
     });
   }
 
   form.addEventListener('reset', () => {
     updateUploadPreview(null);
+    showDuplicateWarning([]);
     if (clearFileBtn) clearFileBtn.classList.add('hidden');
   });
   updateUploadPreview(null);
@@ -3092,8 +3321,17 @@ function initUploadForm() {
             // Reload tags in case new ones were added
             await loadTags();
             
+            // Refresh duplicate groups and filter count
+            await fetchDuplicateGroups();
+            await loadTagsForFilter();
+            
             // Close upload modal and return to gallery
             navigateTo('/');
+            
+            // Re-render gallery if duplicate filter is active
+            if (duplicateFilterActive) {
+              renderGallery();
+            }
             
             // Trigger auto-sync
             await manualSync();
@@ -3415,7 +3653,8 @@ async function uploadBatchImages(files) {
   let errorCount = 0;
   let skippedCount = 0;
   const skippedFiles = [];
-  const uploadedFilenames = []; // Track successfully uploaded filenames
+  const uploadedFilenames = []; // Track successfully uploaded filenames (server names with hash)
+  const uploadedOriginalNames = {}; // Map server filename -> original filename
   const totalFiles = files.length;
   let cancelled = false;
   
@@ -3546,6 +3785,41 @@ async function uploadBatchImages(files) {
   // Reload gallery and tags
   await loadGallery();
   await loadTags();
+  
+  // Check for duplicates among uploaded images
+  if (uploadedFilenames.length > 0) {
+    await fetchDuplicateGroups();
+    // Refresh tag filter to show updated duplicate count
+    await loadTagsForFilter();
+    
+    // Re-render gallery if duplicate filter is active (so new duplicates appear)
+    if (duplicateFilterActive) {
+      renderGallery();
+    }
+    
+    const dupeFilenames = getDuplicateFilenames();
+    const uploadedDupes = uploadedFilenames.filter(f => dupeFilenames.has(f));
+    
+    if (uploadedDupes.length > 0) {
+      // Find which existing images they may duplicate
+      const dupeInfo = [];
+      for (const filename of uploadedDupes) {
+        for (const group of duplicateGroups) {
+          if (group.includes(filename)) {
+            const others = group.filter(f => f !== filename);
+            if (others.length > 0) {
+              dupeInfo.push(`${getBaseName(filename)} may duplicate\n${others.join(', ')}`);
+            }
+            break;
+          }
+        }
+      }
+      
+      if (dupeInfo.length > 0) {
+        alert(`Some uploaded images may be duplicates:\n\n${dupeInfo.join('\n\n')}\n\nSelect "Possible Duplicates" in the tag filter to investigate.`);
+      }
+    }
+  }
   
   // Auto-select the uploaded images for easy batch tagging
   if (uploadedFilenames.length > 0) {
@@ -3742,6 +4016,20 @@ async function loadTagsForFilter() {
           </label>
         </div>
       `;
+      // Add "Possible Duplicates" filter option
+      const dupeCount = getDuplicateFilenames().size;
+      html += `
+        <div class="multiselect-option tv-shortcut duplicates-filter">
+          <input type="checkbox" id="filter-duplicates" 
+                 value="duplicates" 
+                 class="duplicates-checkbox"
+                 ${duplicateFilterActive ? 'checked' : ''}>
+          <label for="filter-duplicates">
+            <div class="tv-name">Possible Duplicates <span class="tv-count">(${dupeCount})</span></div>
+            <div class="tv-tags-subtitle">Images that may be duplicates of each other</div>
+          </label>
+        </div>
+      `;
       html += `<div class="tv-shortcuts-divider"></div>`;
       html += `<div class="tags-header">Tags</div>`;
     }
@@ -3789,6 +4077,9 @@ async function loadTagsForFilter() {
             noneCheckbox.checked = false;
           }
           
+          // Clear duplicate filter when selecting tags
+          clearDuplicateFilter();
+          
           updateTagFilterDisplay();
           updateTVShortcutStates();
         }, 0);
@@ -3815,6 +4106,49 @@ async function loadTagsForFilter() {
     const noneCheckbox = dropdownOptions.querySelector('.tv-none-checkbox');
     if (noneCheckbox) {
       noneCheckbox.addEventListener('change', (e) => handleNoneShortcutChange(e));
+    }
+
+    // Add listener for "Possible Duplicates" checkbox
+    const dupesCheckbox = dropdownOptions.querySelector('.duplicates-checkbox');
+    if (dupesCheckbox) {
+      dupesCheckbox.addEventListener('change', async (e) => {
+        const wasActive = duplicateFilterActive;
+        duplicateFilterActive = e.target.checked;
+        
+        if (duplicateFilterActive && !wasActive) {
+          // Save current sort state before entering duplicate filter mode
+          const sortOrderSelect = document.getElementById('sort-order');
+          preDuplicateSortState = {
+            order: sortOrderSelect ? sortOrderSelect.value : 'date',
+            ascending: sortAscending
+          };
+          // Switch to date sort, descending (newest first) for duplicate view
+          if (sortOrderSelect) sortOrderSelect.value = 'date';
+          sortAscending = false;
+          updateSortDirectionIcon();
+          
+          // Fetch fresh duplicate data
+          await fetchDuplicateGroups();
+          // Clear other filters when enabling duplicates filter
+          const noneCheckbox = document.querySelector('.tv-none-checkbox');
+          if (noneCheckbox) noneCheckbox.checked = false;
+          // Clear tag selections
+          document.querySelectorAll('.tag-checkbox').forEach(cb => setTagState(cb, 'unchecked'));
+          document.querySelectorAll('.tv-checkbox').forEach(cb => { cb.checked = false; });
+        } else if (!duplicateFilterActive && wasActive) {
+          // Restore previous sort state
+          if (preDuplicateSortState) {
+            const sortOrderSelect = document.getElementById('sort-order');
+            if (sortOrderSelect) sortOrderSelect.value = preDuplicateSortState.order;
+            sortAscending = preDuplicateSortState.ascending;
+            updateSortDirectionIcon();
+            preDuplicateSortState = null;
+          }
+        }
+        
+        updateTagFilterDisplay();
+        filterAndRenderGallery();
+      });
     }
 
     updateTagFilterDisplay();
@@ -3853,6 +4187,31 @@ function getTagState(checkbox) {
   return checkbox.dataset.state || 'unchecked';
 }
 
+/**
+ * Clear the duplicate filter and restore sort state if it was active.
+ * Call this when any other filter (tags, None, TV shortcuts) is selected.
+ */
+function clearDuplicateFilter() {
+  if (!duplicateFilterActive) return;
+  
+  // Uncheck the duplicates checkbox in the UI
+  const dupesCheckbox = document.querySelector('.duplicates-checkbox');
+  if (dupesCheckbox) {
+    dupesCheckbox.checked = false;
+  }
+  
+  // Restore previous sort state
+  if (preDuplicateSortState) {
+    const sortOrderSelect = document.getElementById('sort-order');
+    if (sortOrderSelect) sortOrderSelect.value = preDuplicateSortState.order;
+    sortAscending = preDuplicateSortState.ascending;
+    updateSortDirectionIcon();
+    preDuplicateSortState = null;
+  }
+  
+  duplicateFilterActive = false;
+}
+
 // Get all included tags
 function getIncludedTags() {
   const checkboxes = document.querySelectorAll('.tag-checkbox');
@@ -3886,6 +4245,9 @@ function handleTVShortcutChange(event) {
   if (noneCheckbox) {
     noneCheckbox.checked = false;
   }
+  
+  // Clear duplicate filter when selecting a TV shortcut
+  clearDuplicateFilter();
   
   // Clear all tag states first
   const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
@@ -3925,6 +4287,9 @@ function handleNoneShortcutChange(event) {
     // Reset all tag checkboxes to unchecked state
     const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
     allTagCheckboxes.forEach(cb => setTagState(cb, 'unchecked'));
+    
+    // Clear duplicate filter when selecting None
+    clearDuplicateFilter();
   }
   
   updateTagFilterDisplay();
@@ -3986,7 +4351,10 @@ function updateTagFilterDisplay() {
   let label = 'All Tags';
   let showClear = false;
 
-  if (noneSelected) {
+  if (duplicateFilterActive) {
+    label = 'Possible Duplicates';
+    showClear = true;
+  } else if (noneSelected) {
     label = 'None';
     showClear = true;
   } else if (includedTags.length > 0 || excludedTags.length > 0) {
@@ -4006,6 +4374,11 @@ function updateTagFilterDisplay() {
     clearBtn.style.display = showClear ? 'block' : 'none';
   }
   
+  renderGallery();
+}
+
+// Wrapper to filter and render gallery (used for async filter changes)
+function filterAndRenderGallery() {
   renderGallery();
 }
 
@@ -4063,6 +4436,50 @@ async function removeTag(tagName) {
   } catch (error) {
     console.error('Error removing tag:', error);
   }
+}
+
+/**
+ * Initialize the duplicate detection settings slider
+ */
+function initDuplicateSettings() {
+  const slider = document.getElementById('duplicate-threshold-slider');
+  const valueDisplay = document.getElementById('duplicate-threshold-value');
+  
+  if (!slider || !valueDisplay) return;
+
+  // Load current setting from server
+  fetch(`${API_BASE}/images/settings`)
+    .then(res => res.json())
+    .then(settings => {
+      const threshold = settings.duplicateThreshold ?? 10;
+      slider.value = threshold;
+      valueDisplay.textContent = threshold;
+    })
+    .catch(err => {
+      console.warn('Failed to load duplicate settings:', err);
+    });
+
+  // Update display on slider change
+  slider.addEventListener('input', () => {
+    valueDisplay.textContent = slider.value;
+  });
+
+  // Save setting on slider release
+  slider.addEventListener('change', async () => {
+    try {
+      await fetch(`${API_BASE}/images/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duplicateThreshold: parseInt(slider.value, 10) })
+      });
+      // Refresh duplicate groups with new threshold
+      await fetchDuplicateGroups();
+      // Update filter count if dropdown is open
+      loadTagsForFilter();
+    } catch (error) {
+      console.error('Failed to save duplicate threshold:', error);
+    }
+  });
 }
 
 // Image Editing Helpers
@@ -6001,10 +6418,17 @@ async function deleteImage() {
 
     if (result.success) {
       document.getElementById('image-modal').classList.remove('active');
-      loadGallery();
+      await loadGallery();
       
       // Update sync status since file was deleted
       await updateSyncStatus();
+      
+      // Refresh duplicate groups and filter count
+      await fetchDuplicateGroups();
+      await loadTagsForFilter();
+      if (duplicateFilterActive) {
+        renderGallery();
+      }
       
       // Auto-sync after deletion (same as closing modal with changes)
       const status = await fetch(`${API_BASE}/sync/status`).then(r => r.json());
@@ -6539,6 +6963,13 @@ async function deleteBulkImages() {
   
   // Update sync status since files were deleted
   await updateSyncStatus();
+  
+  // Refresh duplicate groups and filter count
+  await fetchDuplicateGroups();
+  await loadTagsForFilter();
+  if (duplicateFilterActive) {
+    renderGallery();
+  }
   
   // Auto-sync after deletion if there are changes
   const status = await fetch(`${API_BASE}/sync/status`).then(r => r.json());
