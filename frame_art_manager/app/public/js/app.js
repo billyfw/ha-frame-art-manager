@@ -4026,7 +4026,7 @@ async function loadTagsForFilter() {
                  ${duplicateFilterActive ? 'checked' : ''}>
           <label for="filter-duplicates">
             <div class="tv-name">Possible Duplicates <span class="tv-count">(${dupeCount})</span></div>
-            <div class="tv-tags-subtitle">Images that may be duplicates of each other</div>
+            <div class="tv-tags-subtitle">Images that may be copies of each other</div>
           </label>
         </div>
       `;
