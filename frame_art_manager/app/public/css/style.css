@@ -3072,11 +3072,12 @@ body.dropdown-open .image-card:hover {
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     gap: 8px !important;
-    padding: 12px !important;
+    padding: 16px 12px !important;
     border-radius: 0 !important;
     z-index: 1000 !important;
     margin-bottom: 0 !important;
     justify-content: center !important;
+    min-height: 60px !important;
   }
 
   .bulk-actions-buttons {
