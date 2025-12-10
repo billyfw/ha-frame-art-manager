@@ -8,12 +8,17 @@ const {
   normalizeFilterValue
 } = require('./constants');
 
+const DEFAULT_SETTINGS = {
+  duplicateThreshold: 10
+};
+
 class MetadataHelper {
   constructor(frameArtPath) {
     this.frameArtPath = frameArtPath;
     this.metadataPath = path.join(frameArtPath, 'metadata.json');
     this.libraryPath = path.join(frameArtPath, 'library');
     this.thumbsPath = path.join(frameArtPath, 'thumbs');
+    this.originalsPath = path.join(frameArtPath, 'originals');
   }
 
   /**
@@ -399,6 +404,90 @@ class MetadataHelper {
     if (removedCount > 0) {
       console.log(`[CLEANUP] Removed ${removedCount} unused tag(s) from global list`);
     }
+  }
+
+  /**
+   * Get settings (with defaults)
+   */
+  async getSettings() {
+    const metadata = await this.readMetadata();
+    return { ...DEFAULT_SETTINGS, ...metadata.settings };
+  }
+
+  /**
+   * Update settings
+   */
+  async updateSettings(updates) {
+    const metadata = await this.readMetadata();
+    metadata.settings = { ...DEFAULT_SETTINGS, ...metadata.settings, ...updates };
+    await this.writeMetadata(metadata);
+    return metadata.settings;
+  }
+
+  /**
+   * Get backup filename pattern
+   */
+  getBackupFilename(filename) {
+    const ext = path.extname(filename);
+    const nameWithoutExt = filename.slice(0, filename.length - ext.length);
+    return `${nameWithoutExt}_original${ext}`;
+  }
+
+  /**
+   * Ensure all images have sourceHash (backfill on startup)
+   * Computes hash from originals/ if backup exists, otherwise from library/
+   * @param {Function} computeHash - async function(buffer) => hash string
+   * @returns {Object} - { updated: number, errors: string[] }
+   */
+  async ensureSourceHashes(computeHash) {
+    const metadata = await this.readMetadata();
+    const images = metadata.images || {};
+    let updated = 0;
+    const errors = [];
+
+    const toUpdate = Object.entries(images).filter(([, data]) => !data.sourceHash);
+    
+    if (toUpdate.length === 0) {
+      return { updated: 0, errors: [] };
+    }
+
+    console.log(`[HASH] Backfilling sourceHash for ${toUpdate.length} image(s)...`);
+
+    for (const [filename, data] of toUpdate) {
+      try {
+        // Check if original backup exists
+        const backupFilename = this.getBackupFilename(filename);
+        const backupPath = path.join(this.originalsPath, backupFilename);
+        const libraryPath = path.join(this.libraryPath, filename);
+
+        let sourcePath = libraryPath;
+        try {
+          await fs.access(backupPath);
+          sourcePath = backupPath; // Use original if it exists
+        } catch {
+          // No backup, use library file
+        }
+
+        const buffer = await fs.readFile(sourcePath);
+        const hash = await computeHash(buffer);
+        
+        data.sourceHash = hash;
+        updated++;
+      } catch (error) {
+        errors.push(`${filename}: ${error.message}`);
+      }
+    }
+
+    if (updated > 0) {
+      await this.writeMetadata(metadata);
+      console.log(`[HASH] Backfilled sourceHash for ${updated} image(s)`);
+    }
+
+    if (errors.length > 0) {
+      console.warn(`[HASH] Failed to compute hash for ${errors.length} image(s):`, errors);
+    }
+
+    return { updated, errors };
   }
 }
 

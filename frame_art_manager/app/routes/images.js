@@ -8,6 +8,12 @@ const heicConvert = require('heic-convert');
 const MetadataHelper = require('../metadata_helper');
 const ImageEditService = require('../image_edit_service');
 const {
+  computePerceptualHash,
+  findSimilarImages,
+  findDuplicateGroups,
+  DEFAULT_THRESHOLD
+} = require('../hash_helper');
+const {
   MATTE_TYPES,
   FILTER_TYPES,
   DEFAULT_MATTE,
@@ -404,6 +410,16 @@ router.post('/upload', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'Uploaded file could not be accessed.' });
     }
 
+    // Compute perceptual hash for duplicate detection
+    let sourceHash = null;
+    try {
+      const imageBuffer = await fs.readFile(finalFilePath);
+      sourceHash = await computePerceptualHash(imageBuffer);
+    } catch (hashError) {
+      console.warn('Failed to compute source hash:', hashError.message);
+      // Continue without hash - not critical
+    }
+
     let imageData;
     try {
       imageData = await helper.addImage(
@@ -412,6 +428,12 @@ router.post('/upload', upload.single('image'), async (req, res) => {
         normalizedFilter,
         tagArray
       );
+      
+      // Add sourceHash to image metadata if computed
+      if (sourceHash) {
+        await helper.updateImage(finalFilename, { sourceHash });
+        imageData.sourceHash = sourceHash;
+      }
     } catch (validationError) {
       await removeFileIfExists(finalFilePath);
       console.error('Error validating uploaded image:', validationError);
@@ -632,6 +654,114 @@ router.post('/:filename/thumbnail', async (req, res) => {
     res.status(500).json({ error: 'Failed to generate thumbnail' });
   }
 });
+
+// ============================================
+// Duplicate Detection & Settings Endpoints
+// These MUST be defined BEFORE /:filename routes
+// ============================================
+
+/**
+ * Check if an uploaded file might be a duplicate
+ * POST /api/images/check-duplicate
+ * Body: multipart/form-data with 'image' file
+ */
+router.post('/check-duplicate', previewUpload.single('image'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file provided' });
+  }
+
+  try {
+    const helper = new MetadataHelper(req.frameArtPath);
+    const settings = await helper.getSettings();
+    const threshold = settings.duplicateThreshold || DEFAULT_THRESHOLD;
+
+    // Compute hash of uploaded file
+    const newHash = await computePerceptualHash(req.file.buffer);
+
+    // Get all existing images
+    const images = await helper.getAllImages();
+
+    // Find similar images
+    const similar = findSimilarImages(newHash, images, threshold);
+
+    res.json({
+      hash: newHash,
+      duplicates: similar.map(s => s.filename),
+      threshold
+    });
+  } catch (error) {
+    console.error('Error checking for duplicates:', error);
+    res.status(500).json({ error: 'Failed to check for duplicates' });
+  }
+});
+
+/**
+ * Get all duplicate groups in the library
+ * GET /api/images/duplicates
+ */
+router.get('/duplicates', async (req, res) => {
+  try {
+    const helper = new MetadataHelper(req.frameArtPath);
+    const settings = await helper.getSettings();
+    const threshold = settings.duplicateThreshold || DEFAULT_THRESHOLD;
+
+    const images = await helper.getAllImages();
+    const groups = findDuplicateGroups(images, threshold);
+
+    res.json({
+      groups,
+      threshold,
+      totalDuplicates: groups.reduce((sum, g) => sum + g.length, 0)
+    });
+  } catch (error) {
+    console.error('Error finding duplicates:', error);
+    res.status(500).json({ error: 'Failed to find duplicates' });
+  }
+});
+
+/**
+ * Get settings
+ * GET /api/images/settings
+ */
+router.get('/settings', async (req, res) => {
+  try {
+    const helper = new MetadataHelper(req.frameArtPath);
+    const settings = await helper.getSettings();
+    res.json(settings);
+  } catch (error) {
+    console.error('Error getting settings:', error);
+    res.status(500).json({ error: 'Failed to get settings' });
+  }
+});
+
+/**
+ * Update settings
+ * PUT /api/images/settings
+ */
+router.put('/settings', async (req, res) => {
+  try {
+    const helper = new MetadataHelper(req.frameArtPath);
+    const updates = {};
+
+    // Validate and sanitize duplicateThreshold
+    if (req.body.duplicateThreshold !== undefined) {
+      const threshold = parseInt(req.body.duplicateThreshold, 10);
+      if (Number.isFinite(threshold) && threshold >= 0 && threshold <= 20) {
+        updates.duplicateThreshold = threshold;
+      }
+    }
+
+    const settings = await helper.updateSettings(updates);
+    res.json({ success: true, settings });
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+});
+
+// ============================================
+// Single Image Routes (MUST be LAST - :filename is a catch-all)
+// ============================================
 
 router.get('/:filename', async (req, res) => {
   try {
