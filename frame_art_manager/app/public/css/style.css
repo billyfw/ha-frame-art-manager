@@ -6808,7 +6808,7 @@ body.dropdown-open .image-card:hover {
   
   /* Fixed column widths for mobile: Time, #(avg), Filename, Tags, Date */
   .bucket-table-header > span:nth-child(1),
-  .bucket-row > span:nth-child(1) { width: 32px !important; } /* Time */
+  .bucket-row > span:nth-child(1) { width: 32px !important; white-space: nowrap !important; overflow: visible !important; } /* Time - no truncate */
   .bucket-table-header > span:nth-child(2),
   .bucket-row > span:nth-child(2) { width: 62px !important; white-space: nowrap !important; } /* # (avg) */
   .bucket-table-header > span:nth-child(3),
