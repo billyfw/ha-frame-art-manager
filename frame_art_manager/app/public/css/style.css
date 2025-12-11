@@ -6788,11 +6788,11 @@ body.dropdown-open .image-card:hover {
     line-height: 1.3 !important;
   }
 
-  /* Bucket table - use table display for consistent column widths on mobile */
+  /* Bucket table - use fixed table layout for controlled column widths on mobile */
   .bucket-table-wrapper {
     display: table !important;
     width: 100% !important;
-    table-layout: auto !important;
+    table-layout: fixed !important;
   }
   
   .bucket-table-header {
@@ -6802,7 +6802,21 @@ body.dropdown-open .image-card:hover {
   .bucket-table-header > span {
     display: table-cell !important;
     padding: 2px 3px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
+  
+  /* Fixed column widths for mobile: Time, #(avg), Filename, Tags, Date */
+  .bucket-table-header > span:nth-child(1),
+  .bucket-row > span:nth-child(1) { width: 32px !important; } /* Time */
+  .bucket-table-header > span:nth-child(2),
+  .bucket-row > span:nth-child(2) { width: 62px !important; white-space: nowrap !important; } /* # (avg) */
+  .bucket-table-header > span:nth-child(3),
+  .bucket-row > span:nth-child(3) { width: 28% !important; } /* Filename */
+  .bucket-table-header > span:nth-child(4),
+  .bucket-row > span:nth-child(4) { width: auto !important; } /* Tags - takes remaining */
+  .bucket-table-header > span:nth-child(5),
+  .bucket-row > span:nth-child(5) { width: 72px !important; } /* Date */
   
   .bucket-table-scroll {
     display: table-row-group !important;
@@ -6816,6 +6830,9 @@ body.dropdown-open .image-card:hover {
     display: table-cell !important;
     padding: 4px 3px !important;
     vertical-align: middle !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
   }
 
   #analytics-tab .bucket-time,
