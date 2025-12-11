@@ -7648,7 +7648,7 @@ function renderBucketDetailTable() {
     const displayCount = img.displayCount || 0;
     // Calculate average time per appearance
     const avgSecondsPerAppearance = displayCount > 0 ? img.seconds / displayCount : 0;
-    const avgTimeStr = displayCount > 0 ? ` (${formatHoursNice(avgSecondsPerAppearance)} ea.)` : '';
+    const avgTimeStr = displayCount > 0 ? ` (${formatHoursNice(avgSecondsPerAppearance)})` : '';
     const displayCountStr = `${displayCount}${avgTimeStr}`;
     const addedDateShort = imageData.added ? formatDateShort(imageData.added) : '—';
     const daysAgo = imageData.added ? formatDaysAgo(imageData.added) : '';
@@ -7674,7 +7674,7 @@ function renderBucketDetailTable() {
     <div class="bucket-table-wrapper">
       <div class="bucket-table-header">
         <span class="sortable" data-sort="time">Time${timeArrow}</span>
-        <span class="sortable center" data-sort="count">#${countArrow}</span>
+        <span class="sortable center" data-sort="count"># (avg)${countArrow}</span>
         <span>Filename</span>
         <span>Tags</span>
         <span class="bucket-date">Upload Date</span>
