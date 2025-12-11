@@ -7435,6 +7435,8 @@ function renderOverallPieChart() {
   
   // Merge gallery images with analytics data - include ALL images from gallery
   // Images not in analytics get 0 seconds, others get time-filtered seconds
+  // Note: We only include images that exist in the gallery. Deleted images that
+  // may still have analytics data are excluded from the histogram.
   const mergedImages = galleryImageNames.map(name => {
     const stats = getImageStatsInRange(analyticsImages[name]);
     return {
@@ -7442,18 +7444,6 @@ function renderOverallPieChart() {
       seconds: stats.seconds,
       displayCount: stats.count
     };
-  });
-  
-  // Also include any images in analytics that might not be in gallery (edge case)
-  Object.keys(analyticsImages).forEach(name => {
-    if (!allImages[name]) {
-      const stats = getImageStatsInRange(analyticsImages[name]);
-      mergedImages.push({
-        name,
-        seconds: stats.seconds,
-        displayCount: stats.count
-      });
-    }
   });
   
   if (mergedImages.length === 0) {
@@ -7656,6 +7646,10 @@ function renderBucketDetailTable() {
     const displayTime = formatHoursNice(img.seconds);
     const isZeroTime = img.seconds === 0;
     const displayCount = img.displayCount || 0;
+    // Calculate average time per appearance
+    const avgSecondsPerAppearance = displayCount > 0 ? img.seconds / displayCount : 0;
+    const avgTimeStr = displayCount > 0 ? ` (${formatHoursNice(avgSecondsPerAppearance)} ea.)` : '';
+    const displayCountStr = `${displayCount}${avgTimeStr}`;
     const addedDateShort = imageData.added ? formatDateShort(imageData.added) : '—';
     const daysAgo = imageData.added ? formatDaysAgo(imageData.added) : '';
     // Mobile-friendly format: m/d/yy (Xd)
@@ -7665,7 +7659,7 @@ function renderBucketDetailTable() {
     return `
       <div class="bucket-row" data-filename="${escapeHtml(img.name)}">
         <span class="bucket-time${isZeroTime ? ' zero' : ''}">${displayTime}</span>
-        <span class="bucket-count">${displayCount}</span>
+        <span class="bucket-count">${displayCountStr}</span>
         <span class="bucket-filename" title="${escapeHtml(img.name)}"><span class="bucket-filename-text">${escapeHtml(displayName)}</span><button class="bucket-open-btn" title="Open image">⧉</button></span>
         <span class="bucket-tags">${tagsHtml}</span>
         <span class="bucket-date">${uploadDisplay}</span>
