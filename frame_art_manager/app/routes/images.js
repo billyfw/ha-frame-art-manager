@@ -329,8 +329,15 @@ router.post('/preview', previewUpload.single('image'), async (req, res) => {
 });
 
 router.post('/upload', upload.single('image'), async (req, res) => {
+  const uploadStartTime = Date.now();
+  const originalFilename = req.file?.originalname || 'unknown';
+  const fileSize = req.file?.size || 0;
+  
+  console.log(`[Upload] Starting: ${originalFilename} (${(fileSize / 1024 / 1024).toFixed(2)}MB)`);
+  
   try {
     if (!req.file) {
+      console.log('[Upload] Failed: No file in request');
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
@@ -351,6 +358,7 @@ router.post('/upload', upload.single('image'), async (req, res) => {
 
     const fileExt = path.extname(finalFilename).toLowerCase();
     if (isHeicType({ mimetype: req.file.mimetype, ext: fileExt })) {
+      console.log(`[Upload] Converting HEIC: ${originalFilename}`);
 
       const originalPath = req.file.path;
       const jpegFilename = finalFilename.replace(/\.(heic|heif)$/i, '.jpg');
@@ -371,14 +379,16 @@ router.post('/upload', upload.single('image'), async (req, res) => {
 
         req.file.filename = finalFilename;
         req.file.path = finalFilePath;
+        console.log(`[Upload] HEIC conversion complete: ${jpegFilename}`);
       } catch (conversionError) {
-        console.error('Error converting HEIC to JPEG:', conversionError);
+        console.error(`[Upload] HEIC conversion failed for ${originalFilename}:`, conversionError.message);
         try {
           await fs.unlink(originalPath);
         } catch (cleanupError) {
           // Ignore cleanup errors
         }
         return res.status(500).json({
+          success: false,
           error: 'Failed to convert HEIC image. Please try uploading as JPEG or PNG.',
           details: conversionError.message
         });
@@ -446,9 +456,12 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     try {
       await helper.generateThumbnail(finalFilename);
     } catch (thumbError) {
-      console.error('Error generating thumbnail:', thumbError);
+      console.error('[Upload] Thumbnail generation failed:', thumbError.message);
       // Continue even if thumbnail generation fails
     }
+
+    const uploadDuration = ((Date.now() - uploadStartTime) / 1000).toFixed(2);
+    console.log(`[Upload] Success: ${originalFilename} -> ${finalFilename} (${uploadDuration}s)`);
 
     res.json({
       success: true,
@@ -456,7 +469,8 @@ router.post('/upload', upload.single('image'), async (req, res) => {
       data: imageData
     });
   } catch (error) {
-    console.error('Error uploading image:', error);
+    const uploadDuration = ((Date.now() - uploadStartTime) / 1000).toFixed(2);
+    console.error(`[Upload] Failed: ${originalFilename} after ${uploadDuration}s -`, error.message);
     const status = error.statusCode || 500;
     res.status(status).json({ error: status === 400 ? error.message : 'Failed to upload image' });
   }
