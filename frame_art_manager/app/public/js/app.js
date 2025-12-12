@@ -3649,14 +3649,18 @@ function formatFileSize(bytes) {
 
 async function uploadBatchImages(files) {
   const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB in bytes
+  const UPLOAD_TIMEOUT_MS = 120000; // 2 minute timeout per file
   let successCount = 0;
   let errorCount = 0;
   let skippedCount = 0;
   const skippedFiles = [];
+  const errorFiles = []; // Track files that failed with error details
   const uploadedFilenames = []; // Track successfully uploaded filenames (server names with hash)
   const uploadedOriginalNames = {}; // Map server filename -> original filename
   const totalFiles = files.length;
   let cancelled = false;
+  
+  console.log(`[BatchUpload] Starting upload of ${totalFiles} files`);
   
   // Show progress indicator in gallery with progress bar
   const grid = document.getElementById('image-grid');
@@ -3670,7 +3674,8 @@ async function uploadBatchImages(files) {
     <div class="batch-progress-bar-wrapper" style="width: 100%; max-width: 300px; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; margin: 0 auto 10px;">
       <div class="batch-progress-bar" style="width: 0%; height: 100%; background: #4a90d9; transition: width 0.15s ease;"></div>
     </div>
-    <div class="batch-progress-file" style="font-size: 0.85rem; color: #666; margin-bottom: 12px;"></div>
+    <div class="batch-progress-file" style="font-size: 0.85rem; color: #666; margin-bottom: 8px;"></div>
+    <div class="batch-status-detail" style="font-size: 0.8rem; color: #888; margin-bottom: 12px; max-height: 100px; overflow-y: auto; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;"></div>
     <button class="batch-cancel-btn btn-secondary" style="padding: 6px 16px; font-size: 0.9rem;">Cancel</button>
   `;
   grid.innerHTML = '';
@@ -3678,6 +3683,7 @@ async function uploadBatchImages(files) {
   
   const counterEl = progressDiv.querySelector('div:nth-child(2)');
   const progressBar = progressDiv.querySelector('.batch-progress-bar');
+  const statusDetail = progressDiv.querySelector('.batch-status-detail');
   const fileLabel = progressDiv.querySelector('.batch-progress-file');
   const cancelBtn = progressDiv.querySelector('.batch-cancel-btn');
   
@@ -3685,13 +3691,32 @@ async function uploadBatchImages(files) {
     cancelled = true;
     cancelBtn.textContent = 'Cancelling...';
     cancelBtn.disabled = true;
+    console.log('[BatchUpload] User cancelled upload');
   });
+  
+  // Helper to add status line
+  const addStatusLine = (text, isError = false) => {
+    const line = document.createElement('div');
+    line.textContent = text;
+    line.style.color = isError ? '#c0392b' : '#27ae60';
+    statusDetail.insertBefore(line, statusDetail.firstChild);
+    // Keep only last 10 status lines
+    while (statusDetail.children.length > 10) {
+      statusDetail.removeChild(statusDetail.lastChild);
+    }
+  };
   
   // Upload each file with XHR for progress
   for (let i = 0; i < files.length; i++) {
-    if (cancelled) break;
+    if (cancelled) {
+      console.log(`[BatchUpload] Skipping remaining ${files.length - i} files due to cancellation`);
+      break;
+    }
     
     const file = files[i];
+    const shortName = file.name.length > 30 ? file.name.substring(0, 27) + '...' : file.name;
+    
+    console.log(`[BatchUpload] Processing file ${i + 1}/${totalFiles}: ${file.name} (${formatFileSize(file.size)})`);
     
     // Check file size before uploading
     if (file.size > MAX_FILE_SIZE) {
@@ -3700,7 +3725,8 @@ async function uploadBatchImages(files) {
         name: file.name,
         size: formatFileSize(file.size)
       });
-      console.warn(`Skipped ${file.name}: ${formatFileSize(file.size)} exceeds 20MB limit`);
+      console.warn(`[BatchUpload] Skipped ${file.name}: ${formatFileSize(file.size)} exceeds 20MB limit`);
+      addStatusLine(`⊘ ${shortName} - too large`, true);
       
       const completedCount = i + 1;
       counterEl.textContent = `${completedCount} / ${totalFiles}`;
@@ -3708,23 +3734,30 @@ async function uploadBatchImages(files) {
     }
     
     // Show current file being uploaded
-    const shortName = file.name.length > 30 ? file.name.substring(0, 27) + '...' : file.name;
     fileLabel.textContent = `Uploading: ${shortName}`;
     progressBar.style.width = '0%';
     
+    const uploadStartTime = Date.now();
     try {
       const result = await uploadSingleFileWithProgress(file, (percent) => {
         progressBar.style.width = `${percent}%`;
-      });
+      }, UPLOAD_TIMEOUT_MS);
+      
+      const uploadDuration = ((Date.now() - uploadStartTime) / 1000).toFixed(1);
       
       if (result.success) {
         successCount++;
         if (result.filename) {
           uploadedFilenames.push(result.filename);
         }
+        console.log(`[BatchUpload] ✓ ${file.name} uploaded successfully in ${uploadDuration}s`);
+        addStatusLine(`✓ ${shortName}`);
       } else {
         errorCount++;
-        console.error(`Failed to upload ${file.name}:`, result.error);
+        const errorMsg = result.error || 'Unknown error';
+        errorFiles.push({ name: file.name, error: errorMsg });
+        console.error(`[BatchUpload] ✗ Failed to upload ${file.name}:`, errorMsg);
+        addStatusLine(`✗ ${shortName} - ${errorMsg}`, true);
       }
       
       const completedCount = i + 1;
@@ -3733,12 +3766,17 @@ async function uploadBatchImages(files) {
       
     } catch (error) {
       errorCount++;
-      console.error(`Error uploading ${file.name}:`, error);
+      const errorMsg = error.message || 'Unknown error';
+      errorFiles.push({ name: file.name, error: errorMsg });
+      console.error(`[BatchUpload] ✗ Error uploading ${file.name}:`, error);
+      addStatusLine(`✗ ${shortName} - ${errorMsg}`, true);
       
       const completedCount = i + 1;
       counterEl.textContent = `${completedCount} / ${totalFiles}`;
     }
   }
+  
+  console.log(`[BatchUpload] Completed: ${successCount} success, ${errorCount} errors, ${skippedCount} skipped`);
   
   fileLabel.textContent = '';
   
@@ -3772,6 +3810,13 @@ async function uploadBatchImages(files) {
       message += '\n\nSkipped files (over 20MB):';
       skippedFiles.forEach(file => {
         message += `\n• ${file.name} (${file.size})`;
+      });
+    }
+    
+    if (errorFiles.length > 0) {
+      message += '\n\nFailed files:';
+      errorFiles.forEach(file => {
+        message += `\n• ${file.name}: ${file.error}`;
       });
     }
     
@@ -3836,7 +3881,7 @@ async function uploadBatchImages(files) {
 }
 
 // Upload a single file with XHR progress tracking
-function uploadSingleFileWithProgress(file, onProgress) {
+function uploadSingleFileWithProgress(file, onProgress, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const formData = new FormData();
@@ -3844,6 +3889,9 @@ function uploadSingleFileWithProgress(file, onProgress) {
     formData.append('matte', 'none');
     formData.append('filter', 'none');
     formData.append('tags', '');
+    
+    // Set timeout for the request
+    xhr.timeout = timeoutMs;
     
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable) {
@@ -3853,16 +3901,34 @@ function uploadSingleFileWithProgress(file, onProgress) {
     });
     
     xhr.addEventListener('load', () => {
-      try {
-        const result = JSON.parse(xhr.responseText);
-        resolve(result);
-      } catch (e) {
-        resolve({ success: false, error: 'Invalid response' });
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const result = JSON.parse(xhr.responseText);
+          resolve(result);
+        } catch (e) {
+          resolve({ success: false, error: 'Invalid server response' });
+        }
+      } else {
+        // Handle HTTP errors
+        let errorMsg = `Server error (${xhr.status})`;
+        try {
+          const errorResult = JSON.parse(xhr.responseText);
+          if (errorResult.error) {
+            errorMsg = errorResult.error;
+          }
+        } catch (e) {
+          // Use default error message
+        }
+        resolve({ success: false, error: errorMsg });
       }
     });
     
     xhr.addEventListener('error', () => {
-      reject(new Error('Network error'));
+      reject(new Error('Network error - check your connection'));
+    });
+    
+    xhr.addEventListener('timeout', () => {
+      reject(new Error('Upload timed out - file may be too large or connection too slow'));
     });
     
     xhr.addEventListener('abort', () => {
