@@ -186,6 +186,11 @@ let duplicateFilterActive = false;
 let duplicateGroups = []; // Cache of duplicate groups from server
 let preDuplicateSortState = null; // Saved sort state (order + ascending) before entering duplicate filter
 
+// Similar Images filter - same behavior as duplicates but with higher threshold
+let similarFilterActive = false;
+let similarGroups = []; // Cache of similar groups from server
+let preSimilarSortState = null; // Saved sort state before entering similar filter
+
 /**
  * Check if a file might be a duplicate of existing images
  * @param {File} file - The file to check
@@ -264,6 +269,36 @@ async function fetchDuplicateGroups() {
 function getDuplicateFilenames() {
   const filenames = new Set();
   for (const group of duplicateGroups) {
+    for (const filename of group) {
+      filenames.add(filename);
+    }
+  }
+  return filenames;
+}
+
+/**
+ * Fetch all similar image groups from server (higher threshold than duplicates)
+ */
+async function fetchSimilarGroups() {
+  try {
+    const response = await fetch(`${API_BASE}/images/similar`);
+    if (!response.ok) throw new Error('Failed to fetch similar images');
+    const data = await response.json();
+    similarGroups = data.groups || [];
+    return similarGroups;
+  } catch (error) {
+    console.error('Error fetching similar groups:', error);
+    similarGroups = [];
+    return [];
+  }
+}
+
+/**
+ * Get set of filenames that are similar images
+ */
+function getSimilarFilenames() {
+  const filenames = new Set();
+  for (const group of similarGroups) {
     for (const filename of group) {
       filenames.add(filename);
     }
@@ -636,6 +671,16 @@ function getDisplayName(filename) {
   return base;
 }
 
+// Helper function to get similar images for a filename (excluding itself)
+function getSimilarImagesForFile(filename) {
+  if (!similarFilterActive || similarGroups.length === 0) return [];
+  
+  const group = similarGroups.find(g => g.includes(filename));
+  if (!group) return [];
+  
+  return group.filter(f => f !== filename);
+}
+
 // Helper function to format date
 function formatDate(dateString) {
   if (!dateString) return '';
@@ -696,8 +741,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTvModal();
   initGalleryInfiniteScroll(); // Initialize infinite scroll for gallery
   
-  // Pre-fetch duplicate groups for filter count
+  // Pre-fetch duplicate and similar groups for filter counts
   fetchDuplicateGroups();
+  fetchSimilarGroups();
   
   // Handle initial route
   handleRoute();
@@ -2556,24 +2602,34 @@ function renderGallery(filter = '') {
     filteredImages = filteredImages.filter(([filename]) => dupeFilenames.has(filename));
   }
 
+  // Filter for "Similar Images" - images that may be visually related
+  if (similarFilterActive) {
+    const similarFilenames = getSimilarFilenames();
+    filteredImages = filteredImages.filter(([filename]) => similarFilenames.has(filename));
+  }
+
   // ============================================
   // Sort images
   // ============================================
   // There are 3 sort modes:
   //   1. "name" - alphabetical by filename (visible in dropdown)
   //   2. "date" - by upload date (visible in dropdown)
-  //   3. "duplicates" - IMPLICIT, auto-activated when "Possible Duplicates" filter is on
+  //   3. "duplicates"/"similar" - IMPLICIT, auto-activated when special filters are on
   //
-  // The "duplicates" sort mode groups potential duplicate images together,
+  // The "duplicates"/"similar" sort mode groups related images together,
   // then sorts groups by the newest image date in each group.
   // Within each group, images are sorted by their individual upload date.
   // This mode does NOT appear in the sort dropdown - it's automatically
-  // engaged when entering duplicate filter mode, and the previous sort
+  // engaged when entering duplicate/similar filter mode, and the previous sort
   // state is restored when exiting.
   // ============================================
   
-  if (duplicateFilterActive && duplicateGroups.length > 0) {
-    // IMPLICIT "duplicates" sort mode - groups duplicate images together
+  // Determine if a special grouping filter is active and which groups to use
+  const specialFilterActive = duplicateFilterActive || similarFilterActive;
+  const activeGroups = duplicateFilterActive ? duplicateGroups : (similarFilterActive ? similarGroups : []);
+  
+  if (specialFilterActive && activeGroups.length > 0) {
+    // IMPLICIT grouping sort mode - groups related images together
     // Groups are ordered by their newest image's date (asc/desc based on arrow)
     // Images within each group are sorted by their individual upload date
     
@@ -2581,7 +2637,7 @@ function renderGallery(filter = '') {
     const filenameToGroupIndex = new Map();
     const groupMaxDates = [];
     
-    duplicateGroups.forEach((group, groupIndex) => {
+    activeGroups.forEach((group, groupIndex) => {
       let maxDate = 0;
       group.forEach(filename => {
         filenameToGroupIndex.set(filename, groupIndex);
@@ -2712,6 +2768,12 @@ function renderGalleryChunk(grid, count) {
       ? `<div class="image-last-display">${lastDisplay.timeAgo} (${escapeHtml(lastDisplay.tvName)})</div>`
       : '';
     
+    // Get similar images overlay (only when similar filter is active)
+    const similarImages = getSimilarImagesForFile(filename);
+    const similarOverlayHtml = similarImages.length > 0
+      ? `<div class="similar-overlay">Similar: ${similarImages.map(f => getDisplayName(f)).join(', ')}</div>`
+      : '';
+    
     return `
     <div class="image-card ${isSelected ? 'selected' : ''}" 
          data-filename="${filename}" 
@@ -2723,6 +2785,7 @@ function renderGalleryChunk(grid, count) {
         <button class="select-badge" data-filename="${filename}" data-index="${index}" title="Select image">
           <span class="select-icon">☑</span>
         </button>
+        ${similarOverlayHtml}
       </div>
       <div class="image-info">
         <button class="stats-link" data-filename="${filename}" title="Stats">📊</button>
@@ -2894,6 +2957,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dupesCheckbox) {
         dupesCheckbox.checked = false;
       }
+      // Uncheck "Similar" checkbox and clear filter
+      const similarCheckbox = document.querySelector('.similar-checkbox');
+      if (similarCheckbox) {
+        similarCheckbox.checked = false;
+      }
       // Restore sort state if we were in duplicate filter mode
       if (duplicateFilterActive && preDuplicateSortState) {
         const sortOrderSelect = document.getElementById('sort-order');
@@ -2902,7 +2970,16 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSortDirectionIcon();
         preDuplicateSortState = null;
       }
+      // Restore sort state if we were in similar filter mode
+      if (similarFilterActive && preSimilarSortState) {
+        const sortOrderSelect = document.getElementById('sort-order');
+        if (sortOrderSelect) sortOrderSelect.value = preSimilarSortState.order;
+        sortAscending = preSimilarSortState.ascending;
+        updateSortDirectionIcon();
+        preSimilarSortState = null;
+      }
       duplicateFilterActive = false;
+      similarFilterActive = false;
       updateTagFilterDisplay();
       updateTVShortcutStates();
       // Close the dropdown if it's open
@@ -3321,15 +3398,16 @@ function initUploadForm() {
             // Reload tags in case new ones were added
             await loadTags();
             
-            // Refresh duplicate groups and filter count
+            // Refresh duplicate and similar groups and filter count
             await fetchDuplicateGroups();
+            await fetchSimilarGroups();
             await loadTagsForFilter();
             
             // Close upload modal and return to gallery
             navigateTo('/');
             
-            // Re-render gallery if duplicate filter is active
-            if (duplicateFilterActive) {
+            // Re-render gallery if special filter is active
+            if (duplicateFilterActive || similarFilterActive) {
               renderGallery();
             }
             
@@ -3834,11 +3912,12 @@ async function uploadBatchImages(files) {
   // Check for duplicates among uploaded images
   if (uploadedFilenames.length > 0) {
     await fetchDuplicateGroups();
-    // Refresh tag filter to show updated duplicate count
+    await fetchSimilarGroups();
+    // Refresh tag filter to show updated duplicate/similar counts
     await loadTagsForFilter();
     
-    // Re-render gallery if duplicate filter is active (so new duplicates appear)
-    if (duplicateFilterActive) {
+    // Re-render gallery if special filter is active (so new items appear)
+    if (duplicateFilterActive || similarFilterActive) {
       renderGallery();
     }
     
@@ -4096,6 +4175,20 @@ async function loadTagsForFilter() {
           </label>
         </div>
       `;
+      // Add "Similar Images" filter option (higher threshold than duplicates)
+      const similarCount = getSimilarFilenames().size;
+      html += `
+        <div class="multiselect-option tv-shortcut similar-filter">
+          <input type="checkbox" id="filter-similar" 
+                 value="similar" 
+                 class="similar-checkbox"
+                 ${similarFilterActive ? 'checked' : ''}>
+          <label for="filter-similar">
+            <div class="tv-name">Similar Images <span class="tv-count">(${similarCount})</span></div>
+            <div class="tv-tags-subtitle">Images that may be visually related</div>
+          </label>
+        </div>
+      `;
       html += `<div class="tv-shortcuts-divider"></div>`;
       html += `<div class="tags-header">Tags</div>`;
     }
@@ -4143,8 +4236,9 @@ async function loadTagsForFilter() {
             noneCheckbox.checked = false;
           }
           
-          // Clear duplicate filter when selecting tags
+          // Clear special filters when selecting tags
           clearDuplicateFilter();
+          clearSimilarFilter();
           
           updateTagFilterDisplay();
           updateTVShortcutStates();
@@ -4198,6 +4292,8 @@ async function loadTagsForFilter() {
           // Clear other filters when enabling duplicates filter
           const noneCheckbox = document.querySelector('.tv-none-checkbox');
           if (noneCheckbox) noneCheckbox.checked = false;
+          // Clear similar filter
+          clearSimilarFilter();
           // Clear tag selections
           document.querySelectorAll('.tag-checkbox').forEach(cb => setTagState(cb, 'unchecked'));
           document.querySelectorAll('.tv-checkbox').forEach(cb => { cb.checked = false; });
@@ -4209,6 +4305,51 @@ async function loadTagsForFilter() {
             sortAscending = preDuplicateSortState.ascending;
             updateSortDirectionIcon();
             preDuplicateSortState = null;
+          }
+        }
+        
+        updateTagFilterDisplay();
+        filterAndRenderGallery();
+      });
+    }
+
+    // Add listener for "Similar Images" checkbox
+    const similarCheckbox = dropdownOptions.querySelector('.similar-checkbox');
+    if (similarCheckbox) {
+      similarCheckbox.addEventListener('change', async (e) => {
+        const wasActive = similarFilterActive;
+        similarFilterActive = e.target.checked;
+        
+        if (similarFilterActive && !wasActive) {
+          // Save current sort state before entering similar filter mode
+          const sortOrderSelect = document.getElementById('sort-order');
+          preSimilarSortState = {
+            order: sortOrderSelect ? sortOrderSelect.value : 'date',
+            ascending: sortAscending
+          };
+          // Switch to date sort, descending (newest first) for similar view
+          if (sortOrderSelect) sortOrderSelect.value = 'date';
+          sortAscending = false;
+          updateSortDirectionIcon();
+          
+          // Fetch fresh similar data
+          await fetchSimilarGroups();
+          // Clear other filters when enabling similar filter
+          const noneCheckbox = document.querySelector('.tv-none-checkbox');
+          if (noneCheckbox) noneCheckbox.checked = false;
+          // Clear duplicate filter
+          clearDuplicateFilter();
+          // Clear tag selections
+          document.querySelectorAll('.tag-checkbox').forEach(cb => setTagState(cb, 'unchecked'));
+          document.querySelectorAll('.tv-checkbox').forEach(cb => { cb.checked = false; });
+        } else if (!similarFilterActive && wasActive) {
+          // Restore previous sort state
+          if (preSimilarSortState) {
+            const sortOrderSelect = document.getElementById('sort-order');
+            if (sortOrderSelect) sortOrderSelect.value = preSimilarSortState.order;
+            sortAscending = preSimilarSortState.ascending;
+            updateSortDirectionIcon();
+            preSimilarSortState = null;
           }
         }
         
@@ -4278,6 +4419,31 @@ function clearDuplicateFilter() {
   duplicateFilterActive = false;
 }
 
+/**
+ * Clear the similar filter and restore sort state if it was active.
+ * Call this when any other filter (tags, None, TV shortcuts, duplicates) is selected.
+ */
+function clearSimilarFilter() {
+  if (!similarFilterActive) return;
+  
+  // Uncheck the similar checkbox in the UI
+  const similarCheckbox = document.querySelector('.similar-checkbox');
+  if (similarCheckbox) {
+    similarCheckbox.checked = false;
+  }
+  
+  // Restore previous sort state
+  if (preSimilarSortState) {
+    const sortOrderSelect = document.getElementById('sort-order');
+    if (sortOrderSelect) sortOrderSelect.value = preSimilarSortState.order;
+    sortAscending = preSimilarSortState.ascending;
+    updateSortDirectionIcon();
+    preSimilarSortState = null;
+  }
+  
+  similarFilterActive = false;
+}
+
 // Get all included tags
 function getIncludedTags() {
   const checkboxes = document.querySelectorAll('.tag-checkbox');
@@ -4312,8 +4478,9 @@ function handleTVShortcutChange(event) {
     noneCheckbox.checked = false;
   }
   
-  // Clear duplicate filter when selecting a TV shortcut
+  // Clear special filters when selecting a TV shortcut
   clearDuplicateFilter();
+  clearSimilarFilter();
   
   // Clear all tag states first
   const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
@@ -4354,8 +4521,9 @@ function handleNoneShortcutChange(event) {
     const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
     allTagCheckboxes.forEach(cb => setTagState(cb, 'unchecked'));
     
-    // Clear duplicate filter when selecting None
+    // Clear special filters when selecting None
     clearDuplicateFilter();
+    clearSimilarFilter();
   }
   
   updateTagFilterDisplay();
@@ -4366,6 +4534,12 @@ function updateTVShortcutStates() {
   // Get currently included and excluded tags (lowercase for comparison)
   const includedTagsSet = new Set(getIncludedTags().map(t => t.toLowerCase()));
   const excludedTagsSet = new Set(getExcludedTags().map(t => t.toLowerCase()));
+
+  // If no tags are selected, don't auto-check any TV shortcuts
+  // (this prevents TVs with empty tag configs from being checked when "None" is selected)
+  if (includedTagsSet.size === 0 && excludedTagsSet.size === 0) {
+    return;
+  }
 
   // Create a Set of all available tags (lowercase)
   const availableTagsSet = new Set(
@@ -4419,6 +4593,9 @@ function updateTagFilterDisplay() {
 
   if (duplicateFilterActive) {
     label = 'Possible Duplicates';
+    showClear = true;
+  } else if (similarFilterActive) {
+    label = 'Similar Images';
     showClear = true;
   } else if (noneSelected) {
     label = 'None';
@@ -6489,10 +6666,11 @@ async function deleteImage() {
       // Update sync status since file was deleted
       await updateSyncStatus();
       
-      // Refresh duplicate groups and filter count
+      // Refresh duplicate and similar groups and filter count
       await fetchDuplicateGroups();
+      await fetchSimilarGroups();
       await loadTagsForFilter();
-      if (duplicateFilterActive) {
+      if (duplicateFilterActive || similarFilterActive) {
         renderGallery();
       }
       
@@ -7030,10 +7208,11 @@ async function deleteBulkImages() {
   // Update sync status since files were deleted
   await updateSyncStatus();
   
-  // Refresh duplicate groups and filter count
+  // Refresh duplicate and similar groups and filter count
   await fetchDuplicateGroups();
+  await fetchSimilarGroups();
   await loadTagsForFilter();
-  if (duplicateFilterActive) {
+  if (duplicateFilterActive || similarFilterActive) {
     renderGallery();
   }
   
