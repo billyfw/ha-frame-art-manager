@@ -184,6 +184,31 @@ let similarDistances = {}; // Map of "fileA|fileB" -> distance
 let preSimilarSortState = null; // Saved sort state before entering similar filter
 let similarThreshold = 38; // Default threshold for similar images (adjustable via slider)
 
+// Non 16:9 filter - shows images that are not 16:9 aspect ratio
+let non169FilterActive = false;
+
+/**
+ * Check if an aspect ratio is approximately 16:9
+ * Uses same tolerance as badge display (~1.78 ± 0.05)
+ */
+function isAspectRatio16x9(aspectRatio) {
+  if (!aspectRatio) return false;
+  return Math.abs(aspectRatio - 1.78) < 0.05;
+}
+
+/**
+ * Count images that are NOT 16:9 aspect ratio
+ */
+function countNon169Images() {
+  let count = 0;
+  for (const [filename, data] of Object.entries(allImages)) {
+    if (!isAspectRatio16x9(data.aspectRatio)) {
+      count++;
+    }
+  }
+  return count;
+}
+
 /**
  * Check if a file might be a duplicate of existing images
  * @param {File} file - The file to check
@@ -2712,6 +2737,11 @@ function renderGallery(filter = '') {
     filteredImages = filteredImages.filter(([filename]) => similarFilenames.has(filename));
   }
 
+  // Filter for "Non 16:9" - images that are not 16:9 aspect ratio
+  if (non169FilterActive) {
+    filteredImages = filteredImages.filter(([filename, data]) => !isAspectRatio16x9(data.aspectRatio));
+  }
+
   // ============================================
   // Sort images
   // ============================================
@@ -3104,6 +3134,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (similarCheckbox) {
         similarCheckbox.checked = false;
       }
+      // Uncheck "Non 16:9" checkbox and clear filter
+      const non169Checkbox = document.querySelector('.non169-checkbox');
+      if (non169Checkbox) {
+        non169Checkbox.checked = false;
+      }
       // Restore sort state if we were in similar filter mode
       if (similarFilterActive && preSimilarSortState) {
         const sortOrderSelect = document.getElementById('sort-order');
@@ -3113,6 +3148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         preSimilarSortState = null;
       }
       similarFilterActive = false;
+      non169FilterActive = false;
       updateTagFilterDisplay();
       updateTVShortcutStates();
       // Close the dropdown if it's open
@@ -4280,6 +4316,20 @@ async function loadTagsForFilter() {
           </label>
         </div>
       `}).join('');
+      // Add "Non 16:9" filter option
+      const non169Count = countNon169Images();
+      html += `
+        <div class="multiselect-option tv-shortcut non169-filter">
+          <input type="checkbox" id="filter-non169" 
+                 value="non169" 
+                 class="non169-checkbox"
+                 ${non169FilterActive ? 'checked' : ''}>
+          <label for="filter-non169">
+            <div class="tv-name">Non 16:9 <span class="tv-count">(${non169Count})</span></div>
+            <div class="tv-tags-subtitle">Images that are not 16:9 aspect ratio</div>
+          </label>
+        </div>
+      `;
       // Add "None" checkbox at end of TV list
       const noneCount = countImagesForNone();
       html += `
@@ -4356,6 +4406,7 @@ async function loadTagsForFilter() {
           
           // Clear special filters when selecting tags
           clearSimilarFilter();
+          clearNon169Filter();
           
           updateTagFilterDisplay();
           updateTVShortcutStates();
@@ -4412,6 +4463,8 @@ async function loadTagsForFilter() {
           // Clear other filters when enabling similar filter
           const noneCheckbox = document.querySelector('.tv-none-checkbox');
           if (noneCheckbox) noneCheckbox.checked = false;
+          // Clear non-16:9 filter
+          clearNon169Filter();
           // Clear tag selections
           document.querySelectorAll('.tag-checkbox').forEach(cb => setTagState(cb, 'unchecked'));
           document.querySelectorAll('.tv-checkbox').forEach(cb => { cb.checked = false; });
@@ -4424,6 +4477,28 @@ async function loadTagsForFilter() {
             updateSortDirectionIcon();
             preSimilarSortState = null;
           }
+        }
+        
+        updateTagFilterDisplay();
+        filterAndRenderGallery();
+      });
+    }
+
+    // Add listener for "Non 16:9" checkbox
+    const non169Checkbox = dropdownOptions.querySelector('.non169-checkbox');
+    if (non169Checkbox) {
+      non169Checkbox.addEventListener('change', (e) => {
+        non169FilterActive = e.target.checked;
+        
+        if (non169FilterActive) {
+          // Clear other filters when enabling non-16:9 filter
+          const noneCheckbox = document.querySelector('.tv-none-checkbox');
+          if (noneCheckbox) noneCheckbox.checked = false;
+          // Clear similar filter
+          clearSimilarFilter();
+          // Clear tag selections
+          document.querySelectorAll('.tag-checkbox').forEach(cb => setTagState(cb, 'unchecked'));
+          document.querySelectorAll('.tv-checkbox').forEach(cb => { cb.checked = false; });
         }
         
         updateTagFilterDisplay();
@@ -4492,6 +4567,22 @@ function clearSimilarFilter() {
   similarFilterActive = false;
 }
 
+/**
+ * Clear the Non 16:9 filter.
+ * Call this when any other filter (tags, None, TV shortcuts, similar) is selected.
+ */
+function clearNon169Filter() {
+  if (!non169FilterActive) return;
+  
+  // Uncheck the non169 checkbox in the UI
+  const non169Checkbox = document.querySelector('.non169-checkbox');
+  if (non169Checkbox) {
+    non169Checkbox.checked = false;
+  }
+  
+  non169FilterActive = false;
+}
+
 // Get all included tags
 function getIncludedTags() {
   const checkboxes = document.querySelectorAll('.tag-checkbox');
@@ -4528,6 +4619,7 @@ function handleTVShortcutChange(event) {
   
   // Clear special filters when selecting a TV shortcut
   clearSimilarFilter();
+  clearNon169Filter();
   
   // Clear all tag states first
   const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
@@ -4552,7 +4644,7 @@ function handleTVShortcutChange(event) {
   }
   
   updateTagFilterDisplay();
-  updateTVShortcutStates(); 
+  updateTVShortcutStates();
 }
 
 function handleNoneShortcutChange(event) {
@@ -4570,6 +4662,7 @@ function handleNoneShortcutChange(event) {
     
     // Clear special filters when selecting None
     clearSimilarFilter();
+    clearNon169Filter();
   }
   
   updateTagFilterDisplay();
@@ -4639,6 +4732,9 @@ function updateTagFilterDisplay() {
 
   if (similarFilterActive) {
     label = 'Similar Images';
+    showClear = true;
+  } else if (non169FilterActive) {
+    label = 'Non 16:9';
     showClear = true;
   } else if (noneSelected) {
     label = 'None';
