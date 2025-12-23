@@ -1140,6 +1140,172 @@ body.dropdown-open .image-card:hover {
   text-overflow: ellipsis;
 }
 
+/* Similar threshold slider bar */
+.similar-threshold-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #475569;
+  border: 1px solid #64748b;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.similar-threshold-bar label {
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.similar-threshold-bar .slider-wrapper {
+  flex: 1;
+  min-width: 300px;
+}
+
+.similar-threshold-bar .slider-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 38px; /* Space for tick counts and labels below */
+}
+
+.slider-scale-label {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 500;
+  min-width: 20px;
+}
+
+.slider-scale-label.left {
+  text-align: right;
+}
+
+.slider-scale-label.right {
+  text-align: left;
+}
+
+.similar-threshold-bar input[type="range"] {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #64748b;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.similar-threshold-bar input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #1e40af;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.similar-threshold-bar input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #1e40af;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.slider-ticks {
+  position: absolute;
+  left: 28px; /* Account for left scale label */
+  right: 28px; /* Account for right scale label */
+  top: 12px;
+  height: 20px;
+  pointer-events: none;
+}
+
+.slider-tick {
+  position: absolute;
+  width: 1px;
+  height: 10px;
+  background: rgba(203, 213, 225, 0.5);
+  transform: translateX(-50%);
+}
+
+.tick-count {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  color: rgba(203, 213, 225, 0.7);
+  white-space: nowrap;
+}
+
+.slider-preset-ticks {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  top: 6px;
+  height: 20px;
+  pointer-events: none;
+}
+
+.preset-tick {
+  position: absolute;
+  width: 2px;
+  height: 16px;
+  background: rgba(148, 163, 184, 0.6);
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+
+.slider-labels {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  bottom: -8px;
+  height: 24px;
+}
+
+.slider-preset-label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.slider-preset-label.clickable {
+  cursor: pointer;
+  background: #475569;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid #64748b;
+  font-style: normal;
+  transition: all 0.15s ease;
+}
+
+.slider-preset-label.clickable:hover {
+  color: #f1f5f9;
+  background: #64748b;
+  border-color: #94a3b8;
+}
+
+.similar-threshold-bar #similar-threshold-value {
+  min-width: 30px;
+  text-align: center;
+  color: #f1f5f9;
+  font-weight: 600;
+  font-size: 1rem;
+  background: #475569;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
 .image-info-footer {
   display: flex;
   justify-content: space-between;
