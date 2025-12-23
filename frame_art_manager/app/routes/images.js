@@ -734,6 +734,29 @@ router.get('/duplicates', async (req, res) => {
 });
 
 /**
+ * Get all similar image groups in the library (higher threshold than duplicates)
+ * GET /api/images/similar
+ */
+const SIMILAR_THRESHOLD = 38; // Higher threshold for "similar" vs "duplicate" (10)
+
+router.get('/similar', async (req, res) => {
+  try {
+    const helper = new MetadataHelper(req.frameArtPath);
+    const images = await helper.getAllImages();
+    const groups = findDuplicateGroups(images, SIMILAR_THRESHOLD);
+
+    res.json({
+      groups,
+      threshold: SIMILAR_THRESHOLD,
+      totalSimilar: groups.reduce((sum, g) => sum + g.length, 0)
+    });
+  } catch (error) {
+    console.error('Error finding similar images:', error);
+    res.status(500).json({ error: 'Failed to find similar images' });
+  }
+});
+
+/**
  * Get settings
  * GET /api/images/settings
  */

@@ -1126,6 +1126,20 @@ body.dropdown-open .image-card:hover {
   display: block;
 }
 
+.similar-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.65rem;
+  padding: 4px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .image-info-footer {
   display: flex;
   justify-content: space-between;
