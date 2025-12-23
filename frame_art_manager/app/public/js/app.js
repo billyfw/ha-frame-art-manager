@@ -2369,15 +2369,12 @@ function updateTvShuffleIndicator(imageTags) {
   if (eligibleTvNames.length === 0) {
     indicator.innerHTML = 'Will shuffle on: <span style="white-space:nowrap">none</span>';
     indicator.title = 'No TVs will shuffle this image with current tags';
-  } else if (eligibleTvNames.length === allTVs.length) {
-    indicator.innerHTML = 'Will shuffle on: <span style="white-space:nowrap">all TVs</span>';
-    indicator.title = eligibleTvNames.join(', ');
   } else if (eligibleTvNames.length === 1) {
     // Single TV - keep on same line
     indicator.innerHTML = `Will shuffle on: <span style="white-space:nowrap">${escapeHtml(eligibleTvNames[0])}</span>`;
     indicator.title = eligibleTvNames[0];
   } else {
-    // Multiple TVs - use mobile-br class that only breaks on mobile
+    // Multiple TVs (including all TVs) - use mobile-br class that only breaks on mobile
     const wrappedNames = eligibleTvNames.slice(0, 3).map(name => 
       `<span style="white-space:nowrap">${escapeHtml(name)}</span>`
     ).join(', ');
