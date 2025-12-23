@@ -11,6 +11,7 @@ const {
   computePerceptualHash,
   findSimilarImages,
   findDuplicateGroups,
+  getThresholdBreakpoints,
   DEFAULT_THRESHOLD
 } = require('../hash_helper');
 const {
@@ -734,21 +735,45 @@ router.get('/duplicates', async (req, res) => {
 });
 
 /**
- * Get all similar image groups in the library (higher threshold than duplicates)
- * GET /api/images/similar
+ * Get threshold breakpoints showing where new images would be added
+ * GET /api/images/similar/breakpoints
+ * NOTE: This route must be defined BEFORE /similar to avoid being caught by it
  */
-const SIMILAR_THRESHOLD = 38; // Higher threshold for "similar" vs "duplicate" (10)
+router.get('/similar/breakpoints', async (req, res) => {
+  try {
+    const helper = new MetadataHelper(req.frameArtPath);
+    const images = await helper.getAllImages();
+    
+    const breakpoints = getThresholdBreakpoints(images, 60);
+
+    res.json({ breakpoints });
+  } catch (error) {
+    console.error('Error getting threshold breakpoints:', error);
+    res.status(500).json({ error: 'Failed to get threshold breakpoints' });
+  }
+});
+
+/**
+ * Get all similar image groups in the library (higher threshold than duplicates)
+ * GET /api/images/similar?threshold=38
+ */
+const DEFAULT_SIMILAR_THRESHOLD = 38; // Default threshold for "similar" vs "duplicate" (10)
 
 router.get('/similar', async (req, res) => {
   try {
     const helper = new MetadataHelper(req.frameArtPath);
     const images = await helper.getAllImages();
-    const groups = findDuplicateGroups(images, SIMILAR_THRESHOLD);
+    
+    // Allow threshold to be passed as query param, default to 38
+    const threshold = parseInt(req.query.threshold, 10) || DEFAULT_SIMILAR_THRESHOLD;
+    // Pass true to include pairwise distance info
+    const result = findDuplicateGroups(images, threshold, true);
 
     res.json({
-      groups,
-      threshold: SIMILAR_THRESHOLD,
-      totalSimilar: groups.reduce((sum, g) => sum + g.length, 0)
+      groups: result.groups,
+      distances: result.distances,
+      threshold,
+      totalSimilar: result.groups.reduce((sum, g) => sum + g.length, 0)
     });
   } catch (error) {
     console.error('Error finding similar images:', error);

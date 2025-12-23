@@ -83,43 +83,204 @@ function findSimilarImages(newHash, images, threshold = DEFAULT_THRESHOLD) {
 }
 
 /**
- * Group all images by similarity (for finding all duplicate groups)
+ * Group all images by similarity using Union-Find for proper transitive grouping
+ * If A~B and B~C, they all end up in the same group even if A~C distance > threshold
  * @param {Object} images - Object of { filename: { sourceHash, ... } }
  * @param {number} threshold - Maximum Hamming distance to consider similar
- * @returns {Array<Array<string>>} - Array of duplicate groups (each group has 2+ filenames)
+ * @param {boolean} includeDistances - Whether to include pairwise distance map
+ * @returns {Object} - { groups: Array<Array<string>>, distances: Object } where distances maps "fileA|fileB" to distance
  */
-function findDuplicateGroups(images, threshold = DEFAULT_THRESHOLD) {
+function findDuplicateGroups(images, threshold = DEFAULT_THRESHOLD, includeDistances = false) {
   const filenames = Object.keys(images).filter(f => images[f].sourceHash);
-  const visited = new Set();
-  const groups = [];
-
-  for (const filename of filenames) {
-    if (visited.has(filename)) continue;
-
-    const hash = images[filename].sourceHash;
-    const group = [filename];
-    visited.add(filename);
-
-    // Find all other images similar to this one
-    for (const other of filenames) {
-      if (visited.has(other)) continue;
-
-      const otherHash = images[other].sourceHash;
-      const distance = hammingDistance(hash, otherHash);
-
+  
+  // Union-Find data structure
+  const parent = {};
+  const rank = {};
+  
+  // Initialize each filename as its own parent
+  for (const f of filenames) {
+    parent[f] = f;
+    rank[f] = 0;
+  }
+  
+  // Find with path compression
+  function find(x) {
+    if (parent[x] !== x) {
+      parent[x] = find(parent[x]);
+    }
+    return parent[x];
+  }
+  
+  // Union by rank
+  function union(x, y) {
+    const rootX = find(x);
+    const rootY = find(y);
+    if (rootX === rootY) return;
+    
+    if (rank[rootX] < rank[rootY]) {
+      parent[rootX] = rootY;
+    } else if (rank[rootX] > rank[rootY]) {
+      parent[rootY] = rootX;
+    } else {
+      parent[rootY] = rootX;
+      rank[rootX]++;
+    }
+  }
+  
+  // Pairwise distance map (only for pairs within threshold)
+  const distances = {};
+  
+  // Compare all pairs and union those within threshold
+  for (let i = 0; i < filenames.length; i++) {
+    const file1 = filenames[i];
+    const hash1 = images[file1].sourceHash;
+    
+    for (let j = i + 1; j < filenames.length; j++) {
+      const file2 = filenames[j];
+      const hash2 = images[file2].sourceHash;
+      const distance = hammingDistance(hash1, hash2);
+      
       if (distance <= threshold) {
-        group.push(other);
-        visited.add(other);
+        union(file1, file2);
+        if (includeDistances) {
+          // Store distance for both directions using a canonical key
+          const key = file1 < file2 ? `${file1}|${file2}` : `${file2}|${file1}`;
+          distances[key] = distance;
+        }
       }
     }
+  }
+  
+  // Collect groups by root
+  const groupMap = {};
+  for (const f of filenames) {
+    const root = find(f);
+    if (!groupMap[root]) {
+      groupMap[root] = [];
+    }
+    groupMap[root].push(f);
+  }
+  
+  // Filter to groups with 2+ images
+  const groups = Object.values(groupMap).filter(g => g.length > 1);
+  
+  if (includeDistances) {
+    return { groups, distances };
+  }
+  return groups;
+}
 
-    // Only include groups with 2+ images
-    if (group.length > 1) {
-      groups.push(group);
+/**
+ * Get all unique threshold values where new images would be added to similar groups
+ * Uses Union-Find to properly track when images join groups
+ * @param {Object} images - Object of { filename: { sourceHash, ... } }
+ * @param {number} maxThreshold - Maximum threshold to check
+ * @returns {Array<{threshold: number, addedImages: number, totalImages: number}>} - Thresholds where images are added
+ */
+function getThresholdBreakpoints(images, maxThreshold = 60) {
+  const filenames = Object.keys(images).filter(f => images[f].sourceHash);
+  
+  // Collect all pairwise distances with their file pairs
+  const pairs = [];
+  for (let i = 0; i < filenames.length; i++) {
+    const hash1 = images[filenames[i]].sourceHash;
+    for (let j = i + 1; j < filenames.length; j++) {
+      const hash2 = images[filenames[j]].sourceHash;
+      const distance = hammingDistance(hash1, hash2);
+      if (distance <= maxThreshold) {
+        pairs.push({ distance, file1: filenames[i], file2: filenames[j] });
+      }
     }
   }
 
-  return groups;
+  // Sort by distance
+  pairs.sort((a, b) => a.distance - b.distance);
+  
+  // Union-Find to track group membership
+  const parent = {};
+  const rank = {};
+  
+  for (const f of filenames) {
+    parent[f] = f;
+    rank[f] = 0;
+  }
+  
+  function find(x) {
+    if (parent[x] !== x) {
+      parent[x] = find(parent[x]);
+    }
+    return parent[x];
+  }
+  
+  function union(x, y) {
+    const rootX = find(x);
+    const rootY = find(y);
+    if (rootX === rootY) return false; // Already in same group
+    
+    if (rank[rootX] < rank[rootY]) {
+      parent[rootX] = rootY;
+    } else if (rank[rootX] > rank[rootY]) {
+      parent[rootY] = rootX;
+    } else {
+      parent[rootY] = rootX;
+      rank[rootX]++;
+    }
+    return true; // Union performed
+  }
+  
+  // Track which images are in groups (size >= 2)
+  function getImagesInGroups() {
+    const groupMap = {};
+    for (const f of filenames) {
+      const root = find(f);
+      if (!groupMap[root]) groupMap[root] = [];
+      groupMap[root].push(f);
+    }
+    let count = 0;
+    for (const group of Object.values(groupMap)) {
+      if (group.length >= 2) count += group.length;
+    }
+    return count;
+  }
+  
+  const breakpoints = [];
+  let lastDistance = -1;
+  let lastImageCount = 0;
+  
+  for (const pair of pairs) {
+    const beforeCount = getImagesInGroups();
+    union(pair.file1, pair.file2);
+    const afterCount = getImagesInGroups();
+    
+    const addedImages = afterCount - beforeCount;
+    
+    if (pair.distance !== lastDistance) {
+      // New threshold value
+      if (addedImages > 0) {
+        breakpoints.push({
+          threshold: pair.distance,
+          addedImages: addedImages,
+          totalImages: afterCount
+        });
+      }
+      lastDistance = pair.distance;
+      lastImageCount = afterCount;
+    } else {
+      // Same threshold, accumulate added images
+      if (breakpoints.length > 0 && breakpoints[breakpoints.length - 1].threshold === pair.distance) {
+        breakpoints[breakpoints.length - 1].addedImages += addedImages;
+        breakpoints[breakpoints.length - 1].totalImages = afterCount;
+      } else if (addedImages > 0) {
+        breakpoints.push({
+          threshold: pair.distance,
+          addedImages: addedImages,
+          totalImages: afterCount
+        });
+      }
+    }
+  }
+
+  return breakpoints;
 }
 
 module.exports = {
@@ -127,5 +288,6 @@ module.exports = {
   hammingDistance,
   findSimilarImages,
   findDuplicateGroups,
+  getThresholdBreakpoints,
   DEFAULT_THRESHOLD
 };
