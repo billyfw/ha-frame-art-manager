@@ -2672,10 +2672,35 @@ function renderGallery(filter = '') {
 
   const searchInput = document.getElementById('search-input');
   const searchTerm = (searchInput?.value || '').toLowerCase();
-  const includedTags = getIncludedTags();
-  const excludedTags = getExcludedTags();
   const sortOrderSelect = document.getElementById('sort-order');
   const sortOrder = sortOrderSelect ? sortOrderSelect.value : initialSortOrderPreference;
+
+  // Determine include/exclude tags - check if any TV shortcuts are selected first
+  const checkedTvCheckboxes = document.querySelectorAll('.tv-checkbox:checked');
+  let includedTags = [];
+  let excludedTags = [];
+  
+  if (checkedTvCheckboxes.length > 0) {
+    // TV shortcuts are checked - get tags directly from TV configs (union of all checked TVs)
+    const includedSet = new Set();
+    const excludedSet = new Set();
+    
+    checkedTvCheckboxes.forEach(checkbox => {
+      const tvId = checkbox.value;
+      const tv = allTVs.find(t => (t.device_id || t.entity_id) === tvId);
+      if (tv) {
+        (tv.tags || []).forEach(tag => includedSet.add(tag));
+        (tv.exclude_tags || []).forEach(tag => excludedSet.add(tag));
+      }
+    });
+    
+    includedTags = Array.from(includedSet);
+    excludedTags = Array.from(excludedSet);
+  } else {
+    // No TV shortcuts - use tag checkbox states
+    includedTags = getIncludedTags();
+    excludedTags = getExcludedTags();
+  }
 
   let filteredImages = Object.entries(allImages);
 
@@ -4645,6 +4670,7 @@ function handleTVShortcutChange(event) {
   
   updateTagFilterDisplay();
   updateTVShortcutStates();
+  filterAndRenderGallery();
 }
 
 function handleNoneShortcutChange(event) {
