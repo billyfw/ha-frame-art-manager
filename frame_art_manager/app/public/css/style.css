@@ -1140,27 +1140,7 @@ body.dropdown-open .image-card:hover {
   text-overflow: ellipsis;
 }
 
-/* Recently displayed overlay - bottom left corner */
-.recently-displayed-overlay {
-  position: absolute;
-  bottom: 4px;
-  left: 4px;
-  background: rgba(0, 0, 0, 0.75);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.65rem;
-  padding: 4px 8px;
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 80%;
-}
-
-.recent-tv-entry {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* Recently displayed overlay now uses .similar-overlay class */
 
 /* Similar threshold slider bar */
 .similar-threshold-bar {
