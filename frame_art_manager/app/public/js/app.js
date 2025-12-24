@@ -400,22 +400,24 @@ function getSimilarFilenames() {
 }
 
 /**
- * Get counts for duplicates (threshold<=10) and similar-only (11-38) from breakpoints
+ * Get counts for duplicates (threshold<=10) and similar (threshold<=38) from breakpoints
+ * Breakpoints are sorted by threshold ascending, each has totalImages at that threshold
  * @returns {{ dupeCount: number, simCount: number }}
  */
 function getSimilarBreakpointCounts() {
-  let dupeCount = 0;
-  let totalAt38 = 0;
-  
   if (!similarBreakpoints || similarBreakpoints.length === 0) {
     return { dupeCount: 0, simCount: 0 };
   }
   
+  let dupeCount = 0;
+  let totalAt38 = 0;
+  
+  // Find the highest totalImages at or below each threshold
   for (const bp of similarBreakpoints) {
-    if (bp.threshold === 10) {
+    if (bp.threshold <= 10) {
       dupeCount = bp.totalImages || 0;
     }
-    if (bp.threshold === 38) {
+    if (bp.threshold <= 38) {
       totalAt38 = bp.totalImages || 0;
     }
   }
