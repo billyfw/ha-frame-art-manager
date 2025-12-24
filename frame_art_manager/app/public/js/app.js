@@ -3122,7 +3122,7 @@ function renderGalleryChunk(grid, count) {
     // Get recently displayed overlay (only when recently displayed filter is active)
     const recentlyDisplayedInfo = getRecentlyDisplayedInfoForFile(filename);
     const recentlyDisplayedHtml = recentlyDisplayedInfo.length > 0
-      ? `<div class="similar-overlay">Recent: ${recentlyDisplayedInfo.map(item => `${escapeHtml(item.tvName)} (${item.timeAgo})`).join(', ')}</div>`
+      ? `<div class="similar-overlay">${recentlyDisplayedInfo.map(item => `${escapeHtml(item.tvName)} (${item.timeAgo})`).join(', ')}</div>`
       : '';
     
     return `
