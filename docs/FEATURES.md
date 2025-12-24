@@ -34,11 +34,28 @@ Images display as cards with:
 - Real-time, case-insensitive
 
 **Tag Filter** (🏷️)
-- Multi-select dropdown with checkboxes
-- Button shows:
-  - "All Tags" (none selected)
-  - Tag name (one selected)
-  - "N tags selected" (multiple selected)
+- Multi-select dropdown organized into sections:
+
+**Filters Section** (at top):
+- **Recently Displayed**: Shows images currently on TVs and recently removed
+  - Displays count of unique images in filter
+  - When active, shows overlay on each image with TV name and time
+  - "Now" for current images, "Xm ago", "Xh ago", "Xd ago" for previous
+  - Automatically sorts by most recent first
+  - Hides redundant last-display info in card footer
+- **Similar Images**: Find duplicate and visually similar images
+  - Shows count as "(Xdup/Ysim)" - duplicates (very similar) and similar
+  - Adjustable threshold slider when active
+  - Groups related images together in the gallery
+- **Non 16:9**: Filter images that aren't 16:9 aspect ratio
+  - Useful for finding images that may not display well on Frame TVs
+
+**TVs Section**:
+- Quick shortcuts to see images matching each TV's tag criteria
+- "None" option shows images that don't match any TV
+
+**Tags Section**:
+- Multi-select checkboxes for all tags
 - OR logic: shows images with ANY selected tag
 
 **Sort**
@@ -263,6 +280,36 @@ Shows all tags with:
 3. Check desired tags in dropdown
 4. Gallery updates (OR logic - any match)
 5. Click outside to close dropdown
+
+### Find Recently Displayed Images
+
+1. Go to Gallery tab
+2. Click tag filter button (🏷️)
+3. Check "Recently Displayed" in the Filters section
+4. Gallery shows:
+   - Images currently displaying on any TV (marked "Now")
+   - Images that were previously displayed (marked with time ago)
+5. Each image shows an overlay with TV name and when it was removed
+6. Gallery automatically sorts by most recent first
+
+### Find Similar/Duplicate Images
+
+1. Go to Gallery tab
+2. Click tag filter button (🏷️)
+3. Check "Similar Images" in the Filters section
+4. Dropdown shows count: "(Xdup/Ysim)"
+   - Duplicates: very similar images (threshold ≤10)
+   - Similar: visually similar images (threshold ≤38)
+5. Use the threshold slider to adjust sensitivity
+6. Similar images are grouped together with overlay showing related images
+
+### Find Non-Standard Aspect Ratios
+
+1. Go to Gallery tab
+2. Click tag filter button (🏷️)
+3. Check "Non 16:9" in the Filters section
+4. Gallery shows only images that aren't 16:9 aspect ratio
+5. Useful for identifying images that may not display well on Frame TVs
 
 ### Search and Sort
 
