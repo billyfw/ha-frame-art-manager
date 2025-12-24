@@ -221,30 +221,22 @@ function getRecentlyDisplayedFilenames() {
 /**
  * Format time ago for recently displayed badge
  * @param {string|number} time - 'now' or timestamp
- * @returns {string} - Formatted time like 'Now', '5m', '2h', '1d', '3mo', '1y'
+ * @returns {string} - Formatted time like 'Now', '5m', '2h', '1d'
  */
-function formatTimeAgo(time) {
+function formatRecentTimeAgo(time) {
   if (time === 'now') return 'Now';
   
   const timestamp = typeof time === 'number' ? time : new Date(time).getTime();
-  
-  // Handle invalid timestamps
-  if (isNaN(timestamp)) return '?';
-  
   const now = Date.now();
   const diffMs = now - timestamp;
   const diffMinutes = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMinutes / 60);
   const diffDays = Math.floor(diffHours / 24);
-  const diffMonths = Math.floor(diffDays / 30);
-  const diffYears = Math.floor(diffDays / 365);
   
   if (diffMinutes < 1) return '1m';
   if (diffMinutes < 60) return `${diffMinutes}m`;
   if (diffHours < 24) return `${diffHours}h`;
-  if (diffDays < 30) return `${diffDays}d`;
-  if (diffMonths < 12) return `${diffMonths}mo`;
-  return `${diffYears}y`;
+  return `${diffDays}d`;
 }
 
 /**
@@ -275,7 +267,7 @@ function getRecentlyDisplayedInfoForFile(filename) {
     if (tvName.length > MAX_TV_NAME_LENGTH) {
       tvName = tvName.substring(0, MAX_TV_NAME_LENGTH - 1) + '…';
     }
-    const timeAgo = formatTimeAgo(entry.time);
+    const timeAgo = formatRecentTimeAgo(entry.time);
     return { tvName, timeAgo };
   });
 }
@@ -3128,7 +3120,7 @@ function renderGalleryChunk(grid, count) {
     // Get recently displayed overlay (only when recently displayed filter is active)
     const recentlyDisplayedInfo = getRecentlyDisplayedInfoForFile(filename);
     const recentlyDisplayedHtml = recentlyDisplayedInfo.length > 0
-      ? `<div class="recently-displayed-overlay">${recentlyDisplayedInfo.map(item => `<div class="recent-tv-entry">${escapeHtml(item.tvName)}: ${item.timeAgo}</div>`).join('')}</div>`
+      ? `<div class="similar-overlay">Recent: ${recentlyDisplayedInfo.map(item => `${escapeHtml(item.tvName)} (${item.timeAgo})`).join(', ')}</div>`
       : '';
     
     return `
