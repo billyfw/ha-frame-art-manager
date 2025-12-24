@@ -4291,6 +4291,18 @@ function countImagesForTV(tv) {
   return count;
 }
 
+// Count images that have a specific tag
+function countImagesForTag(tag) {
+  let count = 0;
+  for (const [filename, data] of Object.entries(allImages)) {
+    const imageTags = data.tags || [];
+    if (imageTags.includes(tag)) {
+      count++;
+    }
+  }
+  return count;
+}
+
 // Count images that don't match any TV's criteria
 function countImagesForNone() {
   let count = 0;
@@ -4425,10 +4437,11 @@ async function loadTagsForFilter() {
     html += `<div class="tags-header">Tags</div>`;
     html += allTags.map(tag => {
       const safeValue = tag.replace(/"/g, '&quot;');
+      const tagCount = countImagesForTag(tag);
       return `
       <div class="multiselect-option" data-state="unchecked">
         <input type="checkbox" value="${safeValue}" class="tag-checkbox" data-state="unchecked">
-        <label>${escapeHtml(tag)}</label>
+        <label>${escapeHtml(tag)} <span class="tv-count">(${tagCount})</span></label>
       </div>
     `}).join('');
 
