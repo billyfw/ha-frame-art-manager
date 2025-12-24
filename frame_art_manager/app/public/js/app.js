@@ -221,22 +221,30 @@ function getRecentlyDisplayedFilenames() {
 /**
  * Format time ago for recently displayed badge
  * @param {string|number} time - 'now' or timestamp
- * @returns {string} - Formatted time like 'Now', '5m', '2h', '1d'
+ * @returns {string} - Formatted time like 'Now', '5m', '2h', '1d', '3mo', '1y'
  */
 function formatTimeAgo(time) {
   if (time === 'now') return 'Now';
   
   const timestamp = typeof time === 'number' ? time : new Date(time).getTime();
+  
+  // Handle invalid timestamps
+  if (isNaN(timestamp)) return '?';
+  
   const now = Date.now();
   const diffMs = now - timestamp;
   const diffMinutes = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMinutes / 60);
   const diffDays = Math.floor(diffHours / 24);
+  const diffMonths = Math.floor(diffDays / 30);
+  const diffYears = Math.floor(diffDays / 365);
   
   if (diffMinutes < 1) return '1m';
   if (diffMinutes < 60) return `${diffMinutes}m`;
   if (diffHours < 24) return `${diffHours}h`;
-  return `${diffDays}d`;
+  if (diffDays < 30) return `${diffDays}d`;
+  if (diffMonths < 12) return `${diffMonths}mo`;
+  return `${diffYears}y`;
 }
 
 /**
