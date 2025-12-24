@@ -226,4 +226,155 @@ router.get('/upload-log', requireHA, async (req, res) => {
   }
 });
 
+// GET /api/ha/recently-displayed - Get currently and previously displayed images per TV
+router.get('/recently-displayed', requireHA, async (req, res) => {
+  try {
+    // 1. Get current artwork for each TV from HA sensors
+    const currentImages = {};
+    
+    // Query HA for all current_artwork sensors
+    const template = `
+      {% set ns = namespace(result=[]) %}
+      {% for state in states.sensor %}
+        {% if state.entity_id.endswith('_current_artwork') and state.attributes.get('device_class') is none %}
+          {% set device_id = device_id(state.entity_id) %}
+          {% if device_id %}
+            {% set device_name = device_attr(device_id, 'name') %}
+            {% set ns.result = ns.result + [{
+              'device_id': device_id,
+              'tv_name': device_name,
+              'filename': state.state
+            }] %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+      {{ ns.result | to_json }}
+    `;
+    
+    let haResult = [];
+    if (SUPERVISOR_TOKEN || process.env.NODE_ENV !== 'development') {
+      const result = await haRequest('POST', '/template', { template });
+      if (typeof result === 'string') {
+        try {
+          haResult = JSON.parse(result);
+        } catch (e) {
+          console.error('Failed to parse current artwork template result:', result);
+        }
+      } else if (Array.isArray(result)) {
+        haResult = result;
+      }
+    } else {
+      // Mock data for development
+      haResult = [
+        { device_id: 'mock_device_1', tv_name: 'Living Room Frame', filename: 'sunset-beach-abc123.jpg' },
+        { device_id: 'mock_device_2', tv_name: 'Office Frame', filename: 'mountain-view-def456.jpg' }
+      ];
+    }
+    
+    // Build current images map: filename -> [{ tv_id, tv_name, time: 'now' }]
+    for (const item of haResult) {
+      if (item.filename && item.filename !== 'Unknown' && item.filename !== 'unknown') {
+        if (!currentImages[item.filename]) {
+          currentImages[item.filename] = [];
+        }
+        currentImages[item.filename].push({
+          tv_id: item.device_id,
+          tv_name: item.tv_name,
+          time: 'now',
+          timestamp: Date.now()
+        });
+      }
+    }
+    
+    // 2. Get previous images from pending.json and events.json
+    const logsPath = process.env.NODE_ENV === 'production' 
+      ? '/config/frame_art/logs' 
+      : path.join(__dirname, '..', 'test-data', 'mock-logs');
+    
+    const previousImages = {};
+    
+    // Read pending.json (unflushed recent events)
+    let pendingEvents = [];
+    try {
+      const pendingPath = path.join(logsPath, 'pending.json');
+      const pendingData = await fs.promises.readFile(pendingPath, 'utf8');
+      pendingEvents = JSON.parse(pendingData) || [];
+    } catch (e) {
+      // pending.json may not exist - that's fine
+    }
+    
+    // Read events.json
+    let events = [];
+    try {
+      const eventsPath = path.join(logsPath, 'events.json');
+      const eventsData = await fs.promises.readFile(eventsPath, 'utf8');
+      events = JSON.parse(eventsData) || [];
+    } catch (e) {
+      // events.json may not exist - that's fine
+    }
+    
+    // Combine and sort by completed_at desc
+    const allEvents = [...pendingEvents, ...events];
+    allEvents.sort((a, b) => {
+      const timeA = new Date(a.completed_at || 0).getTime();
+      const timeB = new Date(b.completed_at || 0).getTime();
+      return timeB - timeA;
+    });
+    
+    // Get most recent completed event per TV (excluding current images)
+    const seenTVs = new Set();
+    for (const event of allEvents) {
+      const tvId = event.tv_id;
+      if (!tvId || seenTVs.has(tvId)) continue;
+      
+      const filename = event.filename;
+      if (!filename) continue;
+      
+      // Skip if this is the current image for this TV
+      const currentForTV = currentImages[filename]?.some(c => c.tv_id === tvId);
+      if (currentForTV) continue;
+      
+      seenTVs.add(tvId);
+      
+      if (!previousImages[filename]) {
+        previousImages[filename] = [];
+      }
+      previousImages[filename].push({
+        tv_id: tvId,
+        tv_name: event.tv_name || tvId,
+        time: event.completed_at,
+        timestamp: new Date(event.completed_at).getTime()
+      });
+    }
+    
+    // 3. Merge current and previous into single result
+    const result = {};
+    
+    for (const [filename, entries] of Object.entries(currentImages)) {
+      result[filename] = entries;
+    }
+    
+    for (const [filename, entries] of Object.entries(previousImages)) {
+      if (!result[filename]) {
+        result[filename] = entries;
+      } else {
+        result[filename] = [...result[filename], ...entries];
+      }
+    }
+    
+    // Sort entries within each filename by timestamp desc
+    for (const filename of Object.keys(result)) {
+      result[filename].sort((a, b) => b.timestamp - a.timestamp);
+    }
+    
+    res.json({ success: true, images: result });
+  } catch (error) {
+    console.error('Error in /recently-displayed route:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch recently displayed images', 
+      details: error.message 
+    });
+  }
+});
+
 module.exports = router;

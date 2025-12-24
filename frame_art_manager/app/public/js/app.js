@@ -188,6 +188,90 @@ let similarThreshold = 38; // Default threshold for similar images (adjustable v
 // Non 16:9 filter - shows images that are not 16:9 aspect ratio
 let non169FilterActive = false;
 
+// Recently Displayed filter - shows current and previous images from each TV
+let recentlyDisplayedFilterActive = false;
+let recentlyDisplayedData = {}; // Map of filename -> [{ tv_id, tv_name, time, timestamp }]
+let preRecentSortState = null; // Saved sort state before entering recently displayed filter
+
+/**
+ * Fetch recently displayed images from all TVs
+ * Returns map of filename -> [{ tv_id, tv_name, time, timestamp }]
+ */
+async function fetchRecentlyDisplayed() {
+  try {
+    const response = await fetch(`${API_BASE}/ha/recently-displayed`);
+    if (!response.ok) throw new Error('Failed to fetch recently displayed');
+    const data = await response.json();
+    recentlyDisplayedData = data.images || {};
+    return recentlyDisplayedData;
+  } catch (error) {
+    console.error('Error fetching recently displayed:', error);
+    recentlyDisplayedData = {};
+    return {};
+  }
+}
+
+/**
+ * Get set of filenames that are recently displayed
+ */
+function getRecentlyDisplayedFilenames() {
+  return new Set(Object.keys(recentlyDisplayedData));
+}
+
+/**
+ * Format time ago for recently displayed badge
+ * @param {string|number} time - 'now' or timestamp
+ * @returns {string} - Formatted time like 'Now', '5m', '2h', '1d'
+ */
+function formatTimeAgo(time) {
+  if (time === 'now') return 'Now';
+  
+  const timestamp = typeof time === 'number' ? time : new Date(time).getTime();
+  const now = Date.now();
+  const diffMs = now - timestamp;
+  const diffMinutes = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  
+  if (diffMinutes < 1) return '1m';
+  if (diffMinutes < 60) return `${diffMinutes}m`;
+  if (diffHours < 24) return `${diffHours}h`;
+  return `${diffDays}d`;
+}
+
+/**
+ * Clear the recently displayed filter
+ */
+function clearRecentlyDisplayedFilter() {
+  recentlyDisplayedFilterActive = false;
+  const checkbox = document.querySelector('.recently-displayed-checkbox');
+  if (checkbox) checkbox.checked = false;
+}
+
+/**
+ * Get recently displayed info for an image
+ * Returns array of { tvName: string, timeAgo: string } for badge display
+ */
+function getRecentlyDisplayedInfoForFile(filename) {
+  if (!recentlyDisplayedFilterActive) return [];
+  
+  const entries = recentlyDisplayedData[filename] || [];
+  if (entries.length === 0) return [];
+  
+  // Max TV name length for truncation
+  const MAX_TV_NAME_LENGTH = 12;
+  
+  return entries.map(entry => {
+    let tvName = entry.tv_name || 'Unknown TV';
+    // Truncate long TV names
+    if (tvName.length > MAX_TV_NAME_LENGTH) {
+      tvName = tvName.substring(0, MAX_TV_NAME_LENGTH - 1) + '…';
+    }
+    const timeAgo = formatTimeAgo(entry.time);
+    return { tvName, timeAgo };
+  });
+}
+
 /**
  * Check if an aspect ratio is approximately 16:9
  * Uses same tolerance as badge display (~1.78 ± 0.05)
@@ -788,6 +872,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Pre-fetch similar groups for filter counts
   fetchSimilarGroups();
+  fetchSimilarBreakpoints();
+  
+  // Pre-fetch recently displayed for filter counts
+  fetchRecentlyDisplayed();
   
   // Handle initial route
   handleRoute();
@@ -2783,6 +2871,12 @@ function renderGallery(filter = '') {
     });
   }
 
+  // Filter for "Recently Displayed" - current and previous images on each TV
+  if (recentlyDisplayedFilterActive) {
+    const recentFilenames = getRecentlyDisplayedFilenames();
+    filteredImages = filteredImages.filter(([filename]) => recentFilenames.has(filename));
+  }
+
   // Filter for "Similar Images" - images that may be visually related
   if (similarFilterActive) {
     const similarFilenames = getSimilarFilenames();
@@ -2895,6 +2989,31 @@ function renderGallery(filter = '') {
       const comparison = dateA - dateB;
       return sortAscending ? comparison : -comparison;
     });
+  } else if (recentlyDisplayedFilterActive) {
+    // Sort by most recent display time (Now first, then by timestamp)
+    filteredImages.sort((a, b) => {
+      const [filenameA] = a;
+      const [filenameB] = b;
+      
+      const entriesA = recentlyDisplayedData[filenameA] || [];
+      const entriesB = recentlyDisplayedData[filenameB] || [];
+      
+      // Get most recent timestamp for each image
+      const getMostRecentTimestamp = (entries) => {
+        if (entries.length === 0) return 0;
+        // 'now' entries get current timestamp (highest priority)
+        const hasNow = entries.some(e => e.time === 'now');
+        if (hasNow) return Date.now();
+        // Otherwise use highest timestamp
+        return Math.max(...entries.map(e => e.timestamp || 0));
+      };
+      
+      const timestampA = getMostRecentTimestamp(entriesA);
+      const timestampB = getMostRecentTimestamp(entriesB);
+      
+      // Sort descending (most recent first)
+      return timestampB - timestampA;
+    });
   } else {
     // Standard sort modes: "name" or "date" (from dropdown)
     filteredImages.sort((a, b) => {
@@ -2998,6 +3117,12 @@ function renderGalleryChunk(grid, count) {
       ? `<div class="similar-overlay">Similar: ${similarImages.map(item => `${getDisplayName(item.filename)} (${item.distance})`).join(', ')}</div>`
       : '';
     
+    // Get recently displayed overlay (only when recently displayed filter is active)
+    const recentlyDisplayedInfo = getRecentlyDisplayedInfoForFile(filename);
+    const recentlyDisplayedHtml = recentlyDisplayedInfo.length > 0
+      ? `<div class="recently-displayed-overlay">${recentlyDisplayedInfo.map(item => `<div class="recent-tv-entry">${escapeHtml(item.tvName)}: ${item.timeAgo}</div>`).join('')}</div>`
+      : '';
+    
     return `
     <div class="image-card ${isSelected ? 'selected' : ''}" 
          data-filename="${filename}" 
@@ -3010,6 +3135,7 @@ function renderGalleryChunk(grid, count) {
           <span class="select-icon">☑</span>
         </button>
         ${similarOverlayHtml}
+        ${recentlyDisplayedHtml}
       </div>
       <div class="image-info">
         <button class="stats-link" data-filename="${filename}" title="Stats">📊</button>
@@ -3191,6 +3317,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (non169Checkbox) {
         non169Checkbox.checked = false;
       }
+      // Uncheck "Recently Displayed" checkbox and clear filter
+      const recentlyDisplayedCheckbox = document.querySelector('.recently-displayed-checkbox');
+      if (recentlyDisplayedCheckbox) {
+        recentlyDisplayedCheckbox.checked = false;
+      }
       // Restore sort state if we were in similar filter mode
       if (similarFilterActive && preSimilarSortState) {
         const sortOrderSelect = document.getElementById('sort-order');
@@ -3199,8 +3330,17 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSortDirectionIcon();
         preSimilarSortState = null;
       }
+      // Restore sort state if we were in recently displayed filter mode
+      if (recentlyDisplayedFilterActive && preRecentSortState) {
+        const sortOrderSelect = document.getElementById('sort-order');
+        if (sortOrderSelect) sortOrderSelect.value = preRecentSortState.order;
+        sortAscending = preRecentSortState.ascending;
+        updateSortDirectionIcon();
+        preRecentSortState = null;
+      }
       similarFilterActive = false;
       non169FilterActive = false;
+      recentlyDisplayedFilterActive = false;
       updateTagFilterDisplay();
       updateTVShortcutStates();
       // Close the dropdown if it's open
@@ -4353,6 +4493,21 @@ async function loadTagsForFilter() {
     // Special Filters Section (at top)
     html += `<div class="tv-shortcuts-header">Filters</div>`;
     
+    // Recently Displayed filter
+    const recentCount = getRecentlyDisplayedFilenames().size;
+    html += `
+      <div class="multiselect-option tv-shortcut recently-displayed-filter">
+        <input type="checkbox" id="filter-recently-displayed" 
+               value="recently-displayed" 
+               class="recently-displayed-checkbox"
+               ${recentlyDisplayedFilterActive ? 'checked' : ''}>
+        <label for="filter-recently-displayed">
+          <div class="tv-name">Recently Displayed <span class="tv-count">(${recentCount})</span></div>
+          <div class="tv-tags-subtitle">Current and previous images on each TV</div>
+        </label>
+      </div>
+    `;
+    
     // Similar Images filter
     const { dupeCount, simCount } = getSimilarBreakpointCounts();
     html += `
@@ -4481,6 +4636,7 @@ async function loadTagsForFilter() {
           // Clear special filters when selecting tags
           clearSimilarFilter();
           clearNon169Filter();
+          clearRecentlyDisplayedFilter();
           
           updateTagFilterDisplay();
           updateTVShortcutStates();
@@ -4508,6 +4664,48 @@ async function loadTagsForFilter() {
     const noneCheckbox = dropdownOptions.querySelector('.tv-none-checkbox');
     if (noneCheckbox) {
       noneCheckbox.addEventListener('change', (e) => handleNoneShortcutChange(e));
+    }
+
+    // Add listener for "Recently Displayed" checkbox
+    const recentlyDisplayedCheckbox = dropdownOptions.querySelector('.recently-displayed-checkbox');
+    if (recentlyDisplayedCheckbox) {
+      recentlyDisplayedCheckbox.addEventListener('change', async (e) => {
+        const wasActive = recentlyDisplayedFilterActive;
+        recentlyDisplayedFilterActive = e.target.checked;
+        
+        if (recentlyDisplayedFilterActive && !wasActive) {
+          // Save current sort state before entering recently displayed filter mode
+          const sortOrderSelect = document.getElementById('sort-order');
+          preRecentSortState = {
+            order: sortOrderSelect ? sortOrderSelect.value : 'date',
+            ascending: sortAscending
+          };
+          
+          // Fetch fresh recently displayed data
+          await fetchRecentlyDisplayed();
+          
+          // Clear other filters when enabling recently displayed filter
+          const noneCheckbox = document.querySelector('.tv-none-checkbox');
+          if (noneCheckbox) noneCheckbox.checked = false;
+          clearSimilarFilter();
+          clearNon169Filter();
+          // Clear tag selections
+          document.querySelectorAll('.tag-checkbox').forEach(cb => setTagState(cb, 'unchecked'));
+          document.querySelectorAll('.tv-checkbox').forEach(cb => { cb.checked = false; });
+        } else if (!recentlyDisplayedFilterActive && wasActive) {
+          // Restore previous sort state
+          if (preRecentSortState) {
+            const sortOrderSelect = document.getElementById('sort-order');
+            if (sortOrderSelect) sortOrderSelect.value = preRecentSortState.order;
+            sortAscending = preRecentSortState.ascending;
+            updateSortDirectionIcon();
+            preRecentSortState = null;
+          }
+        }
+        
+        updateTagFilterDisplay();
+        filterAndRenderGallery();
+      });
     }
 
     // Add listener for "Similar Images" checkbox
@@ -4539,6 +4737,8 @@ async function loadTagsForFilter() {
           if (noneCheckbox) noneCheckbox.checked = false;
           // Clear non-16:9 filter
           clearNon169Filter();
+          // Clear recently displayed filter
+          clearRecentlyDisplayedFilter();
           // Clear tag selections
           document.querySelectorAll('.tag-checkbox').forEach(cb => setTagState(cb, 'unchecked'));
           document.querySelectorAll('.tv-checkbox').forEach(cb => { cb.checked = false; });
@@ -4570,6 +4770,8 @@ async function loadTagsForFilter() {
           if (noneCheckbox) noneCheckbox.checked = false;
           // Clear similar filter
           clearSimilarFilter();
+          // Clear recently displayed filter
+          clearRecentlyDisplayedFilter();
           // Clear tag selections
           document.querySelectorAll('.tag-checkbox').forEach(cb => setTagState(cb, 'unchecked'));
           document.querySelectorAll('.tv-checkbox').forEach(cb => { cb.checked = false; });
@@ -4694,6 +4896,7 @@ function handleTVShortcutChange(event) {
   // Clear special filters when selecting a TV shortcut
   clearSimilarFilter();
   clearNon169Filter();
+  clearRecentlyDisplayedFilter();
   
   // Clear all tag states first
   const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
@@ -4738,6 +4941,7 @@ function handleNoneShortcutChange(event) {
     // Clear special filters when selecting None
     clearSimilarFilter();
     clearNon169Filter();
+    clearRecentlyDisplayedFilter();
   }
   
   updateTagFilterDisplay();
@@ -4805,7 +5009,10 @@ function updateTagFilterDisplay() {
   let label = 'All Tags';
   let showClear = false;
 
-  if (similarFilterActive) {
+  if (recentlyDisplayedFilterActive) {
+    label = 'Recently Displayed';
+    showClear = true;
+  } else if (similarFilterActive) {
     label = 'Similar Images';
     showClear = true;
   } else if (non169FilterActive) {
