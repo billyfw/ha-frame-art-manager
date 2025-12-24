@@ -221,7 +221,7 @@ function getRecentlyDisplayedFilenames() {
 /**
  * Format time ago for recently displayed badge
  * @param {string|number} time - 'now' or timestamp
- * @returns {string} - Formatted time like 'Now', '5m', '2h', '1d'
+ * @returns {string} - Formatted time like 'Now', '5m ago', '2h ago', '1d ago'
  */
 function formatRecentTimeAgo(time) {
   if (time === 'now') return 'Now';
@@ -233,10 +233,10 @@ function formatRecentTimeAgo(time) {
   const diffHours = Math.floor(diffMinutes / 60);
   const diffDays = Math.floor(diffHours / 24);
   
-  if (diffMinutes < 1) return '1m';
-  if (diffMinutes < 60) return `${diffMinutes}m`;
-  if (diffHours < 24) return `${diffHours}h`;
-  return `${diffDays}d`;
+  if (diffMinutes < 1) return '1m ago';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
 }
 
 /**
