@@ -3107,8 +3107,8 @@ function renderGalleryChunk(grid, count) {
       badgesHtml += '<span class="aspect-badge-card">16:9</span>';
     }
     
-    // Get last display info from analytics
-    const lastDisplay = getLastDisplayInfo(filename);
+    // Get last display info from analytics (skip if recently displayed filter is active)
+    const lastDisplay = recentlyDisplayedFilterActive ? null : getLastDisplayInfo(filename);
     const lastDisplayHtml = lastDisplay 
       ? `<div class="image-last-display">${lastDisplay.timeAgo} (${escapeHtml(lastDisplay.tvName)})</div>`
       : '';
