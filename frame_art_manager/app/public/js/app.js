@@ -4311,9 +4311,59 @@ async function loadTagsForFilter() {
 
     let html = '';
 
+    // Special Filters Section (at top)
+    html += `<div class="tv-shortcuts-header">Filters</div>`;
+    
+    // Similar Images filter
+    const similarCount = getSimilarFilenames().size;
+    html += `
+      <div class="multiselect-option tv-shortcut similar-filter">
+        <input type="checkbox" id="filter-similar" 
+               value="similar" 
+               class="similar-checkbox"
+               ${similarFilterActive ? 'checked' : ''}>
+        <label for="filter-similar">
+          <div class="tv-name">Similar Images <span class="tv-count">(${similarCount})</span></div>
+          <div class="tv-tags-subtitle">Find duplicates and visually related images</div>
+        </label>
+      </div>
+    `;
+    
+    // Non 16:9 filter
+    const non169Count = countNon169Images();
+    html += `
+      <div class="multiselect-option tv-shortcut non169-filter">
+        <input type="checkbox" id="filter-non169" 
+               value="non169" 
+               class="non169-checkbox"
+               ${non169FilterActive ? 'checked' : ''}>
+        <label for="filter-non169">
+          <div class="tv-name">Non 16:9 <span class="tv-count">(${non169Count})</span></div>
+          <div class="tv-tags-subtitle">Images that are not 16:9 aspect ratio</div>
+        </label>
+      </div>
+    `;
+    
+    html += `<div class="tv-shortcuts-divider"></div>`;
+
     // TV Shortcuts Section
     if (allTVs.length > 0) {
       html += `<div class="tv-shortcuts-header">TVs</div>`;
+      
+      // None filter at top of TVs
+      const noneCount = countImagesForNone();
+      html += `
+        <div class="multiselect-option tv-shortcut">
+          <input type="checkbox" id="tv-shortcut-none" 
+                 value="none" 
+                 class="tv-none-checkbox">
+          <label for="tv-shortcut-none">
+            <div class="tv-name">None <span class="tv-count">(${noneCount})</span></div>
+            <div class="tv-tags-subtitle">Will not shuffle onto any TV</div>
+          </label>
+        </div>
+      `;
+      
       html += allTVs.map(tv => {
         const safeTags = JSON.stringify(tv.tags || []).replace(/"/g, '&quot;');
         const id = tv.device_id || tv.entity_id;
@@ -4341,52 +4391,11 @@ async function loadTagsForFilter() {
           </label>
         </div>
       `}).join('');
-      // Add "Non 16:9" filter option
-      const non169Count = countNon169Images();
-      html += `
-        <div class="multiselect-option tv-shortcut non169-filter">
-          <input type="checkbox" id="filter-non169" 
-                 value="non169" 
-                 class="non169-checkbox"
-                 ${non169FilterActive ? 'checked' : ''}>
-          <label for="filter-non169">
-            <div class="tv-name">Non 16:9 <span class="tv-count">(${non169Count})</span></div>
-            <div class="tv-tags-subtitle">Images that are not 16:9 aspect ratio</div>
-          </label>
-        </div>
-      `;
-      // Add "None" checkbox at end of TV list
-      const noneCount = countImagesForNone();
-      html += `
-        <div class="multiselect-option tv-shortcut">
-          <input type="checkbox" id="tv-shortcut-none" 
-                 value="none" 
-                 class="tv-none-checkbox">
-          <label for="tv-shortcut-none">
-            <div class="tv-name">None <span class="tv-count">(${noneCount})</span></div>
-            <div class="tv-tags-subtitle">Will not shuffle onto any TV</div>
-          </label>
-        </div>
-      `;
-      // Add "Similar Images" filter option
-      const similarCount = getSimilarFilenames().size;
-      html += `
-        <div class="multiselect-option tv-shortcut similar-filter">
-          <input type="checkbox" id="filter-similar" 
-                 value="similar" 
-                 class="similar-checkbox"
-                 ${similarFilterActive ? 'checked' : ''}>
-          <label for="filter-similar">
-            <div class="tv-name">Similar Images <span class="tv-count">(${similarCount})</span></div>
-            <div class="tv-tags-subtitle">Find duplicates and visually related images</div>
-          </label>
-        </div>
-      `;
       html += `<div class="tv-shortcuts-divider"></div>`;
-      html += `<div class="tags-header">Tags</div>`;
     }
-
+    
     // Tags Section
+    html += `<div class="tags-header">Tags</div>`;
     html += allTags.map(tag => {
       const safeValue = tag.replace(/"/g, '&quot;');
       return `
