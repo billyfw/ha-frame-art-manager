@@ -181,6 +181,7 @@ const METADATA_DEFAULT_FILTER = 'None';
 let similarFilterActive = false;
 let similarGroups = []; // Cache of similar groups from server (arrays of filenames)
 let similarDistances = {}; // Map of "fileA|fileB" -> distance
+let similarBreakpoints = []; // Breakpoints for slider ticks
 let preSimilarSortState = null; // Saved sort state before entering similar filter
 let similarThreshold = 38; // Default threshold for similar images (adjustable via slider)
 
@@ -312,6 +313,32 @@ function getSimilarFilenames() {
     }
   }
   return filenames;
+}
+
+/**
+ * Get counts for duplicates (threshold<=10) and similar-only (11-38) from breakpoints
+ * @returns {{ dupeCount: number, simCount: number }}
+ */
+function getSimilarBreakpointCounts() {
+  let dupeCount = 0;
+  let totalAt38 = 0;
+  
+  if (!similarBreakpoints || similarBreakpoints.length === 0) {
+    return { dupeCount: 0, simCount: 0 };
+  }
+  
+  for (const bp of similarBreakpoints) {
+    if (bp.threshold === 10) {
+      dupeCount = bp.totalImages || 0;
+    }
+    if (bp.threshold === 38) {
+      totalAt38 = bp.totalImages || 0;
+    }
+  }
+  
+  // simCount is images that are similar but not duplicates
+  const simCount = totalAt38 - dupeCount;
+  return { dupeCount, simCount: Math.max(0, simCount) };
 }
 
 const ADVANCED_TAB_DEFAULT = 'settings';
@@ -4315,7 +4342,7 @@ async function loadTagsForFilter() {
     html += `<div class="tv-shortcuts-header">Filters</div>`;
     
     // Similar Images filter
-    const similarCount = getSimilarFilenames().size;
+    const { dupeCount, simCount } = getSimilarBreakpointCounts();
     html += `
       <div class="multiselect-option tv-shortcut similar-filter">
         <input type="checkbox" id="filter-similar" 
@@ -4323,8 +4350,8 @@ async function loadTagsForFilter() {
                class="similar-checkbox"
                ${similarFilterActive ? 'checked' : ''}>
         <label for="filter-similar">
-          <div class="tv-name">Similar Images <span class="tv-count">(${similarCount})</span></div>
-          <div class="tv-tags-subtitle">Find duplicates and visually related images</div>
+          <div class="tv-name">Similar Images <span class="tv-count">(${dupeCount}dup/${simCount}sim)</span></div>
+          <div class="tv-tags-subtitle">Find duplicates and visually similar images</div>
         </label>
       </div>
     `;
