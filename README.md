@@ -20,6 +20,7 @@ Frame Art Manager provides a beautiful web interface for organizing and managing
 - 🔄 **Git Sync**: Automatic synchronization with Git LFS repositories
 - 📱 **Responsive UI**: Works on desktop, tablet, and mobile devices
 - 🎨 **Professional Interface**: Clean, modern design with intuitive controls
+- 🔍 **Smart Filters**: Recently displayed, similar/duplicate detection, aspect ratio filtering
 
 ## Installation
 
