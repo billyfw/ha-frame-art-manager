@@ -3124,6 +3124,11 @@ body.dropdown-open .image-card:hover {
     min-height: 36px;
   }
 
+  /* Stats button same width as Batch Add on mobile */
+  .toolbar-row-1 #open-analytics-btn {
+    min-width: 70px;
+  }
+
   .toolbar-row-1 .btn-sync {
     height: 36px;
     min-width: 44px;
