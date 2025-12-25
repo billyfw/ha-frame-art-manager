@@ -9588,7 +9588,7 @@ function updateDateRangeHint() {
     dateStr = startDate.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
   }
   
-  hintEl.textContent = `Displaying last ${rangeLabel} of data (since ${dateStr})`;
+  hintEl.textContent = `Displaying last ${rangeLabel} of shuffle data (since ${dateStr})`;
 }
 
 // Render event log for a tag (all events for images with this tag)
