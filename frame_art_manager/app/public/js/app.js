@@ -4064,10 +4064,16 @@ function initBatchUploadForm() {
       fileInput.type = 'file';
       fileInput.multiple = true;
       fileInput.accept = 'image/*';
+      fileInput.style.display = 'none';
+      
+      // Attach to DOM - required for iOS to reliably deliver multi-select files
+      document.body.appendChild(fileInput);
       
       fileInput.addEventListener('change', async (e) => {
         const files = Array.from(e.target.files);
-        alert('Files: ' + files.length + ', sizes: ' + files.map(f => f.size).join(', '));
+        // Clean up input after getting files
+        fileInput.remove();
+        
         if (files.length === 0) return;
         
         await uploadBatchImages(files);
