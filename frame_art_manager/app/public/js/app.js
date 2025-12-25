@@ -89,6 +89,7 @@ let lastClickedIndex = null;
 let galleryHasLoadedAtLeastOnce = false;
 let currentUploadPreviewUrl = null;
 let activeUploadPreviewToken = 0;
+let thumbnailCacheBusters = {}; // Map of filename -> timestamp for cache busting edited thumbnails
 
 // Chunked gallery rendering state
 const GALLERY_CHUNK_SIZE = 100; // Initial and incremental load size
@@ -3130,7 +3131,7 @@ function renderGalleryChunk(grid, count) {
          data-filename="${filename}" 
          data-index="${index}">
       <div class="image-wrapper">
-        <img src="thumbs/thumb_${filename}" 
+        <img src="thumbs/thumb_${filename}${thumbnailCacheBusters[filename] ? '?v=' + thumbnailCacheBusters[filename] : ''}" 
              onerror="this.src='library/${filename}'" 
              alt="${getDisplayName(filename)}" />
         <button class="select-badge" data-filename="${filename}" data-index="${index}" title="Select image">
@@ -3763,6 +3764,7 @@ function initUploadForm() {
             
             // Refresh similar groups and filter count
             await fetchSimilarGroups();
+            await fetchSimilarBreakpoints();
             await loadTagsForFilter();
             
             // Close upload modal and return to gallery
@@ -4281,6 +4283,7 @@ async function uploadBatchImages(files) {
   // Refresh similar groups for filter counts
   if (uploadedFilenames.length > 0) {
     await fetchSimilarGroups();
+    await fetchSimilarBreakpoints();
     // Refresh tag filter to show updated similar counts
     await loadTagsForFilter();
     
@@ -6501,6 +6504,9 @@ async function submitImageEdits() {
 
   editState.hasBackup = true;
   editState.isDirty = false;
+
+    // Set cache buster for this image's thumbnail
+    thumbnailCacheBusters[currentImage] = Date.now();
 
     if (allImages[currentImage]) {
       if (data.dimensions) {
