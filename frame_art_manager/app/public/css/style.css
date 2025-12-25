@@ -3283,11 +3283,13 @@ body.dropdown-open .image-card:hover {
   }
 
   /* Show/hide desktop vs mobile text */
-  .bulk-actions .desktop-text {
+  .bulk-actions .desktop-text,
+  .toolbar-row-1 .desktop-text {
     display: none !important;
   }
 
-  .bulk-actions .mobile-text {
+  .bulk-actions .mobile-text,
+  .toolbar-row-1 .mobile-text {
     display: inline !important;
   }
 
@@ -4214,11 +4216,13 @@ body.dropdown-open .image-card:hover {
 }
 
 /* Desktop: show desktop text, hide mobile text */
-.bulk-actions .desktop-text {
+.bulk-actions .desktop-text,
+.toolbar-row-1 .desktop-text {
   display: inline;
 }
 
-.bulk-actions .mobile-text {
+.bulk-actions .mobile-text,
+.toolbar-row-1 .mobile-text {
   display: none;
 }
 
