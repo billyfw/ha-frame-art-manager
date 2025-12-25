@@ -838,165 +838,8 @@ function formatDateShort(dateString) {
   return `${month}/${day}/${year}`;
 }
 
-// Debug logging panel for mobile debugging
-// Enable by adding ?debug=1 to URL or calling window.enableDebugPanel()
-let debugPanelEnabled = false;
-let debugMessages = [];
-const MAX_DEBUG_MESSAGES = 50;
-
-function initDebugPanel() {
-  // Check URL param
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('debug') === '1') {
-    enableDebugPanel();
-  }
-  
-  // Expose global function to enable
-  window.enableDebugPanel = enableDebugPanel;
-  window.disableDebugPanel = disableDebugPanel;
-  
-  // Triple-tap on the "Add" button to enable debug panel
-  let tapCount = 0;
-  let tapTimer = null;
-  const addBtn = document.getElementById('open-batch-upload-btn');
-  if (addBtn) {
-    addBtn.addEventListener('click', (e) => {
-      tapCount++;
-      if (tapCount === 3) {
-        e.preventDefault();
-        e.stopPropagation();
-        enableDebugPanel();
-        tapCount = 0;
-        clearTimeout(tapTimer);
-        return false;
-      }
-      clearTimeout(tapTimer);
-      tapTimer = setTimeout(() => { tapCount = 0; }, 500);
-    }, true); // capture phase
-  }
-}
-
-function enableDebugPanel() {
-  debugPanelEnabled = true;
-  
-  // Create or show panel
-  let panel = document.getElementById('debug-panel');
-  if (!panel) {
-    panel = document.createElement('div');
-    panel.id = 'debug-panel';
-    panel.style.cssText = `
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      max-height: 40vh;
-      background: rgba(0,0,0,0.9);
-      color: #0f0;
-      font-family: monospace;
-      font-size: 11px;
-      overflow-y: auto;
-      z-index: 99999;
-      padding: 8px;
-      border-top: 2px solid #0f0;
-    `;
-    
-    const header = document.createElement('div');
-    header.style.cssText = 'display: flex; justify-content: space-between; margin-bottom: 8px; position: sticky; top: 0; background: rgba(0,0,0,0.9);';
-    header.innerHTML = `
-      <span style="color: #ff0;">🐛 Debug Panel</span>
-      <span>
-        <button onclick="window.clearDebugLog()" style="font-size: 10px; margin-right: 4px;">Clear</button>
-        <button onclick="window.disableDebugPanel()" style="font-size: 10px;">Close</button>
-      </span>
-    `;
-    panel.appendChild(header);
-    
-    const content = document.createElement('div');
-    content.id = 'debug-panel-content';
-    panel.appendChild(content);
-    
-    document.body.appendChild(panel);
-  }
-  panel.style.display = 'block';
-  
-  // Intercept console.log and console.error for [BatchUpload] and [Upload XHR] messages
-  const originalLog = console.log;
-  const originalError = console.error;
-  const originalWarn = console.warn;
-  
-  console.log = function(...args) {
-    originalLog.apply(console, args);
-    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-    if (msg.includes('[BatchUpload]') || msg.includes('[Upload XHR]')) {
-      addDebugMessage(msg, 'log');
-    }
-  };
-  
-  console.error = function(...args) {
-    originalError.apply(console, args);
-    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-    if (msg.includes('[BatchUpload]') || msg.includes('[Upload XHR]')) {
-      addDebugMessage(msg, 'error');
-    }
-  };
-  
-  console.warn = function(...args) {
-    originalWarn.apply(console, args);
-    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-    if (msg.includes('[BatchUpload]') || msg.includes('[Upload XHR]')) {
-      addDebugMessage(msg, 'warn');
-    }
-  };
-  
-  addDebugMessage('Debug panel enabled. Network: ' + (navigator.connection?.effectiveType || 'unknown') + ', Online: ' + navigator.onLine, 'info');
-}
-
-function disableDebugPanel() {
-  debugPanelEnabled = false;
-  const panel = document.getElementById('debug-panel');
-  if (panel) {
-    panel.style.display = 'none';
-  }
-}
-
-function addDebugMessage(msg, type = 'log') {
-  if (!debugPanelEnabled) return;
-  
-  const timestamp = new Date().toLocaleTimeString();
-  debugMessages.push({ timestamp, msg, type });
-  
-  // Keep only last N messages
-  if (debugMessages.length > MAX_DEBUG_MESSAGES) {
-    debugMessages = debugMessages.slice(-MAX_DEBUG_MESSAGES);
-  }
-  
-  renderDebugMessages();
-}
-
-function renderDebugMessages() {
-  const content = document.getElementById('debug-panel-content');
-  if (!content) return;
-  
-  const colors = { log: '#0f0', error: '#f44', warn: '#ff0', info: '#0af' };
-  
-  content.innerHTML = debugMessages.map(m => 
-    `<div style="color: ${colors[m.type] || '#fff'}; margin: 2px 0; word-break: break-all;">
-      <span style="color: #888;">${m.timestamp}</span> ${m.msg}
-    </div>`
-  ).join('');
-  
-  // Scroll to bottom
-  content.scrollTop = content.scrollHeight;
-}
-
-window.clearDebugLog = function() {
-  debugMessages = [];
-  renderDebugMessages();
-};
-
 // Initialize app
 document.addEventListener('DOMContentLoaded', async () => {
-  initDebugPanel(); // Initialize debug panel early
   initTabs();
   loadLibraryPath();
   initCloudSyncButton(); // Initialize cloud sync button in toolbar - BEFORE checking sync
@@ -4216,66 +4059,22 @@ function initBatchUploadForm() {
   
   if (batchUploadBtn) {
     batchUploadBtn.addEventListener('click', () => {
-      console.log('[BatchUpload] Add button clicked, creating file input');
-      
       // Create a file input that allows multiple selection
       const fileInput = document.createElement('input');
       fileInput.type = 'file';
       fileInput.multiple = true;
       fileInput.accept = 'image/*';
       
-      // Track if the picker was opened
-      let pickerOpened = false;
-      let changeHandled = false;
-      
       fileInput.addEventListener('change', async (e) => {
-        changeHandled = true;
         const files = Array.from(e.target.files);
-        console.log(`[BatchUpload] File input change event: ${files.length} files selected`);
-        
-        if (files.length === 0) {
-          console.log('[BatchUpload] No files selected (user cancelled or picker failed)');
-          return;
-        }
-        
-        // Log file details for debugging
-        files.forEach((file, i) => {
-          console.log(`[BatchUpload] File ${i + 1}: ${file.name}, ${file.size} bytes, type: ${file.type}`);
-        });
+        alert('Files: ' + files.length + ', sizes: ' + files.map(f => f.size).join(', '));
+        if (files.length === 0) return;
         
         await uploadBatchImages(files);
       });
       
-      // iOS Safari workaround: detect when picker closes without selection
-      // The 'focus' event fires when the picker closes and the page regains focus
-      const handleFocus = () => {
-        // Small delay to let change event fire first if files were selected
-        setTimeout(() => {
-          if (!changeHandled) {
-            console.log('[BatchUpload] Picker closed without change event (possible iOS issue)');
-            console.log('[BatchUpload] Connection type:', navigator.connection?.effectiveType || 'unknown');
-            console.log('[BatchUpload] Online status:', navigator.onLine);
-          }
-          window.removeEventListener('focus', handleFocus);
-        }, 500);
-      };
-      window.addEventListener('focus', handleFocus);
-      
-      // Log connection info before opening picker
-      if (navigator.connection) {
-        console.log('[BatchUpload] Network info:', {
-          effectiveType: navigator.connection.effectiveType,
-          downlink: navigator.connection.downlink,
-          rtt: navigator.connection.rtt,
-          saveData: navigator.connection.saveData
-        });
-      }
-      console.log('[BatchUpload] Online status:', navigator.onLine);
-      
       // Trigger file picker
-      console.log('[BatchUpload] Triggering file picker...');
       fileInput.click();
-      pickerOpened = true;
     });
   }
 }
@@ -4526,9 +4325,6 @@ async function uploadBatchImages(files) {
 // Upload a single file with XHR progress tracking
 function uploadSingleFileWithProgress(file, onProgress, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
-    const uploadStartTime = Date.now();
-    console.log(`[Upload XHR] Starting upload: ${file.name}, size: ${file.size}, timeout: ${timeoutMs}ms`);
-    
     const xhr = new XMLHttpRequest();
     const formData = new FormData();
     formData.append('image', file);
@@ -4539,40 +4335,24 @@ function uploadSingleFileWithProgress(file, onProgress, timeoutMs = 120000) {
     // Set timeout for the request
     xhr.timeout = timeoutMs;
     
-    let lastProgressLog = 0;
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable) {
         const percent = Math.round((e.loaded / e.total) * 100);
         onProgress(percent);
-        // Log progress every 25%
-        if (percent >= lastProgressLog + 25) {
-          console.log(`[Upload XHR] Progress: ${percent}% (${e.loaded}/${e.total} bytes)`);
-          lastProgressLog = percent - (percent % 25);
-        }
       }
     });
     
-    xhr.addEventListener('loadstart', () => {
-      console.log(`[Upload XHR] Request started for ${file.name}`);
-    });
-    
     xhr.addEventListener('load', () => {
-      const duration = ((Date.now() - uploadStartTime) / 1000).toFixed(1);
-      console.log(`[Upload XHR] Load event: status=${xhr.status}, duration=${duration}s`);
-      
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const result = JSON.parse(xhr.responseText);
-          console.log(`[Upload XHR] Success response:`, result.success);
           resolve(result);
         } catch (e) {
-          console.error(`[Upload XHR] Failed to parse response:`, xhr.responseText?.substring(0, 200));
           resolve({ success: false, error: 'Invalid server response' });
         }
       } else {
         // Handle HTTP errors
         let errorMsg = `Server error (${xhr.status})`;
-        console.error(`[Upload XHR] HTTP error ${xhr.status}:`, xhr.responseText?.substring(0, 500));
         try {
           const errorResult = JSON.parse(xhr.responseText);
           if (errorResult.error) {
@@ -4585,31 +4365,19 @@ function uploadSingleFileWithProgress(file, onProgress, timeoutMs = 120000) {
       }
     });
     
-    xhr.addEventListener('error', (e) => {
-      const duration = ((Date.now() - uploadStartTime) / 1000).toFixed(1);
-      console.error(`[Upload XHR] Network error after ${duration}s`, {
-        readyState: xhr.readyState,
-        status: xhr.status,
-        online: navigator.onLine,
-        connectionType: navigator.connection?.effectiveType
-      });
+    xhr.addEventListener('error', () => {
       reject(new Error('Network error - check your connection'));
     });
     
     xhr.addEventListener('timeout', () => {
-      const duration = ((Date.now() - uploadStartTime) / 1000).toFixed(1);
-      console.error(`[Upload XHR] Timeout after ${duration}s (limit: ${timeoutMs}ms)`);
       reject(new Error('Upload timed out - file may be too large or connection too slow'));
     });
     
     xhr.addEventListener('abort', () => {
-      console.log(`[Upload XHR] Upload aborted for ${file.name}`);
       resolve({ success: false, error: 'Cancelled' });
     });
     
-    const uploadUrl = `${API_BASE}/images/upload`;
-    console.log(`[Upload XHR] Opening POST to ${uploadUrl}`);
-    xhr.open('POST', uploadUrl);
+    xhr.open('POST', `${API_BASE}/images/upload`);
     xhr.send(formData);
   });
 }
