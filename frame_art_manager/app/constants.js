@@ -1,33 +1,65 @@
 /**
  * Frame TV Art Display Options
  * These match the Samsung Frame TV's art mode settings
+ * Queried from TV API via get_matte_list on 2024-12-26
  */
 
+// Available matte types from Samsung Frame TV
+const MATTE_TYPE_LIST = [
+  'none',
+  'modernthin',
+  'modern',
+  'modernwide',
+  'flexible',
+  'shadowbox',
+  'panoramic',
+  'triptych',
+  'mix',
+  'squares'
+];
+
+// Available matte colors from Samsung Frame TV
+// Note: 'burgandy' is Samsung's spelling (not 'burgundy')
+const MATTE_COLOR_LIST = [
+  'black',
+  'neutral',
+  'antique',
+  'warm',
+  'polar',
+  'sand',
+  'seafoam',
+  'sage',
+  'burgandy',
+  'navy',
+  'apricot',
+  'byzantine',
+  'lavender',
+  'redorange',
+  'skyblue',
+  'turquoise'
+];
+
+// Build full matte_id list: 'none' + all type_color combinations
 const MATTE_TYPES = [
   'none',
+  // Modern Thin family
+  ...MATTE_COLOR_LIST.map(c => `modernthin_${c}`),
   // Modern family
-  'modern_polar',
-  'modern_antique',
-  'modern_warm',
-  'modern_black',
-  'modernthin_polar',
-  'modernthin_antique',
-  'modernthin_warm',
-  'modernthin_black',
-  'modernwide_polar',
-  'modernwide_antique',
-  'modernwide_warm',
-  'modernwide_black',
+  ...MATTE_COLOR_LIST.map(c => `modern_${c}`),
+  // Modern Wide family
+  ...MATTE_COLOR_LIST.map(c => `modernwide_${c}`),
   // Flexible family
-  'flexible_polar',
-  'flexible_antique',
-  'flexible_warm',
-  'flexible_black',
+  ...MATTE_COLOR_LIST.map(c => `flexible_${c}`),
   // Shadowbox family
-  'shadowbox_polar',
-  'shadowbox_antique',
-  'shadowbox_warm',
-  'shadowbox_black'
+  ...MATTE_COLOR_LIST.map(c => `shadowbox_${c}`),
+  // Panoramic family
+  ...MATTE_COLOR_LIST.map(c => `panoramic_${c}`),
+  // Triptych family
+  ...MATTE_COLOR_LIST.map(c => `triptych_${c}`),
+  // Mix family
+  ...MATTE_COLOR_LIST.map(c => `mix_${c}`),
+  // Squares family
+  ...MATTE_COLOR_LIST.map(c => `squares_${c}`)
 ];
 
 const FILTER_TYPES = [
