@@ -1030,6 +1030,21 @@ class ImageEditService {
       
       // Update working dimensions to the inscribed rectangle
       workingDimensions = { width: inscribed.width, height: inscribed.height };
+      
+      // The frontend crop values are percentages of the ORIGINAL image and include
+      // the inscribed region margins. We need to convert them to be relative to
+      // the inscribed region (which we've already extracted).
+      const inscribedScale = inscribed.width / orientedDimensions.width;
+      const marginPercent = (1 - inscribedScale) / 2 * 100;
+      
+      // Subtract the inscribed margins from the crop values
+      // (crop values relative to original → crop values relative to inscribed)
+      sanitized.crop = {
+        left: Math.max(0, (sanitized.crop.left - marginPercent) / inscribedScale),
+        right: Math.max(0, (sanitized.crop.right - marginPercent) / inscribedScale),
+        top: Math.max(0, (sanitized.crop.top - marginPercent) / inscribedScale),
+        bottom: Math.max(0, (sanitized.crop.bottom - marginPercent) / inscribedScale)
+      };
     } else {
       // No arbitrary rotation - just normalize EXIF orientation
       transformer = sharp(sourcePath).rotate();
