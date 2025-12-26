@@ -373,18 +373,20 @@
         
       <div class="modal-image-container mobile-section-preview mobile-section-edit">
         <button class="expand-image-btn" id="expand-image-btn" title="View full size">⤢</button>
-        <div class="modal-image-stage" id="modal-image-stage">
-          <img id="modal-image" src="" alt="" />
-          <div id="crop-overlay" class="crop-overlay hidden">
-            <div class="crop-box" id="crop-box">
-              <div class="crop-handle handle-nw" data-handle="nw"></div>
-              <div class="crop-handle handle-n" data-handle="n"></div>
-              <div class="crop-handle handle-ne" data-handle="ne"></div>
-              <div class="crop-handle handle-e" data-handle="e"></div>
-              <div class="crop-handle handle-se" data-handle="se"></div>
-              <div class="crop-handle handle-s" data-handle="s"></div>
-              <div class="crop-handle handle-sw" data-handle="sw"></div>
-              <div class="crop-handle handle-w" data-handle="w"></div>
+        <div class="modal-image-clip">
+          <div class="modal-image-stage" id="modal-image-stage">
+            <img id="modal-image" src="" alt="" />
+            <div id="crop-overlay" class="crop-overlay hidden">
+              <div class="crop-box" id="crop-box">
+                <div class="crop-handle handle-nw" data-handle="nw"></div>
+                <div class="crop-handle handle-n" data-handle="n"></div>
+                <div class="crop-handle handle-ne" data-handle="ne"></div>
+                <div class="crop-handle handle-e" data-handle="e"></div>
+                <div class="crop-handle handle-se" data-handle="se"></div>
+                <div class="crop-handle handle-s" data-handle="s"></div>
+                <div class="crop-handle handle-sw" data-handle="sw"></div>
+                <div class="crop-handle handle-w" data-handle="w"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -489,8 +491,8 @@
           </div>
         </div>
         <div id="crop-popover" class="edit-popover hidden">
-          <div class="popover-header">Crop Presets</div>
-          <div class="crop-toolbar-row">
+          <div class="popover-header">Crop &amp; Rotate</div>
+          <div class="crop-rotate-row">
             <div class="crop-preset-row">
               <button class="crop-preset" data-crop="free">Free</button>
               <button class="crop-preset" data-crop="original">Original</button>
@@ -500,8 +502,21 @@
               <button class="crop-preset" data-crop="16:9" title="Crop to 16:9 without resizing the image">16:9</button>
               <button class="crop-preset" data-crop="16:9sam" title="Crop and resize to 3840x2160 for Samsung Frame TVs">16:9SAM</button>
             </div>
-            <div class="crop-warning" id="crop-upsampling-warning">Will upsample to 3840x2160 for 16:9SAM</div>
+            <div class="rotation-control">
+              <input type="range" id="rotation-slider" min="-45" max="45" value="0" step="0.5">
+              <div class="rotation-ticks">
+                <span class="rotation-tick"></span>
+                <span class="rotation-tick"></span>
+                <span class="rotation-tick"></span>
+              </div>
+              <div class="rotation-labels">
+                <span class="rotation-label">-45°</span>
+                <button id="rotation-zero-btn" class="rotation-zero-btn active" title="Click to reset to 0°">0°</button>
+                <span class="rotation-label">+45°</span>
+              </div>
+            </div>
           </div>
+          <div class="crop-warning" id="crop-upsampling-warning">Will upsample to 3840x2160 for 16:9SAM</div>
         </div>
       </div>
       <div class="modal-body-scroll">

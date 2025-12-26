@@ -105,6 +105,7 @@ const createDefaultEditState = () => ({
   filter: 'none',
   naturalWidth: 0,
   naturalHeight: 0,
+  rotation: 0, // degrees, -45 to +45
   cropPreset: 'free',
   targetResolution: null,
   userSelectedCropPreset: false,
@@ -5134,6 +5135,73 @@ const CROP_INSET_EPSILON = 0.0001;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+/**
+ * Calculate the largest axis-aligned inscribed rectangle after rotation.
+ * When an image is rotated by an arbitrary angle, the corners extend beyond
+ * the original bounds. This function computes the largest rectangle that
+ * fits entirely within the rotated image without showing any background.
+ * 
+ * @param {number} width - Original image width
+ * @param {number} height - Original image height  
+ * @param {number} angleDegrees - Rotation angle in degrees
+ * @returns {{ width: number, height: number, scale: number }} Inscribed dimensions and scale factor
+ */
+function getInscribedDimensions(width, height, angleDegrees) {
+  if (!width || !height) return { width: 0, height: 0, scale: 1 };
+  if (Math.abs(angleDegrees) < 0.01) return { width, height, scale: 1 };
+  
+  const angle = Math.abs(angleDegrees) * Math.PI / 180;
+  const cosA = Math.cos(angle);
+  const sinA = Math.sin(angle);
+  
+  // For a W×H rectangle rotated by angle θ around its center,
+  // the largest inscribed axis-aligned rectangle (same aspect ratio) is:
+  // 
+  // The rotated corners extend beyond original bounds, creating black triangles.
+  // The inscribed rectangle must avoid these corners.
+  //
+  // For the inscribed rectangle that maintains the original aspect ratio:
+  // scale = 1 / (cosA + sinA * max(aspectRatio, 1/aspectRatio))
+  // But we need separate scales for width and height when aspect ratios differ.
+  //
+  // Correct formula for inscribed rectangle in rotated rectangle:
+  const W = width;
+  const H = height;
+  
+  // The inscribed rectangle dimensions (maintaining original aspect ratio):
+  // inscribed_W = W * cos(θ) - H * sin(θ)  -- but only works when positive
+  // inscribed_H = H * cos(θ) - W * sin(θ)  -- but only works when positive
+  //
+  // These can go negative for large angles, so we use the proper formula:
+  // The scale factor for same-aspect-ratio inscribed rectangle is:
+  const denom = cosA + sinA * Math.max(W/H, H/W);
+  const scale = 1 / denom;
+  
+  let inscribedWidth = width * scale;
+  let inscribedHeight = height * scale;
+  
+  // Ensure positive dimensions
+  inscribedWidth = Math.max(1, Math.floor(inscribedWidth));
+  inscribedHeight = Math.max(1, Math.floor(inscribedHeight));
+  
+  return { 
+    width: inscribedWidth, 
+    height: inscribedHeight,
+    scale: Math.max(0.1, scale)
+  };
+}
+
+/**
+ * Get the effective dimensions for crop calculations, accounting for rotation.
+ * Returns the inscribed rectangle dimensions if rotation is applied.
+ */
+function getEffectiveCropDimensions() {
+  const { naturalWidth, naturalHeight, rotation } = editState;
+  if (!naturalWidth || !naturalHeight) return { width: 0, height: 0, scale: 1 };
+  
+  return getInscribedDimensions(naturalWidth, naturalHeight, rotation);
+}
+
 function initImageEditor() {
   if (editControls) return;
 
@@ -5184,6 +5252,10 @@ function initImageEditor() {
       handles: Array.from(document.querySelectorAll('#crop-box .crop-handle')),
       presetButtons: Array.from(document.querySelectorAll('#crop-popover .crop-preset')),
       warning: document.getElementById('crop-upsampling-warning')
+    },
+    rotation: {
+      slider: document.getElementById('rotation-slider'),
+      zeroBtn: document.getElementById('rotation-zero-btn')
     }
   };
 
@@ -5241,6 +5313,10 @@ function initImageEditor() {
     });
   });
 
+  // Rotation slider event handlers
+  editControls.rotation.slider?.addEventListener('input', handleRotationInput);
+  editControls.rotation.zeroBtn?.addEventListener('click', resetRotation);
+
   // Prevent text/image selection during crop interactions
   const preventSelection = (e) => e.preventDefault();
   
@@ -5282,6 +5358,7 @@ function initImageEditor() {
   updateAdjustmentUI();
   updateFilterButtons(editState.filter);
   updateCropPresetButtons(editState.cropPreset);
+  updateRotationUI();
   updateToolbarState();
   applyPreviewFilters();
 }
@@ -5365,6 +5442,8 @@ function resetEditState(options = {}) {
   updateAdjustmentUI();
   updateFilterButtons(editState.filter);
   updateCropPresetButtons(editState.cropPreset);
+  updateRotationUI();
+  applyRotationPreview();
   updateCropOverlay();
   updateToolbarState();
   if (!silent) {
@@ -5681,6 +5760,147 @@ function updateAdjustmentUI() {
   }
 }
 
+function handleRotationInput(event) {
+  if (!editState.active) return;
+  const value = Number(event.target.value) || 0;
+  editState.rotation = clamp(value, -45, 45);
+  updateRotationUI();
+  markEditsDirty();
+  applyRotationPreview();
+  updateCropOverlay();
+}
+
+function resetRotation() {
+  if (!editState.active) return;
+  editState.rotation = 0;
+  // Reset crop to full image since rotation constraint is removed
+  editState.crop = { top: 0, right: 0, bottom: 0, left: 0 };
+  updateRotationUI();
+  markEditsDirty();
+  applyRotationPreview();
+  updateCropOverlay();
+}
+
+function updateRotationUI() {
+  if (!editControls?.rotation) return;
+  const { slider, zeroBtn } = editControls.rotation;
+  
+  if (slider) {
+    slider.value = editState.rotation;
+  }
+  if (zeroBtn) {
+    const isZero = Math.abs(editState.rotation) < 0.25;
+    zeroBtn.classList.toggle('active', isZero);
+    // Show current value in button, or "0°" when at zero
+    if (isZero) {
+      zeroBtn.textContent = '0°';
+    } else {
+      // Format: show 1 decimal if half-degree, otherwise integer
+      const val = editState.rotation;
+      const isHalf = Math.abs(val - Math.round(val)) > 0.1;
+      zeroBtn.textContent = isHalf ? `${val.toFixed(1)}°` : `${Math.round(val)}°`;
+    }
+  }
+}
+
+function applyRotationPreview() {
+  if (!editControls?.modalImage || !editControls?.stage) return;
+  
+  const img = editControls.modalImage;
+  const stage = editControls.stage;
+  const rotation = editState.rotation || 0;
+  
+  if (Math.abs(rotation) < 0.01) {
+    // No rotation - reset transforms
+    img.style.transform = '';
+    stage.style.overflow = '';
+  } else {
+    // Apply rotation - black corners will be visible
+    img.style.transform = `rotate(${rotation}deg)`;
+    stage.style.overflow = 'visible';
+  }
+  
+  // Constrain crop box to stay within the inscribed (valid) region
+  constrainCropToInscribedRegion();
+}
+
+/**
+ * Get the valid crop region as percentage bounds based on current rotation.
+ * When rotated, the valid region is the inscribed rectangle (no black corners).
+ * Returns { minLeft, minTop, maxRight, maxBottom } as percentages.
+ */
+function getValidCropRegion() {
+  const rotation = editState.rotation || 0;
+  
+  if (Math.abs(rotation) < 0.01) {
+    // No rotation - entire image is valid
+    return { minLeft: 0, minTop: 0, maxRight: 0, maxBottom: 0 };
+  }
+  
+  const { naturalWidth, naturalHeight } = editState;
+  if (!naturalWidth || !naturalHeight) {
+    return { minLeft: 0, minTop: 0, maxRight: 0, maxBottom: 0 };
+  }
+  
+  const inscribed = getInscribedDimensions(naturalWidth, naturalHeight, rotation);
+  
+  // Calculate how much smaller the inscribed rectangle is as a ratio
+  const widthRatio = inscribed.width / naturalWidth;
+  const heightRatio = inscribed.height / naturalHeight;
+  
+  // The inscribed rectangle is centered, so margins are equal on both sides
+  const marginX = (1 - widthRatio) / 2 * 100;
+  const marginY = (1 - heightRatio) / 2 * 100;
+  
+  return {
+    minLeft: marginX,
+    minTop: marginY,
+    maxRight: marginX,
+    maxBottom: marginY
+  };
+}
+
+/**
+ * Constrain the current crop insets to stay within the valid inscribed region.
+ * Called when rotation changes.
+ * 
+ * Crop insets represent how much is cut off each edge (0 = no crop, 50 = half cut).
+ * When rotated, the minimum insets must be at least the inscribed bounds to avoid
+ * showing black corners.
+ */
+function constrainCropToInscribedRegion() {
+  const bounds = getValidCropRegion();
+  const { crop } = editState;
+  
+  let needsUpdate = false;
+  const newCrop = { ...crop };
+  
+  // Ensure crop insets are at least as large as the inscribed bounds
+  // (crop.left < bounds.minLeft means the crop extends into black region)
+  if (crop.left < bounds.minLeft) {
+    newCrop.left = bounds.minLeft;
+    needsUpdate = true;
+  }
+  if (crop.top < bounds.minTop) {
+    newCrop.top = bounds.minTop;
+    needsUpdate = true;
+  }
+  if (crop.right < bounds.maxRight) {
+    newCrop.right = bounds.maxRight;
+    needsUpdate = true;
+  }
+  if (crop.bottom < bounds.maxBottom) {
+    newCrop.bottom = bounds.maxBottom;
+    needsUpdate = true;
+  }
+  
+  if (needsUpdate) {
+    // Force immediate visual update
+    editState.crop = newCrop;
+    updateCropOverlay();
+  }
+}
+
 function selectFilter(name, options = {}) {
   const filterName = normalizeEditingFilterName(name);
   editState.filter = filterName;
@@ -5797,7 +6017,10 @@ function getNaturalDimensions() {
 }
 
 function calculateCropOutputSize() {
-  const { width: naturalWidth, height: naturalHeight } = getNaturalDimensions();
+  // Use effective dimensions that account for rotation
+  const effectiveDims = getEffectiveCropDimensions();
+  const naturalWidth = effectiveDims.width;
+  const naturalHeight = effectiveDims.height;
   if (!naturalWidth || !naturalHeight) {
     return { width: 0, height: 0 };
   }
@@ -5950,19 +6173,27 @@ function setCropInsets(insets, options = {}) {
 
 function clampInsets(insets) {
   let { top, right, bottom, left } = insets;
+  
+  // Get rotation-based bounds (0 if no rotation)
+  const bounds = getValidCropRegion();
 
-  top = clamp(top, 0, 100);
-  bottom = clamp(bottom, 0, 100);
-  left = clamp(left, 0, 100);
-  right = clamp(right, 0, 100);
+  // Clamp to valid region (respects rotation inscribed area)
+  top = clamp(top, bounds.minTop, 100);
+  bottom = clamp(bottom, bounds.maxBottom, 100);
+  left = clamp(left, bounds.minLeft, 100);
+  right = clamp(right, bounds.maxRight, 100);
 
+  // Calculate max available dimensions within valid region
+  const maxAvailableWidth = 100 - bounds.minLeft - bounds.maxRight;
+  const maxAvailableHeight = 100 - bounds.minTop - bounds.maxBottom;
+  
   let width = 100 - left - right;
   if (width < MIN_CROP_PERCENT) {
     const shortfall = MIN_CROP_PERCENT - width;
     if (left >= right) {
-      left = clamp(left - shortfall, 0, 100 - right - MIN_CROP_PERCENT);
+      left = clamp(left - shortfall, bounds.minLeft, 100 - right - MIN_CROP_PERCENT);
     } else {
-      right = clamp(right - shortfall, 0, 100 - left - MIN_CROP_PERCENT);
+      right = clamp(right - shortfall, bounds.maxRight, 100 - left - MIN_CROP_PERCENT);
     }
     width = 100 - left - right;
   }
@@ -5971,9 +6202,9 @@ function clampInsets(insets) {
   if (height < MIN_CROP_PERCENT) {
     const shortfall = MIN_CROP_PERCENT - height;
     if (top >= bottom) {
-      top = clamp(top - shortfall, 0, 100 - bottom - MIN_CROP_PERCENT);
+      top = clamp(top - shortfall, bounds.minTop, 100 - bottom - MIN_CROP_PERCENT);
     } else {
-      bottom = clamp(bottom - shortfall, 0, 100 - top - MIN_CROP_PERCENT);
+      bottom = clamp(bottom - shortfall, bounds.maxBottom, 100 - top - MIN_CROP_PERCENT);
     }
     height = 100 - top - bottom;
   }
@@ -6210,6 +6441,9 @@ function handleCropPointerMove(event) {
   const { type, handle, startX, startY, startInsets, bounds, aspectRatio } = cropInteraction;
   const dx = ((event.clientX - startX) / bounds.width) * 100;
   const dy = ((event.clientY - startY) / bounds.height) * 100;
+  
+  // Get rotation-based bounds
+  const validRegion = getValidCropRegion();
 
   let nextInsets = { ...startInsets };
 
@@ -6217,8 +6451,11 @@ function handleCropPointerMove(event) {
     const width = 100 - startInsets.left - startInsets.right;
     const height = 100 - startInsets.top - startInsets.bottom;
 
-    let newLeft = clamp(startInsets.left + dx, 0, 100 - width);
-    let newTop = clamp(startInsets.top + dy, 0, 100 - height);
+    // Constrain movement to valid region
+    const maxLeft = 100 - validRegion.maxRight - width;
+    const maxTop = 100 - validRegion.maxBottom - height;
+    let newLeft = clamp(startInsets.left + dx, validRegion.minLeft, maxLeft);
+    let newTop = clamp(startInsets.top + dy, validRegion.minTop, maxTop);
     const newRight = 100 - width - newLeft;
     const newBottom = 100 - height - newTop;
 
@@ -6226,17 +6463,28 @@ function handleCropPointerMove(event) {
   } else {
     let { top, right, bottom, left } = startInsets;
 
+    // For handle resizing: 
+    // - Min bound ensures we don't go into black region (validRegion.minXxx)
+    // - Max bound ensures we keep minimum crop size
     if (handle.includes('w')) {
-      left = clamp(startInsets.left + dx, 0, 100 - startInsets.right - MIN_CROP_PERCENT);
+      // West handle: dragging right increases left inset, dragging left decreases it
+      const maxLeft = 100 - right - MIN_CROP_PERCENT; // Can't make crop too small
+      left = clamp(startInsets.left + dx, validRegion.minLeft, maxLeft);
     }
     if (handle.includes('e')) {
-      right = clamp(startInsets.right - dx, 0, 100 - left - MIN_CROP_PERCENT);
+      // East handle: dragging left increases right inset, dragging right decreases it
+      const maxRight = 100 - left - MIN_CROP_PERCENT;
+      right = clamp(startInsets.right - dx, validRegion.maxRight, maxRight);
     }
     if (handle.includes('n')) {
-      top = clamp(startInsets.top + dy, 0, 100 - startInsets.bottom - MIN_CROP_PERCENT);
+      // North handle
+      const maxTop = 100 - bottom - MIN_CROP_PERCENT;
+      top = clamp(startInsets.top + dy, validRegion.minTop, maxTop);
     }
     if (handle.includes('s')) {
-      bottom = clamp(startInsets.bottom - dy, 0, 100 - top - MIN_CROP_PERCENT);
+      // South handle
+      const maxBottom = 100 - top - MIN_CROP_PERCENT;
+      bottom = clamp(startInsets.bottom - dy, validRegion.maxBottom, maxBottom);
     }
 
     nextInsets = clampInsets({ top, right, bottom, left });
@@ -6277,8 +6525,10 @@ function handleCropPointerUp() {
 }
 
 function enforceAspectRatio(insets, handle, aspectRatio) {
-  const naturalWidth = editState.naturalWidth || 1;
-  const naturalHeight = editState.naturalHeight || 1;
+  // Use effective dimensions that account for rotation
+  const effectiveDims = getEffectiveCropDimensions();
+  const naturalWidth = effectiveDims.width || 1;
+  const naturalHeight = effectiveDims.height || 1;
   const naturalRatio = naturalWidth / naturalHeight || 1;
 
   let { top, right, bottom, left } = insets;
@@ -6472,14 +6722,47 @@ function buildEditPayload() {
     crop: { ...editState.crop },
     adjustments: { ...editState.adjustments },
     filter: editState.filter,
+    rotation: editState.rotation || 0,
     cropPreset: editState.cropPreset,
     targetResolution
   };
 }
 
+/**
+ * Check if there are any real edits (non-default values).
+ * Returns false if all settings are at their defaults.
+ */
+function hasRealEdits() {
+  // Check crop
+  const { crop, adjustments, filter, rotation, cropPreset } = editState;
+  const hasCrop = Object.values(crop).some(v => Math.abs(v) > 0.01);
+  
+  // Check rotation
+  const hasRotation = Math.abs(rotation || 0) > 0.01;
+  
+  // Check adjustments
+  const hasAdjustments = Object.values(adjustments).some(v => Math.abs(v) > 0.01);
+  
+  // Check filter
+  const hasFilter = filter && filter !== 'none';
+  
+  // Check if 16:9SAM preset which forces resize
+  const hasResizePreset = cropPreset === '16:9sam';
+  
+  return hasCrop || hasRotation || hasAdjustments || hasFilter || hasResizePreset;
+}
+
 async function submitImageEdits() {
   if (!currentImage || !editState.isDirty) {
     setToolbarStatus('Adjust settings before applying edits.', 'info');
+    return;
+  }
+
+  // Check if there are actual changes (not just defaults)
+  const hasActualEdits = hasRealEdits();
+  if (!hasActualEdits) {
+    // No real changes - treat as cancel
+    cancelEdits();
     return;
   }
 
