@@ -5,15 +5,29 @@
 
 const MATTE_TYPES = [
   'none',
-  'modernthin',
-  'modern',
-  'modernwide',
-  'flexible',
-  'shadowbox',
-  'panoramic',
-  'triptych',
-  'mix',
-  'squares'
+  // Modern family
+  'modern_polar',
+  'modern_antique',
+  'modern_warm',
+  'modern_black',
+  'modernthin_polar',
+  'modernthin_antique',
+  'modernthin_warm',
+  'modernthin_black',
+  'modernwide_polar',
+  'modernwide_antique',
+  'modernwide_warm',
+  'modernwide_black',
+  // Flexible family
+  'flexible_polar',
+  'flexible_antique',
+  'flexible_warm',
+  'flexible_black',
+  // Shadowbox family
+  'shadowbox_polar',
+  'shadowbox_antique',
+  'shadowbox_warm',
+  'shadowbox_black'
 ];
 
 const FILTER_TYPES = [
