@@ -38,6 +38,63 @@ const PRESET_TARGET_RESOLUTIONS = {
   '16:9sam': { width: 3840, height: 2160 }
 };
 
+/**
+ * Calculate the largest axis-aligned inscribed rectangle after rotation.
+ * When an image is rotated by an arbitrary angle, the corners extend beyond
+ * the original bounds. This function computes the largest rectangle that
+ * fits entirely within the rotated image without showing any background.
+ * 
+ * @param {number} width - Original image width
+ * @param {number} height - Original image height  
+ * @param {number} angleDegrees - Rotation angle in degrees
+ * @returns {{ width: number, height: number, offsetX: number, offsetY: number }}
+ */
+function getInscribedRectangle(width, height, angleDegrees) {
+  if (!width || !height) return { width: 0, height: 0, offsetX: 0, offsetY: 0 };
+  if (Math.abs(angleDegrees) < 0.01) return { width, height, offsetX: 0, offsetY: 0 };
+  
+  const angle = Math.abs(angleDegrees) * Math.PI / 180;
+  const cosA = Math.cos(angle);
+  const sinA = Math.sin(angle);
+  
+  // After rotation, the rotated image has new bounding box dimensions
+  const rotatedWidth = width * cosA + height * sinA;
+  const rotatedHeight = width * sinA + height * cosA;
+  
+  // For the largest inscribed axis-aligned rectangle within the rotated image,
+  // we use the formula for the largest rectangle that fits inside a rotated rectangle
+  const aspectRatio = width / height;
+  
+  let inscribedWidth, inscribedHeight;
+  
+  if (aspectRatio >= 1) {
+    // Landscape or square
+    const scale = cosA - sinA / aspectRatio;
+    inscribedWidth = width * scale;
+    inscribedHeight = height * scale;
+  } else {
+    // Portrait
+    const scale = cosA - sinA * aspectRatio;
+    inscribedWidth = width * scale;
+    inscribedHeight = height * scale;
+  }
+  
+  // Ensure positive dimensions
+  inscribedWidth = Math.max(1, Math.floor(inscribedWidth));
+  inscribedHeight = Math.max(1, Math.floor(inscribedHeight));
+  
+  // Calculate offset to center the inscribed rectangle in the rotated bounding box
+  const offsetX = Math.floor((rotatedWidth - inscribedWidth) / 2);
+  const offsetY = Math.floor((rotatedHeight - inscribedHeight) / 2);
+  
+  return { 
+    width: inscribedWidth, 
+    height: inscribedHeight,
+    offsetX,
+    offsetY
+  };
+}
+
 function getBackupFilename(filename) {
   const ext = path.extname(filename);
   const nameWithoutExt = filename.slice(0, filename.length - ext.length);
@@ -463,6 +520,7 @@ class ImageEditService {
     const adjustments = operations.adjustments || {};
     const filter = typeof operations.filter === 'string' ? operations.filter : 'none';
     const cropPreset = typeof operations.cropPreset === 'string' ? operations.cropPreset : null;
+    const rotation = Math.max(-45, Math.min(45, Number(operations.rotation) || 0));
     let targetResolution = normalizeTargetResolution(operations.targetResolution);
 
     if (!targetResolution && cropPreset && PRESET_TARGET_RESOLUTIONS[cropPreset]) {
@@ -494,6 +552,7 @@ class ImageEditService {
       crop: sanitizedCrop,
       adjustments: sanitizedAdjustments,
       filter: normalizedFilter,
+      rotation,
       cropPreset: cropPreset || null,
       targetResolution
     };
@@ -949,11 +1008,46 @@ class ImageEditService {
 
     const { backupPath, created: backupCreated } = await this.ensureOriginalBackup(filename);
 
-    let transformer = sharp(sourcePath).rotate();
+    // Apply arbitrary rotation if specified
+    const rotationAngle = sanitized.rotation || 0;
+    let workingDimensions = { ...orientedDimensions };
+    
+    // Start with EXIF-based auto-rotation to normalize orientation
+    // Then apply arbitrary rotation if needed (in a single rotate call to avoid issues)
+    let transformer;
+    
+    if (Math.abs(rotationAngle) >= 0.01) {
+      // Calculate the inscribed rectangle dimensions
+      const inscribed = getInscribedRectangle(
+        orientedDimensions.width, 
+        orientedDimensions.height, 
+        rotationAngle
+      );
+      
+      // First normalize EXIF orientation, then get buffer, then apply arbitrary rotation
+      const normalizedBuffer = await sharp(sourcePath).rotate().toBuffer();
+      
+      // Now apply arbitrary rotation with transparent background, then extract inscribed rectangle
+      transformer = sharp(normalizedBuffer)
+        .rotate(rotationAngle, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .extract({
+          left: inscribed.offsetX,
+          top: inscribed.offsetY,
+          width: inscribed.width,
+          height: inscribed.height
+        });
+      
+      // Update working dimensions to the inscribed rectangle
+      workingDimensions = { width: inscribed.width, height: inscribed.height };
+    } else {
+      // No arbitrary rotation - just normalize EXIF orientation
+      transformer = sharp(sourcePath).rotate();
+    }
 
+    // Apply user crop on top of the rotation-adjusted dimensions
     const cropNeeded = Object.values(sanitized.crop).some(value => value > 0.0001);
     if (cropNeeded) {
-      const region = this.calculateCropRegion(orientedDimensions, sanitized.crop);
+      const region = this.calculateCropRegion(workingDimensions, sanitized.crop);
       transformer = transformer.extract(region);
     }
 

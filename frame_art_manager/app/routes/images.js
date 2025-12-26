@@ -500,6 +500,7 @@ router.post('/:filename/edit', async (req, res) => {
           crop: req.body.crop,
           adjustments: req.body.adjustments,
           filter: req.body.filter,
+          rotation: req.body.rotation,
           cropPreset: req.body.cropPreset,
           targetResolution: req.body.targetResolution
         }
