@@ -61,23 +61,14 @@ function getInscribedRectangle(width, height, angleDegrees) {
   const rotatedWidth = width * cosA + height * sinA;
   const rotatedHeight = width * sinA + height * cosA;
   
-  // For the largest inscribed axis-aligned rectangle within the rotated image,
-  // we use the formula for the largest rectangle that fits inside a rotated rectangle
-  const aspectRatio = width / height;
+  // For the largest inscribed axis-aligned rectangle (same aspect ratio as original)
+  // within the rotated bounding box:
+  // scale = 1 / (cosA + sinA * max(W/H, H/W))
+  const denom = cosA + sinA * Math.max(width / height, height / width);
+  const scale = 1 / denom;
   
-  let inscribedWidth, inscribedHeight;
-  
-  if (aspectRatio >= 1) {
-    // Landscape or square
-    const scale = cosA - sinA / aspectRatio;
-    inscribedWidth = width * scale;
-    inscribedHeight = height * scale;
-  } else {
-    // Portrait
-    const scale = cosA - sinA * aspectRatio;
-    inscribedWidth = width * scale;
-    inscribedHeight = height * scale;
-  }
+  let inscribedWidth = width * scale;
+  let inscribedHeight = height * scale;
   
   // Ensure positive dimensions
   inscribedWidth = Math.max(1, Math.floor(inscribedWidth));
