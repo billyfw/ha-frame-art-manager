@@ -418,12 +418,13 @@ function isAspectRatio16x9(aspectRatio) {
 }
 
 /**
- * Count images that are NOT 16:9 aspect ratio
+ * Count landscape images that are NOT 16:9 aspect ratio
  */
 function countNon169Images() {
   let count = 0;
   for (const [filename, data] of Object.entries(allImages)) {
-    if (!isAspectRatio16x9(data.aspectRatio)) {
+    // Only count landscape images (not portrait) that are not 16:9
+    if (!isPortrait(data.aspectRatio) && !isAspectRatio16x9(data.aspectRatio)) {
       count++;
     }
   }
@@ -3046,9 +3047,9 @@ function renderGallery(filter = '') {
     filteredImages = filteredImages.filter(([filename, data]) => isPortrait(data.aspectRatio));
   }
 
-  // Filter for "Non 16:9" - images that are not 16:9 aspect ratio
+  // Filter for "Landscape (Non 16:9)" - landscape images that are not 16:9 aspect ratio
   if (non169FilterActive) {
-    filteredImages = filteredImages.filter(([filename, data]) => !isAspectRatio16x9(data.aspectRatio));
+    filteredImages = filteredImages.filter(([filename, data]) => !isPortrait(data.aspectRatio) && !isAspectRatio16x9(data.aspectRatio));
   }
 
   // ============================================
@@ -4745,8 +4746,8 @@ async function loadTagsForFilter() {
                class="non169-checkbox"
                ${non169FilterActive ? 'checked' : ''}>
         <label for="filter-non169">
-          <div class="tv-name">Non 16:9 <span class="tv-count">(${non169Count})</span></div>
-          <div class="tv-tags-subtitle">Images that are not 16:9 aspect ratio</div>
+          <div class="tv-name">Landscape (Non 16:9) <span class="tv-count">(${non169Count})</span></div>
+          <div class="tv-tags-subtitle">Landscape images that are not 16:9</div>
         </label>
       </div>
     `;
