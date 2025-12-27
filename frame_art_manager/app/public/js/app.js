@@ -321,6 +321,9 @@ let similarThreshold = 38; // Default threshold for similar images (adjustable v
 // Non 16:9 filter - shows images that are not 16:9 aspect ratio
 let non169FilterActive = false;
 
+// Portrait filter - shows images where height > width (aspect ratio < 1)
+let portraitFilterActive = false;
+
 // Recently Displayed filter - shows current and previous images from each TV
 let recentlyDisplayedFilterActive = false;
 let recentlyDisplayedData = {}; // Map of filename -> [{ tv_id, tv_name, time, timestamp }]
@@ -421,6 +424,26 @@ function countNon169Images() {
   let count = 0;
   for (const [filename, data] of Object.entries(allImages)) {
     if (!isAspectRatio16x9(data.aspectRatio)) {
+      count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * Check if an image is portrait orientation (height > width)
+ */
+function isPortrait(aspectRatio) {
+  return aspectRatio && aspectRatio < 1.0;
+}
+
+/**
+ * Count images that are portrait orientation
+ */
+function countPortraitImages() {
+  let count = 0;
+  for (const [filename, data] of Object.entries(allImages)) {
+    if (isPortrait(data.aspectRatio)) {
       count++;
     }
   }
@@ -3018,6 +3041,11 @@ function renderGallery(filter = '') {
     filteredImages = filteredImages.filter(([filename]) => similarFilenames.has(filename));
   }
 
+  // Filter for "Portrait" - images where height > width
+  if (portraitFilterActive) {
+    filteredImages = filteredImages.filter(([filename, data]) => isPortrait(data.aspectRatio));
+  }
+
   // Filter for "Non 16:9" - images that are not 16:9 aspect ratio
   if (non169FilterActive) {
     filteredImages = filteredImages.filter(([filename, data]) => !isAspectRatio16x9(data.aspectRatio));
@@ -4693,6 +4721,21 @@ async function loadTagsForFilter() {
       </div>
     `;
     
+    // Portrait filter
+    const portraitCount = countPortraitImages();
+    html += `
+      <div class="multiselect-option tv-shortcut portrait-filter">
+        <input type="checkbox" id="filter-portrait" 
+               value="portrait" 
+               class="portrait-checkbox"
+               ${portraitFilterActive ? 'checked' : ''}>
+        <label for="filter-portrait">
+          <div class="tv-name">Portrait <span class="tv-count">(${portraitCount})</span></div>
+          <div class="tv-tags-subtitle">Images where height > width</div>
+        </label>
+      </div>
+    `;
+    
     // Non 16:9 filter
     const non169Count = countNon169Images();
     html += `
@@ -4702,7 +4745,7 @@ async function loadTagsForFilter() {
                class="non169-checkbox"
                ${non169FilterActive ? 'checked' : ''}>
         <label for="filter-non169">
-          <div class="tv-name">Portrait (Non-16:9) <span class="tv-count">(${non169Count})</span></div>
+          <div class="tv-name">Non 16:9 <span class="tv-count">(${non169Count})</span></div>
           <div class="tv-tags-subtitle">Images that are not 16:9 aspect ratio</div>
         </label>
       </div>
@@ -4805,6 +4848,7 @@ async function loadTagsForFilter() {
           
           // Clear special filters when selecting tags
           clearSimilarFilter();
+          clearPortraitFilter();
           clearNon169Filter();
           clearRecentlyDisplayedFilter();
           
@@ -4858,6 +4902,7 @@ async function loadTagsForFilter() {
           const noneCheckbox = document.querySelector('.tv-none-checkbox');
           if (noneCheckbox) noneCheckbox.checked = false;
           clearSimilarFilter();
+          clearPortraitFilter();
           clearNon169Filter();
           // Clear tag selections
           document.querySelectorAll('.tag-checkbox').forEach(cb => setTagState(cb, 'unchecked'));
@@ -4905,6 +4950,8 @@ async function loadTagsForFilter() {
           // Clear other filters when enabling similar filter
           const noneCheckbox = document.querySelector('.tv-none-checkbox');
           if (noneCheckbox) noneCheckbox.checked = false;
+          // Clear portrait filter
+          clearPortraitFilter();
           // Clear non-16:9 filter
           clearNon169Filter();
           // Clear recently displayed filter
@@ -4928,6 +4975,32 @@ async function loadTagsForFilter() {
       });
     }
 
+    // Add listener for "Portrait" checkbox
+    const portraitCheckbox = dropdownOptions.querySelector('.portrait-checkbox');
+    if (portraitCheckbox) {
+      portraitCheckbox.addEventListener('change', (e) => {
+        portraitFilterActive = e.target.checked;
+        
+        if (portraitFilterActive) {
+          // Clear other filters when enabling portrait filter
+          const noneCheckbox = document.querySelector('.tv-none-checkbox');
+          if (noneCheckbox) noneCheckbox.checked = false;
+          // Clear similar filter
+          clearSimilarFilter();
+          // Clear non-16:9 filter
+          clearNon169Filter();
+          // Clear recently displayed filter
+          clearRecentlyDisplayedFilter();
+          // Clear tag selections
+          document.querySelectorAll('.tag-checkbox').forEach(cb => setTagState(cb, 'unchecked'));
+          document.querySelectorAll('.tv-checkbox').forEach(cb => { cb.checked = false; });
+        }
+        
+        updateTagFilterDisplay();
+        filterAndRenderGallery();
+      });
+    }
+
     // Add listener for "Non 16:9" checkbox
     const non169Checkbox = dropdownOptions.querySelector('.non169-checkbox');
     if (non169Checkbox) {
@@ -4940,6 +5013,8 @@ async function loadTagsForFilter() {
           if (noneCheckbox) noneCheckbox.checked = false;
           // Clear similar filter
           clearSimilarFilter();
+          // Clear portrait filter
+          clearPortraitFilter();
           // Clear recently displayed filter
           clearRecentlyDisplayedFilter();
           // Clear tag selections
@@ -5029,6 +5104,22 @@ function clearNon169Filter() {
   non169FilterActive = false;
 }
 
+/**
+ * Clear the Portrait filter.
+ * Call this when any other filter (tags, None, TV shortcuts, similar, non-16:9) is selected.
+ */
+function clearPortraitFilter() {
+  if (!portraitFilterActive) return;
+  
+  // Uncheck the portrait checkbox in the UI
+  const portraitCheckbox = document.querySelector('.portrait-checkbox');
+  if (portraitCheckbox) {
+    portraitCheckbox.checked = false;
+  }
+  
+  portraitFilterActive = false;
+}
+
 // Get all included tags
 function getIncludedTags() {
   const checkboxes = document.querySelectorAll('.tag-checkbox');
@@ -5065,6 +5156,7 @@ function handleTVShortcutChange(event) {
   
   // Clear special filters when selecting a TV shortcut
   clearSimilarFilter();
+  clearPortraitFilter();
   clearNon169Filter();
   clearRecentlyDisplayedFilter();
   
@@ -5110,6 +5202,7 @@ function handleNoneShortcutChange(event) {
     
     // Clear special filters when selecting None
     clearSimilarFilter();
+    clearPortraitFilter();
     clearNon169Filter();
     clearRecentlyDisplayedFilter();
   }
@@ -5185,8 +5278,11 @@ function updateTagFilterDisplay() {
   } else if (similarFilterActive) {
     label = 'Similar Images';
     showClear = true;
+  } else if (portraitFilterActive) {
+    label = 'Portrait';
+    showClear = true;
   } else if (non169FilterActive) {
-    label = 'Portrait (Non-16:9)';
+    label = 'Non 16:9';
     showClear = true;
   } else if (noneSelected) {
     label = 'None';
