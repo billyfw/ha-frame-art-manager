@@ -1743,6 +1743,18 @@ body.dropdown-open .image-card:hover {
   font-size: 1rem;
 }
 
+/* Matte dropdown - disabled landscape-only options for portrait images */
+.matte-disabled {
+  color: #999;
+}
+
+.portrait-separator {
+  color: #888;
+  font-style: italic;
+  font-size: 0.9em;
+  text-align: center;
+}
+
 .form-group input::placeholder {
   color: #bbb;
   font-style: italic;
