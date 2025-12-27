@@ -3161,6 +3161,11 @@ function renderGallery(filter = '') {
         const dateA = new Date(dataA.added || 0);
         const dateB = new Date(dataB.added || 0);
         comparison = dateA - dateB; // older first when ascending
+      } else if (sortOrder === 'modified') {
+        // Sort by last modified (fall back to added if never modified)
+        const dateA = new Date(dataA.updated || dataA.added || 0);
+        const dateB = new Date(dataB.updated || dataB.added || 0);
+        comparison = dateA - dateB; // older first when ascending
       } else {
         // Sort by name (alphabetically)
         comparison = filenameA.localeCompare(filenameB);
