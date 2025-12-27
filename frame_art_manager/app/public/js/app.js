@@ -9133,7 +9133,7 @@ function renderTVEventLog(tvId) {
       <div class="event-log-row clickable" data-filename="${escapeHtml(evt.filename)}">
         <span class="event-log-date">${dateStr}</span>
         <span class="event-log-time">${timeStr}</span>
-        <span class="event-log-image">${escapeHtml(imageName)}${filterMatteSuffix}</span>
+        <span class="event-log-image"><span class="event-log-image-text">${escapeHtml(imageName)}</span>${filterMatteSuffix}</span>
         <span class="event-log-duration">${durationFormatted}</span>
       </div>
     `;
@@ -9615,7 +9615,7 @@ function renderImageEventLog(filename, tvColorMap = {}) {
       <div class="event-log-row">
         <span class="event-log-date">${tvDot}${dateStr}</span>
         <span class="event-log-time">${timeStr}</span>
-        <span class="event-log-tv">${escapeHtml(evt.tvName)}${filterMatteSuffix}</span>
+        <span class="event-log-tv"><span class="event-log-tv-text">${escapeHtml(evt.tvName)}</span>${filterMatteSuffix}</span>
         <span class="event-log-duration">${durationFormatted}</span>
       </div>
     `;
@@ -10225,7 +10225,7 @@ function renderTagEventLog(tagName, showSeparator = true, tvColorMap = {}) {
       <div class="event-log-row clickable" data-filename="${escapeHtml(evt.filename)}">
         <span class="event-log-date">${tvDot}${dateStr}</span>
         <span class="event-log-time">${timeStr}</span>
-        <span class="event-log-image">${escapeHtml(imageName)}${filterMatteSuffix}</span>
+        <span class="event-log-image"><span class="event-log-image-text">${escapeHtml(imageName)}</span>${filterMatteSuffix}</span>
         <span class="event-log-duration">${formatHoursNice((evt.duration) / 1000)}</span>
       </div>
     `;
