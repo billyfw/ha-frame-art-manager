@@ -202,37 +202,75 @@ function updateMatteOptionsForOrientation(selectId, isPortrait, currentValue = n
   const select = document.getElementById(selectId);
   if (!select) return;
   
-  const optgroups = select.querySelectorAll('optgroup');
+  const optgroups = Array.from(select.querySelectorAll('optgroup'));
   let newValue = currentValue || select.value;
+  
+  // Remove any existing separator
+  const existingSeparator = select.querySelector('.portrait-separator');
+  if (existingSeparator) {
+    existingSeparator.remove();
+  }
+  
+  // Map display labels to matte type prefixes
+  const typeMap = {
+    'modernthin': 'modernthin',
+    'modern': 'modern',
+    'modernwide': 'modernwide',
+    'flexible': 'flexible',
+    'shadowbox': 'shadowbox',
+    'panoramic': 'panoramic',
+    'triptych': 'triptych',
+    'mix': 'mix',
+    'squares': 'squares'
+  };
+  
+  // Categorize optgroups
+  const enabledGroups = [];
+  const disabledGroups = [];
   
   optgroups.forEach(group => {
     const label = group.getAttribute('label') || '';
     const matteType = label.toLowerCase().replace(/\s+/g, '');
-    
-    // Map display labels to matte type prefixes
-    const typeMap = {
-      'modernthin': 'modernthin',
-      'modern': 'modern',
-      'modernwide': 'modernwide',
-      'flexible': 'flexible',
-      'shadowbox': 'shadowbox',
-      'panoramic': 'panoramic',
-      'triptych': 'triptych',
-      'mix': 'mix',
-      'squares': 'squares'
-    };
-    
     const actualType = typeMap[matteType] || matteType;
     const isLandscapeOnly = LANDSCAPE_ONLY_MATTE_TYPES.includes(actualType);
     
     if (isPortrait && isLandscapeOnly) {
-      group.style.display = 'none';
       group.disabled = true;
+      group.classList.add('matte-disabled');
+      disabledGroups.push(group);
     } else {
-      group.style.display = '';
       group.disabled = false;
+      group.classList.remove('matte-disabled');
+      enabledGroups.push(group);
     }
   });
+  
+  // Reorder: enabled groups first, then separator (if portrait), then disabled groups
+  // Get the 'none' option to keep it at the top
+  const noneOption = select.querySelector('option[value="none"]');
+  
+  // Clear and rebuild select (keeping 'none' at top)
+  select.innerHTML = '';
+  if (noneOption) {
+    select.appendChild(noneOption);
+  }
+  
+  // Add enabled groups
+  enabledGroups.forEach(group => select.appendChild(group));
+  
+  // Add separator and disabled groups if portrait
+  if (isPortrait && disabledGroups.length > 0) {
+    const separator = document.createElement('option');
+    separator.disabled = true;
+    separator.className = 'portrait-separator';
+    separator.textContent = '── Landscape only ──';
+    select.appendChild(separator);
+    
+    disabledGroups.forEach(group => select.appendChild(group));
+  } else {
+    // For landscape, just add remaining groups in original order
+    disabledGroups.forEach(group => select.appendChild(group));
+  }
   
   // If current value is invalid for portrait, reset to 'none'
   if (isPortrait && !isMatteValidForPortrait(newValue)) {
