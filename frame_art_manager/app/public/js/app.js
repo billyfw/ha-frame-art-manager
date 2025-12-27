@@ -2058,9 +2058,9 @@ async function addBulkTagFromHelper(tagName) {
         });
         
         const result = await response.json();
-        if (result.success) {
+        if (result.success && result.data) {
           successCount++;
-          allImages[filename].tags = newTags;
+          allImages[filename] = result.data;
         }
       }
     } catch (error) {
@@ -2130,10 +2130,10 @@ async function removeBulkTag(tagName, isPartial) {
         });
         
         const result = await response.json();
-        if (result.success) {
+        if (result.success && result.data) {
           successCount++;
-          // Update local cache
-          allImages[filename].tags = newTags;
+          // Update local cache with full response
+          allImages[filename] = result.data;
         } else {
           errorCount++;
         }
@@ -2201,10 +2201,10 @@ async function makeTagAll(tagName) {
         });
         
         const result = await response.json();
-        if (result.success) {
+        if (result.success && result.data) {
           successCount++;
-          // Update local cache
-          allImages[filename].tags = newTags;
+          // Update local cache with full response
+          allImages[filename] = result.data;
         } else {
           errorCount++;
         }
@@ -2283,10 +2283,10 @@ async function saveBulkTags() {
       });
       
       const result = await response.json();
-      if (result.success) {
+      if (result.success && result.data) {
         successCount++;
-        // Update local cache
-        allImages[filename].tags = newTags;
+        // Update local cache with full response
+        allImages[filename] = result.data;
       } else {
         errorCount++;
       }
@@ -2497,9 +2497,9 @@ async function addTagFromHelper(tagName) {
     });
     
     const result = await response.json();
-    if (result.success) {
-      allImages[currentImage].tags = newTags;
-      renderImageTagBadges(newTags);
+    if (result.success && result.data) {
+      allImages[currentImage] = result.data;
+      renderImageTagBadges(result.data.tags || []);
       renderTvTagsHelper(); // Re-render to remove the added tag
       loadTags();
       await updateSyncStatus();
@@ -2721,15 +2721,15 @@ async function addImageTags() {
     });
     
     const result = await response.json();
-    if (result.success) {
+    if (result.success && result.data) {
       console.log(`✅ [TAG CHANGE] Tags updated successfully for ${currentImage}`);
       
-      // Update local cache
-      allImages[currentImage].tags = newTags;
+      // Update local cache with full response (includes updated timestamp)
+      allImages[currentImage] = result.data;
       
       // Clear input and re-render badges
       document.getElementById('modal-tags-input').value = '';
-      renderImageTagBadges(newTags);
+      renderImageTagBadges(result.data.tags || []);
       
       // Reload tags list in background (but not gallery - causes jitter)
       // Gallery will be reloaded when modal closes if there are changes
@@ -6945,13 +6945,9 @@ async function submitImageEdits() {
     // Set cache buster for this image's thumbnail
     thumbnailCacheBusters[currentImage] = Date.now();
 
-    if (allImages[currentImage]) {
-      if (data.dimensions) {
-        allImages[currentImage].dimensions = data.dimensions;
-      }
-      if (typeof data.aspectRatio === 'number') {
-        allImages[currentImage].aspectRatio = data.aspectRatio;
-      }
+    if (allImages[currentImage] && data.imageData) {
+      // Update local cache with full response (includes updated timestamp)
+      allImages[currentImage] = data.imageData;
     }
 
     setToolbarStatus('Edits applied. Sync when ready.', 'success');
@@ -7024,13 +7020,9 @@ async function revertImageToOriginal() {
 
     editState.hasBackup = !!data.hasBackup;
 
-    if (allImages[currentImage]) {
-      if (data.dimensions) {
-        allImages[currentImage].dimensions = data.dimensions;
-      }
-      if (typeof data.aspectRatio === 'number') {
-        allImages[currentImage].aspectRatio = data.aspectRatio;
-      }
+    if (allImages[currentImage] && data.imageData) {
+      // Update local cache with full response (includes updated timestamp)
+      allImages[currentImage] = data.imageData;
     }
 
     resetEditState({ hasBackup: editState.hasBackup, keepDimensions: true, silent: true });
@@ -7462,10 +7454,9 @@ async function saveImageChanges() {
 
     const result = await response.json();
 
-    if (result.success) {
-      // Update local cache
-      allImages[currentImage].matte = matte;
-      allImages[currentImage].filter = filter;
+    if (result.success && result.data) {
+      // Update local cache with full response (includes updated timestamp)
+      allImages[currentImage] = result.data;
       
       // Don't reload gallery on every dropdown change - it causes visual jitter
       // Gallery will be reloaded when modal closes if there are changes

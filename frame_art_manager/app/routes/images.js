@@ -514,7 +514,8 @@ router.post('/:filename/edit', async (req, res) => {
       hasBackup: true,
       dimensions: result.dimensions,
       aspectRatio: result.aspectRatio,
-      operations: result.operations
+      operations: result.operations,
+      imageData: result.imageData
     });
   } catch (error) {
     console.error('Error applying edits:', error);
@@ -533,7 +534,8 @@ router.post('/:filename/revert', async (req, res) => {
       success: true,
       hasBackup: !!result.hasBackup,
       dimensions: result.dimensions,
-      aspectRatio: result.aspectRatio
+      aspectRatio: result.aspectRatio,
+      imageData: result.imageData
     });
   } catch (error) {
     console.error('Error reverting to original:', error);
