@@ -32,7 +32,7 @@ async function buildDisplayPeriods(logsPath) {
     const periods = {};
     
     for (const event of events) {
-      const { filename, tv_id, started_at, completed_at } = event;
+      const { filename, tv_id, started_at, completed_at, matte, photo_filter } = event;
       if (!filename || !tv_id || !started_at || !completed_at) continue;
       
       // Parse timestamps
@@ -49,7 +49,15 @@ async function buildDisplayPeriods(logsPath) {
         periods[filename][tv_id] = [];
       }
       
-      periods[filename][tv_id].push({ start, end });
+      // Include matte and photo_filter if present (non-null/non-"none")
+      const period = { start, end };
+      if (matte && matte !== 'none') {
+        period.matte = matte;
+      }
+      if (photo_filter && photo_filter !== 'none') {
+        period.photo_filter = photo_filter;
+      }
+      periods[filename][tv_id].push(period);
     }
     
     // Sort each TV's periods by start time

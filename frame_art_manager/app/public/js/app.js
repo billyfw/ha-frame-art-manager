@@ -8971,7 +8971,9 @@ function renderTVEventLog(tvId) {
           filename,
           start: period.start,
           end: period.end,
-          duration: period.end - period.start
+          duration: period.end - period.start,
+          matte: period.matte,
+          photo_filter: period.photo_filter
         });
       }
     }
@@ -8990,12 +8992,14 @@ function renderTVEventLog(tvId) {
     const durationFormatted = formatHoursNice(evt.duration / 1000);
     const dateStr = startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     const timeStr = startDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    const imageName = truncateFilename(evt.filename, 18);
+    const filterMatteSuffix = formatFilterMatteSuffix(evt.photo_filter, evt.matte);
     
     return `
       <div class="event-log-row clickable" data-filename="${escapeHtml(evt.filename)}">
         <span class="event-log-date">${dateStr}</span>
         <span class="event-log-time">${timeStr}</span>
-        <span class="event-log-image">${escapeHtml(truncateFilename(evt.filename, 18))}</span>
+        <span class="event-log-image">${escapeHtml(imageName)}${filterMatteSuffix}</span>
         <span class="event-log-duration">${durationFormatted}</span>
       </div>
     `;
@@ -9437,7 +9441,9 @@ function renderImageEventLog(filename) {
           tvId,
           start: period.start,
           end: period.end,
-          duration: period.end - period.start
+          duration: period.end - period.start,
+          matte: period.matte,
+          photo_filter: period.photo_filter
         });
       }
     }
@@ -9456,12 +9462,13 @@ function renderImageEventLog(filename) {
     const durationFormatted = formatHoursNice(evt.duration / 1000);
     const dateStr = startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     const timeStr = startDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    const filterMatteSuffix = formatFilterMatteSuffix(evt.photo_filter, evt.matte);
     
     return `
       <div class="event-log-row">
         <span class="event-log-date">${dateStr}</span>
         <span class="event-log-time">${timeStr}</span>
-        <span class="event-log-tv">${escapeHtml(evt.tvName)}</span>
+        <span class="event-log-tv">${escapeHtml(evt.tvName)}${filterMatteSuffix}</span>
         <span class="event-log-duration">${durationFormatted}</span>
       </div>
     `;
@@ -9665,6 +9672,24 @@ function truncateFilename(filename, maxLen) {
     }
   }
   return displayName.substring(0, maxLen - 3) + '...';
+}
+
+// Helper: format filter/matte suffix for display in event logs
+// Returns a small icon with tooltip showing the non-none filter/matte values
+function formatFilterMatteSuffix(photoFilter, matte) {
+  const parts = [];
+  if (photoFilter && photoFilter !== 'none') {
+    parts.push(`filter: ${photoFilter}`);
+  }
+  if (matte && matte !== 'none') {
+    parts.push(`matte: ${matte}`);
+  }
+  if (parts.length === 0) {
+    return '';
+  }
+  // Use &#10; for newline in title attribute
+  const tooltip = parts.join('&#10;');
+  return ` <span class="event-log-filter-matte" title="${tooltip}">✦</span>`;
 }
 
 // Helper: format seconds to hours (1 decimal) - legacy
@@ -10020,7 +10045,9 @@ function renderTagEventLog(tagName, showSeparator = true) {
             tvName,
             start: period.start,
             end: period.end,
-            duration: period.end - period.start
+            duration: period.end - period.start,
+            matte: period.matte,
+            photo_filter: period.photo_filter
           });
         }
       }
@@ -10040,12 +10067,14 @@ function renderTagEventLog(tagName, showSeparator = true) {
     const startDate = new Date(evt.start);
     const dateStr = startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     const timeStr = startDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    const imageName = truncateFilename(evt.filename, 18);
+    const filterMatteSuffix = formatFilterMatteSuffix(evt.photo_filter, evt.matte);
     
     return `
       <div class="event-log-row clickable" data-filename="${escapeHtml(evt.filename)}">
         <span class="event-log-date">${dateStr}</span>
         <span class="event-log-time">${timeStr}</span>
-        <span class="event-log-image">${escapeHtml(truncateFilename(evt.filename, 18))}</span>
+        <span class="event-log-image">${escapeHtml(imageName)}${filterMatteSuffix}</span>
         <span class="event-log-duration">${formatHoursNice((evt.duration) / 1000)}</span>
       </div>
     `;

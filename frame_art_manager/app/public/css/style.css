@@ -5830,6 +5830,17 @@ body.dropdown-open .image-card:hover {
   white-space: nowrap;
 }
 
+.event-log-filter-matte {
+  color: #555;
+  font-size: 0.75em;
+  opacity: 0.7;
+}
+
+.event-log-filter-matte:hover {
+  opacity: 1;
+  cursor: default;
+}
+
 .event-log-duration {
   color: #27ae60;
   text-align: right;
