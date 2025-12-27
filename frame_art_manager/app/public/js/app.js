@@ -3245,6 +3245,9 @@ function renderGalleryChunk(grid, count) {
       badgesHtml += '<span class="aspect-badge-card">16:9</span>';
     }
     
+    // Build filter/matte indicator
+    const filterMatteSuffix = formatFilterMatteSuffix(data.filter, data.matte);
+    
     // Get last display info from analytics (skip if recently displayed filter is active)
     const lastDisplay = recentlyDisplayedFilterActive ? null : getLastDisplayInfo(filename);
     const lastDisplayHtml = lastDisplay 
@@ -3279,7 +3282,7 @@ function renderGalleryChunk(grid, count) {
       </div>
       <div class="image-info">
         <button class="stats-link" data-filename="${filename}" title="Stats">📊</button>
-        <div class="image-filename">${getDisplayName(filename)}${badgesHtml ? ' ' + badgesHtml : ''}</div>
+        <div class="image-filename">${getDisplayName(filename)}${filterMatteSuffix}${badgesHtml ? ' ' + badgesHtml : ''}</div>
         <div class="image-tags">
           ${(data.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}
         </div>
@@ -9704,14 +9707,14 @@ function truncateFilename(filename, maxLen) {
   return displayName.substring(0, maxLen - 3) + '...';
 }
 
-// Helper: format filter/matte suffix for display in event logs
+// Helper: format filter/matte suffix for display in event logs and gallery
 // Returns a small icon with tooltip showing the non-none filter/matte values
 function formatFilterMatteSuffix(photoFilter, matte) {
   const parts = [];
-  if (photoFilter && photoFilter !== 'none') {
+  if (photoFilter && photoFilter.toLowerCase() !== 'none') {
     parts.push(`filter: ${photoFilter}`);
   }
-  if (matte && matte !== 'none') {
+  if (matte && matte.toLowerCase() !== 'none') {
     parts.push(`matte: ${matte}`);
   }
   if (parts.length === 0) {
