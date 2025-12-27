@@ -175,6 +175,99 @@ const AVAILABLE_FILTERS = new Set([
 const METADATA_DEFAULT_MATTE = 'none';
 const METADATA_DEFAULT_FILTER = 'None';
 
+// Matte types that work for portrait images (Samsung firmware limitation)
+// See frame-art-shuffler/docs/MATTE_BEHAVIOR.md for details
+const PORTRAIT_MATTE_TYPES = ['flexible', 'shadowbox'];
+const LANDSCAPE_ONLY_MATTE_TYPES = ['modernthin', 'modern', 'modernwide', 'panoramic', 'triptych', 'mix', 'squares'];
+
+// Track current upload image orientation for matte filtering
+let currentUploadIsPortrait = false;
+
+/**
+ * Check if a matte type is valid for portrait images
+ */
+function isMatteValidForPortrait(matte) {
+  if (!matte || matte === 'none') return true;
+  const matteType = matte.split('_')[0];
+  return PORTRAIT_MATTE_TYPES.includes(matteType);
+}
+
+/**
+ * Update matte dropdown to show only valid options based on image orientation
+ * @param {string} selectId - ID of the select element
+ * @param {boolean} isPortrait - Whether the image is portrait orientation
+ * @param {string} currentValue - Current selected value to preserve if valid
+ */
+function updateMatteOptionsForOrientation(selectId, isPortrait, currentValue = null) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  
+  const optgroups = select.querySelectorAll('optgroup');
+  let newValue = currentValue || select.value;
+  
+  optgroups.forEach(group => {
+    const label = group.getAttribute('label') || '';
+    const matteType = label.toLowerCase().replace(/\s+/g, '');
+    
+    // Map display labels to matte type prefixes
+    const typeMap = {
+      'modernthin': 'modernthin',
+      'modern': 'modern',
+      'modernwide': 'modernwide',
+      'flexible': 'flexible',
+      'shadowbox': 'shadowbox',
+      'panoramic': 'panoramic',
+      'triptych': 'triptych',
+      'mix': 'mix',
+      'squares': 'squares'
+    };
+    
+    const actualType = typeMap[matteType] || matteType;
+    const isLandscapeOnly = LANDSCAPE_ONLY_MATTE_TYPES.includes(actualType);
+    
+    if (isPortrait && isLandscapeOnly) {
+      group.style.display = 'none';
+      group.disabled = true;
+    } else {
+      group.style.display = '';
+      group.disabled = false;
+    }
+  });
+  
+  // If current value is invalid for portrait, reset to 'none'
+  if (isPortrait && !isMatteValidForPortrait(newValue)) {
+    select.value = 'none';
+  } else if (currentValue) {
+    select.value = currentValue;
+  }
+}
+
+/**
+ * Detect if an image file is portrait orientation
+ * @param {File} file - The image file to check
+ * @returns {Promise<boolean>} - True if portrait (height > width)
+ */
+function detectImageOrientation(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    
+    img.onload = () => {
+      const isPortrait = img.naturalHeight > img.naturalWidth;
+      URL.revokeObjectURL(url);
+      resolve(isPortrait);
+    };
+    
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      // Default to landscape on error (shows all mattes)
+      resolve(false);
+    };
+    
+    img.src = url;
+  });
+}
+
 // Similar Images filter - groups visually related images with adjustable threshold
 // When similarFilterActive is true, an implicit "similar" sort mode is engaged
 // that groups related images together, sorted by hamming distance (most similar first).
@@ -3650,6 +3743,18 @@ function initUploadForm() {
       const file = event.target.files && event.target.files[0] ? event.target.files[0] : null;
       await updateUploadPreview(file);
       
+      // Detect image orientation and update matte dropdown
+      if (file) {
+        detectImageOrientation(file).then(isPortrait => {
+          currentUploadIsPortrait = isPortrait;
+          updateMatteOptionsForOrientation('matte-select', isPortrait);
+        });
+      } else {
+        // No file - show all mattes (default to landscape)
+        currentUploadIsPortrait = false;
+        updateMatteOptionsForOrientation('matte-select', false);
+      }
+      
       // Check for duplicates if a file was selected
       if (file) {
         const result = await checkForDuplicates(file);
@@ -3671,6 +3776,9 @@ function initUploadForm() {
       await updateUploadPreview(null);
       showDuplicateWarning([]);
       clearFileBtn.classList.add('hidden');
+      // Reset matte options to show all
+      currentUploadIsPortrait = false;
+      updateMatteOptionsForOrientation('matte-select', false);
     });
   }
 
@@ -3678,6 +3786,9 @@ function initUploadForm() {
     updateUploadPreview(null);
     showDuplicateWarning([]);
     if (clearFileBtn) clearFileBtn.classList.add('hidden');
+    // Reset matte options to show all
+    currentUploadIsPortrait = false;
+    updateMatteOptionsForOrientation('matte-select', false);
   });
   updateUploadPreview(null);
 
@@ -7168,6 +7279,12 @@ function openImageModal(filename) {
   // Set form values
   const metadataMatte = imageData.matte || METADATA_DEFAULT_MATTE;
   const metadataFilter = imageData.filter || METADATA_DEFAULT_FILTER;
+
+  // Determine if image is portrait and update matte dropdown accordingly
+  const imgWidth = imageData.dimensions?.width || 0;
+  const imgHeight = imageData.dimensions?.height || 0;
+  const isPortrait = imgHeight > imgWidth;
+  updateMatteOptionsForOrientation('modal-matte', isPortrait, metadataMatte);
 
   document.getElementById('modal-matte').value = metadataMatte;
   document.getElementById('modal-filter').value = metadataFilter;
