@@ -4699,7 +4699,7 @@ async function loadTagsForFilter() {
                class="non169-checkbox"
                ${non169FilterActive ? 'checked' : ''}>
         <label for="filter-non169">
-          <div class="tv-name">Non 16:9 <span class="tv-count">(${non169Count})</span></div>
+          <div class="tv-name">Portrait (Non-16:9) <span class="tv-count">(${non169Count})</span></div>
           <div class="tv-tags-subtitle">Images that are not 16:9 aspect ratio</div>
         </label>
       </div>
@@ -5183,7 +5183,7 @@ function updateTagFilterDisplay() {
     label = 'Similar Images';
     showClear = true;
   } else if (non169FilterActive) {
-    label = 'Non 16:9';
+    label = 'Portrait (Non-16:9)';
     showClear = true;
   } else if (noneSelected) {
     label = 'None';
