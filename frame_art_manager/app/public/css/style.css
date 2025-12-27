@@ -5790,7 +5790,7 @@ body.dropdown-open .image-card:hover {
 
 .event-log-header {
   display: grid;
-  grid-template-columns: 55px 60px 1fr 50px;
+  grid-template-columns: 68px 60px 1fr 50px;
   gap: 8px;
   font-size: 0.65rem;
   color: #7f8c8d;
@@ -5807,7 +5807,7 @@ body.dropdown-open .image-card:hover {
 
 .event-log-row {
   display: grid;
-  grid-template-columns: 55px 60px 1fr 50px;
+  grid-template-columns: 68px 60px 1fr 50px;
   gap: 8px;
   font-size: 0.75rem;
   padding: 4px 0;
@@ -5828,6 +5828,17 @@ body.dropdown-open .image-card:hover {
 
 .event-log-date {
   color: #5a6c7d;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.event-log-tv-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .event-log-time {
