@@ -4921,6 +4921,10 @@ async function loadTagsForFilter() {
         
         updateTagFilterDisplay();
         filterAndRenderGallery();
+        // Close dropdown after selecting special filter
+        if (!DEBUG_ALWAYS_SHOW_TAG_DROPDOWN) {
+          closeTagDropdownPortal();
+        }
       });
     }
 
@@ -4973,6 +4977,10 @@ async function loadTagsForFilter() {
         
         updateTagFilterDisplay();
         filterAndRenderGallery();
+        // Close dropdown after selecting special filter
+        if (!DEBUG_ALWAYS_SHOW_TAG_DROPDOWN) {
+          closeTagDropdownPortal();
+        }
       });
     }
 
@@ -4999,6 +5007,10 @@ async function loadTagsForFilter() {
         
         updateTagFilterDisplay();
         filterAndRenderGallery();
+        // Close dropdown after selecting special filter
+        if (!DEBUG_ALWAYS_SHOW_TAG_DROPDOWN) {
+          closeTagDropdownPortal();
+        }
       });
     }
 
@@ -5025,6 +5037,10 @@ async function loadTagsForFilter() {
         
         updateTagFilterDisplay();
         filterAndRenderGallery();
+        // Close dropdown after selecting special filter
+        if (!DEBUG_ALWAYS_SHOW_TAG_DROPDOWN) {
+          closeTagDropdownPortal();
+        }
       });
     }
 
