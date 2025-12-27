@@ -9834,7 +9834,7 @@ function formatFilterMatteSuffix(photoFilter, matte) {
     html += `<span class="indicator-filter" title="filter: ${photoFilter}">✦</span>`;
   }
   if (hasMatte) {
-    html += `<span class="indicator-matte" title="matte: ${matte}">⊡</span>`;
+    html += `<span class="indicator-matte" title="matte: ${matte}">⧈</span>`;
   }
   
   return ` <span class="filter-matte-indicators">${html}</span>`;
