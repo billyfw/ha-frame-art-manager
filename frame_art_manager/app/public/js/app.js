@@ -9312,17 +9312,24 @@ function renderTagDetail(tagName) {
   // TV breakdown - stacked horizontal bar (only if multiple TVs)
   const totalTvCount = Object.keys(analyticsData.tvs || {}).length;
   const showStackedBar = perTv.length > 0 && totalTvCount > 1;
+  
+  // Build TV color map for consistent colors between chart and event log
+  const tvColorMap = {};
+  perTv.forEach((tv, index) => {
+    tvColorMap[tv.tv_id] = CHART_COLORS[index % CHART_COLORS.length];
+  });
+  
   if (showStackedBar) {
     const segments = perTv.map((tv, index) => {
       const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
-      const color = CHART_COLORS[index % CHART_COLORS.length];
+      const color = tvColorMap[tv.tv_id];
       const pct = tv.share || 0;
       return `<div class="stacked-bar-segment clickable" data-tv-id="${escapeHtml(tv.tv_id)}" style="width: ${pct}%; background: ${color}" title="${escapeHtml(tvName)} (${formatPercent(pct)}, ${formatHoursNice(tv.seconds || 0)})"></div>`;
     }).join('');
     
     const legend = perTv.map((tv, index) => {
       const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
-      const color = CHART_COLORS[index % CHART_COLORS.length];
+      const color = tvColorMap[tv.tv_id];
       return `<span class="stacked-bar-legend-item clickable" data-tv-id="${escapeHtml(tv.tv_id)}"><span class="stacked-bar-legend-color" style="background: ${color}"></span>${escapeHtml(tvName)}</span>`;
     }).join('');
     
@@ -9334,8 +9341,8 @@ function renderTagDetail(tagName) {
     `;
   }
   
-  // Event log for this tag (show separator only if stacked bar is shown)
-  html += renderTagEventLog(tagName, showStackedBar);
+  // Event log for this tag (show separator only if stacked bar is shown, pass TV colors for dots)
+  html += renderTagEventLog(tagName, showStackedBar, tvColorMap);
   
   container.innerHTML = html;
   
@@ -9425,19 +9432,25 @@ function renderImageDetail(filename) {
     </div>
   `;
   
+  // Build TV color map for consistent colors between chart and event log
+  const tvColorMap = {};
+  perTv.forEach((tv, index) => {
+    tvColorMap[tv.tv_id] = CHART_COLORS[index % CHART_COLORS.length];
+  });
+  
   // TV breakdown - stacked horizontal bar (only if multiple TVs)
   const totalTvCount = Object.keys(analyticsData?.tvs || {}).length;
   if (perTv.length > 0 && totalTvCount > 1) {
     const segments = perTv.map((tv, index) => {
       const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
-      const color = CHART_COLORS[index % CHART_COLORS.length];
+      const color = tvColorMap[tv.tv_id];
       const pct = tv.share || 0;
       return `<div class="stacked-bar-segment" style="width: ${pct}%; background: ${color}" title="${escapeHtml(tvName)} (${formatPercent(pct)}, ${formatHoursNice(tv.seconds || 0)})"></div>`;
     }).join('');
     
     const legend = perTv.map((tv, index) => {
       const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
-      const color = CHART_COLORS[index % CHART_COLORS.length];
+      const color = tvColorMap[tv.tv_id];
       return `<span class="stacked-bar-legend-item"><span class="stacked-bar-legend-color" style="background: ${color}"></span>${escapeHtml(tvName)}</span>`;
     }).join('');
     
@@ -9456,7 +9469,7 @@ function renderImageDetail(filename) {
         <div class="labeled-timelines-title">Activity Timeline</div>
         ${perTv.map((tv, index) => {
           const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
-          const color = CHART_COLORS[index % CHART_COLORS.length];
+          const color = tvColorMap[tv.tv_id];
           const timelineHtml = renderInlineTimeline(filename, tv.tv_id);
           // Only show TV label if multiple TVs
           const labelHtml = totalTvCount > 1 ? `
@@ -9476,8 +9489,8 @@ function renderImageDetail(filename) {
     `;
   }
   
-  // Event log section
-  html += renderImageEventLog(filename);
+  // Event log section (pass TV colors for dots)
+  html += renderImageEventLog(filename, tvColorMap);
   
   container.innerHTML = html;
 }
@@ -9550,7 +9563,7 @@ function renderInlineTimeline(filename, tvId) {
 }
 
 // Render event log for an image (all events in selected time range)
-function renderImageEventLog(filename) {
+function renderImageEventLog(filename, tvColorMap = {}) {
   const imageData = analyticsData?.images?.[filename];
   if (!imageData || !imageData.display_periods) {
     return '';
@@ -9586,6 +9599,8 @@ function renderImageEventLog(filename) {
   // Sort by start time descending (most recent first)
   allEvents.sort((a, b) => b.start - a.start);
   
+  const hasTvColors = Object.keys(tvColorMap).length > 0;
+  
   const eventRows = allEvents.map(evt => {
     const startDate = new Date(evt.start);
     // duration is in ms, convert to seconds for formatHoursNice
@@ -9593,10 +9608,12 @@ function renderImageEventLog(filename) {
     const dateStr = startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     const timeStr = startDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
     const filterMatteSuffix = formatFilterMatteSuffix(evt.photo_filter, evt.matte);
+    const tvColor = tvColorMap[evt.tvId] || '#95a5a6';
+    const tvDot = hasTvColors ? `<span class="event-log-tv-dot" style="background: ${tvColor}" title="${escapeHtml(evt.tvName)}"></span>` : '';
     
     return `
       <div class="event-log-row">
-        <span class="event-log-date">${dateStr}</span>
+        <span class="event-log-date">${tvDot}${dateStr}</span>
         <span class="event-log-time">${timeStr}</span>
         <span class="event-log-tv">${escapeHtml(evt.tvName)}${filterMatteSuffix}</span>
         <span class="event-log-duration">${durationFormatted}</span>
@@ -10147,7 +10164,7 @@ function updateDateRangeHint() {
 }
 
 // Render event log for a tag (all events for images with this tag)
-function renderTagEventLog(tagName, showSeparator = true) {
+function renderTagEventLog(tagName, showSeparator = true, tvColorMap = {}) {
   const images = analyticsData?.images || {};
   const tvs = analyticsData?.tvs || {};
   
@@ -10172,6 +10189,7 @@ function renderTagEventLog(tagName, showSeparator = true) {
         if (period.end > rangeStart) {
           allEvents.push({
             filename,
+            tvId,
             tvName,
             start: period.start,
             end: period.end,
@@ -10185,6 +10203,7 @@ function renderTagEventLog(tagName, showSeparator = true) {
   }
   
   const separatorClass = showSeparator ? '' : ' no-separator';
+  const hasTvColors = Object.keys(tvColorMap).length > 0;
   
   if (allEvents.length === 0) {
     return `<div class="event-log${separatorClass}"><div class="event-log-title">Display Events</div><div class="event-log-empty">No events in selected time range</div></div>`;
@@ -10199,10 +10218,12 @@ function renderTagEventLog(tagName, showSeparator = true) {
     const timeStr = startDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
     const imageName = truncateFilename(evt.filename, 18);
     const filterMatteSuffix = formatFilterMatteSuffix(evt.photo_filter, evt.matte);
+    const tvColor = tvColorMap[evt.tvId] || '#95a5a6';
+    const tvDot = hasTvColors ? `<span class="event-log-tv-dot" style="background: ${tvColor}" title="${escapeHtml(evt.tvName)}"></span>` : '';
     
     return `
       <div class="event-log-row clickable" data-filename="${escapeHtml(evt.filename)}">
-        <span class="event-log-date">${dateStr}</span>
+        <span class="event-log-date">${tvDot}${dateStr}</span>
         <span class="event-log-time">${timeStr}</span>
         <span class="event-log-image">${escapeHtml(imageName)}${filterMatteSuffix}</span>
         <span class="event-log-duration">${formatHoursNice((evt.duration) / 1000)}</span>
