@@ -1094,8 +1094,9 @@ class ImageEditService {
     };
     const aspectRatio = formatAspectRatio(dimensions.width, dimensions.height);
 
+    let imageData;
     try {
-      await this.helper.updateImage(filename, { dimensions, aspectRatio });
+      imageData = await this.helper.updateImage(filename, { dimensions, aspectRatio });
     } catch (error) {
       // If metadata update fails, restore from backup immediately
       await this.restoreFromBackup(filename, backupPath);
@@ -1113,7 +1114,8 @@ class ImageEditService {
       backupCreated,
       dimensions,
       aspectRatio,
-      operations: sanitized
+      operations: sanitized,
+      imageData
     };
   }
 
@@ -1143,8 +1145,9 @@ class ImageEditService {
     };
     const aspectRatio = formatAspectRatio(dimensions.width, dimensions.height);
 
+    let imageData;
     try {
-      await this.helper.updateImage(filename, { dimensions, aspectRatio });
+      imageData = await this.helper.updateImage(filename, { dimensions, aspectRatio });
     } catch (error) {
       console.warn('Metadata update failed during revert:', error.message);
     }
@@ -1160,7 +1163,8 @@ class ImageEditService {
     return {
       dimensions,
       aspectRatio,
-      hasBackup
+      hasBackup,
+      imageData
     };
   }
 
