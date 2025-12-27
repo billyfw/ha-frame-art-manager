@@ -9824,19 +9824,20 @@ function truncateFilename(filename, maxLen) {
 // Helper: format filter/matte suffix for display in event logs and gallery
 // Returns a small icon with tooltip showing the non-none filter/matte values
 function formatFilterMatteSuffix(photoFilter, matte) {
-  const parts = [];
-  if (photoFilter && photoFilter.toLowerCase() !== 'none') {
-    parts.push(`filter: ${photoFilter}`);
+  const hasFilter = photoFilter && photoFilter.toLowerCase() !== 'none';
+  const hasMatte = matte && matte.toLowerCase() !== 'none';
+  
+  if (!hasFilter && !hasMatte) return '';
+  
+  let html = '';
+  if (hasFilter) {
+    html += `<span class="indicator-filter" title="filter: ${photoFilter}">✦</span>`;
   }
-  if (matte && matte.toLowerCase() !== 'none') {
-    parts.push(`matte: ${matte}`);
+  if (hasMatte) {
+    html += `<span class="indicator-matte" title="matte: ${matte}">⊡</span>`;
   }
-  if (parts.length === 0) {
-    return '';
-  }
-  // Use &#10; for newline in title attribute
-  const tooltip = parts.join('&#10;');
-  return ` <span class="event-log-filter-matte" title="${tooltip}">✦</span>`;
+  
+  return ` <span class="filter-matte-indicators">${html}</span>`;
 }
 
 // Helper: format seconds to hours (1 decimal) - legacy

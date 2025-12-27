@@ -5862,16 +5862,23 @@ body.dropdown-open .image-card:hover {
   min-width: 0;
 }
 
-.event-log-filter-matte {
-  color: #555;
-  font-size: 0.75em;
-  opacity: 0.7;
+.filter-matte-indicators {
+  display: inline-flex;
+  gap: 3px;
   flex-shrink: 0;
 }
 
-.event-log-filter-matte:hover {
-  opacity: 1;
+.indicator-filter,
+.indicator-matte {
+  font-size: 0.75em;
+  opacity: 0.7;
   cursor: default;
+  color: #555;
+}
+
+.indicator-filter:hover,
+.indicator-matte:hover {
+  opacity: 1;
 }
 
 .event-log-duration {
