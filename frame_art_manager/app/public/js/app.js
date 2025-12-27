@@ -9157,12 +9157,8 @@ function renderImageSelector() {
   // If no gallery images loaded yet, fall back to analytics images only
   const imageNames = galleryImageNames.length > 0 ? galleryImageNames : Object.keys(analyticsImages);
   
-  // Sort by display time descending (images without analytics data will have 0)
-  imageNames.sort((a, b) => {
-    const timeA = analyticsImages[a]?.total_display_seconds || 0;
-    const timeB = analyticsImages[b]?.total_display_seconds || 0;
-    return timeB - timeA;
-  });
+  // Sort alphabetically for easy lookup
+  imageNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   
   select.innerHTML = imageNames.map(filename => {
       const displayName = truncateFilename(filename, 40);
