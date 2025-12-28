@@ -1480,9 +1480,18 @@ body.dropdown-open .image-card:hover {
   font-weight: 600;
   color: #2c3e50;
   margin-bottom: 8px;
+  display: flex;
+  align-items: baseline;
   white-space: nowrap;
   overflow: hidden;
+  min-width: 0;
+}
+
+.image-filename-text {
+  overflow: hidden;
   text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .aspect-badge-card {
