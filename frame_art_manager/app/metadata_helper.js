@@ -215,8 +215,11 @@ class MetadataHelper {
       throw new Error(`Image ${newFilename} already exists in metadata`);
     }
     
-    // Copy the metadata to the new filename
-    metadata.images[newFilename] = metadata.images[oldFilename];
+    // Copy the metadata to the new filename and update timestamp
+    metadata.images[newFilename] = {
+      ...metadata.images[oldFilename],
+      updated: new Date().toISOString()
+    };
     
     // Delete the old entry
     delete metadata.images[oldFilename];
