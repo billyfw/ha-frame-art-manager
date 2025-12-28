@@ -8841,11 +8841,24 @@ function renderBucketDetailTable() {
     const uploadDisplay = imageData.added ? `${addedDateShort} (${daysAgo})` : '—';
     const displayName = getAnalyticsDisplayName(img.name);
     
+    // Check if image has ever been displayed with filter/matte
+    let everFilter = null, everMatte = null;
+    const imgAnalytics = analyticsData?.images?.[img.name];
+    if (imgAnalytics?.display_periods) {
+      for (const periods of Object.values(imgAnalytics.display_periods)) {
+        for (const p of periods) {
+          if (p.photo_filter && p.photo_filter.toLowerCase() !== 'none') everFilter = p.photo_filter;
+          if (p.matte && p.matte.toLowerCase() !== 'none') everMatte = p.matte;
+        }
+      }
+    }
+    const filterMatteSuffix = formatFilterMatteSuffix(everFilter, everMatte);
+    
     return `
       <div class="bucket-row" data-filename="${escapeHtml(img.name)}">
         <span class="bucket-time${isZeroTime ? ' zero' : ''}">${displayTime}</span>
         <span class="bucket-count">${displayCountStr}</span>
-        <span class="bucket-filename" title="${escapeHtml(img.name)}"><span class="bucket-filename-text">${escapeHtml(displayName)}</span><button class="bucket-open-btn" title="Open image">⧉</button></span>
+        <span class="bucket-filename" title="${escapeHtml(img.name)}"><span class="bucket-filename-text">${escapeHtml(displayName)}</span>${filterMatteSuffix}<button class="bucket-open-btn" title="Open image">⧉</button></span>
         <span class="bucket-tags">${tagsHtml}</span>
         <span class="bucket-date">${uploadDisplay}</span>
       </div>
