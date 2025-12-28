@@ -1492,6 +1492,7 @@ body.dropdown-open .image-card:hover {
   text-overflow: ellipsis;
   flex-shrink: 1;
   min-width: 0;
+  max-width: calc(100% - 50px);
 }
 
 .aspect-badge-card {
@@ -5885,6 +5886,7 @@ body.dropdown-open .image-card:hover {
   display: inline-flex;
   gap: 3px;
   flex-shrink: 0;
+  margin-left: 4px;
 }
 
 .indicator-filter,
