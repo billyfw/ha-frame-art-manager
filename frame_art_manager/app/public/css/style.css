@@ -3990,10 +3990,6 @@ body.dropdown-open .image-card:hover {
     font-size: 0.9rem;
   }
 
-  .image-filename-text {
-    max-width: calc(100% - 50px);
-  }
-
   /* Make matte/filter indicators more visible on mobile */
   .indicator-filter,
   .indicator-matte {
@@ -5889,7 +5885,6 @@ body.dropdown-open .image-card:hover {
   display: inline-flex;
   gap: 3px;
   flex-shrink: 0;
-  margin-left: 4px;
 }
 
 .indicator-filter,
