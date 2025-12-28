@@ -3311,7 +3311,7 @@ function renderGalleryChunk(grid, count) {
       </div>
       <div class="image-info">
         <button class="stats-link" data-filename="${filename}" title="Stats">📊</button>
-        <div class="image-filename">${getDisplayName(filename)}${filterMatteSuffix}${badgesHtml ? ' ' + badgesHtml : ''}</div>
+        <div class="image-filename"><span class="image-filename-text">${getDisplayName(filename)}</span>${filterMatteSuffix}${badgesHtml ? ' ' + badgesHtml : ''}</div>
         <div class="image-tags">
           ${(data.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}
         </div>
