@@ -3484,6 +3484,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (similarCheckbox) {
         similarCheckbox.checked = false;
       }
+      // Uncheck "Portrait" checkbox and clear filter
+      const portraitCheckbox = document.querySelector('.portrait-checkbox');
+      if (portraitCheckbox) {
+        portraitCheckbox.checked = false;
+      }
       // Uncheck "Non 16:9" checkbox and clear filter
       const non169Checkbox = document.querySelector('.non169-checkbox');
       if (non169Checkbox) {
@@ -3511,6 +3516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         preRecentSortState = null;
       }
       similarFilterActive = false;
+      portraitFilterActive = false;
       non169FilterActive = false;
       recentlyDisplayedFilterActive = false;
       updateTagFilterDisplay();
