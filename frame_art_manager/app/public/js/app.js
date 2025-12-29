@@ -2745,11 +2745,8 @@ async function removeImageTag(tagName) {
       renderImageTagBadges(newTags);
       renderTvTagsHelper();
       
-      // Reload gallery in background
-      loadGallery();
-      
       // Update sync status since metadata changed
-      await updateSyncStatus()
+      await updateSyncStatus();
     } else {
       alert('Failed to remove tag');
     }
