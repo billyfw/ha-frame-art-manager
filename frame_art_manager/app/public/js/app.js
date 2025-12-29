@@ -2283,6 +2283,31 @@ function closeBulkTagModal() {
   const modal = document.getElementById('bulk-tag-modal');
   modal.classList.remove('visible');
   document.getElementById('bulk-tags-input').value = '';
+  
+  // Update tag displays on visible image cards to reflect changes
+  updateGalleryCardTags();
+}
+
+/**
+ * Update the tag badges on all visible gallery cards to reflect current state.
+ * Called after bulk tag operations to show updated tags without full re-render.
+ */
+function updateGalleryCardTags() {
+  const grid = document.getElementById('image-grid');
+  if (!grid) return;
+  
+  const cards = grid.querySelectorAll('.image-card');
+  cards.forEach(card => {
+    const filename = card.dataset.filename;
+    const imageData = allImages[filename];
+    if (!imageData) return;
+    
+    const tagsContainer = card.querySelector('.image-tags');
+    if (tagsContainer) {
+      const tags = imageData.tags || [];
+      tagsContainer.innerHTML = tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
+    }
+  });
 }
 
 async function saveBulkTags() {
