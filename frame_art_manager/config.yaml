@@ -1,6 +1,6 @@
 # Frame Art Manager Add-on Configuration
 name: Frame Art Manager
-version: "1.13.6"
+version: "1.13.7"
 slug: frame_art_manager
 description: Manage Frame TV artwork library
 url: https://github.com/billyfw/ha-frame-art-manager
