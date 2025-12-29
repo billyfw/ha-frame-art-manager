@@ -2286,6 +2286,11 @@ function closeBulkTagModal() {
   
   // Update tag displays on visible image cards to reflect changes
   updateGalleryCardTags();
+  
+  // Deselect all images
+  selectedImages.clear();
+  lastClickedIndex = null;
+  updateGallerySelectionVisual();
 }
 
 /**
