@@ -4286,6 +4286,10 @@ body.dropdown-open .image-card:hover {
     margin-top: 4px !important;
   }
 
+  #upload-tab .tv-tags-helper {
+    max-height: 120px !important;
+  }
+
   /* Upload submit button full width on mobile - COMPACT */
   #upload-tab .upload-submit-btn {
     width: 100% !important;
