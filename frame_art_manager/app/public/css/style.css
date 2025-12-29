@@ -5914,6 +5914,13 @@ body.dropdown-open .image-card:hover {
   opacity: 1;
 }
 
+/* Smaller/subtler indicators on gallery cards */
+.image-card .indicator-filter,
+.image-card .indicator-matte {
+  font-size: 0.85em;
+  opacity: 0.75;
+}
+
 .event-log-duration {
   color: #27ae60;
   text-align: right;
