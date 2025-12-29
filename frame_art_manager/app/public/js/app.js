@@ -2121,9 +2121,7 @@ async function addBulkTagFromHelper(tagName) {
   // Refresh the bulk modal to show updated state
   refreshBulkTagModal();
   
-  // Refresh tags list without reloading gallery
-  loadTags();
-  loadTagsForFilter();
+  // Update sync status since metadata changed
   await updateSyncStatus();
 }
 
@@ -2213,10 +2211,6 @@ async function removeBulkTag(tagName, isPartial) {
   renderBulkTagBadges('bulk-some-tags', someTags, true);
   renderBulkTvTagsHelper(allTags);
   
-  // Refresh tags list without reloading gallery
-  loadTags();
-  loadTagsForFilter();
-  
   // Update sync status since metadata changed
   await updateSyncStatus();
 }
@@ -2280,10 +2274,6 @@ async function makeTagAll(tagName) {
   renderBulkTagBadges('bulk-all-tags', allTags, false);
   renderBulkTagBadges('bulk-some-tags', someTags, true);
   renderBulkTvTagsHelper(allTags);
-  
-  // Refresh tags list without reloading gallery
-  loadTags();
-  loadTagsForFilter();
   
   // Update sync status since metadata changed
   await updateSyncStatus();
@@ -2377,10 +2367,6 @@ async function saveBulkTags() {
   if (hasError) {
     alert(`Some tags may not have been added. Check console for details.`);
   }
-  
-  // Refresh tags list (in case new tags were created) without reloading gallery
-  await loadTags();
-  await loadTagsForFilter();
   
   // Update sync status since metadata changed
   await updateSyncStatus();
