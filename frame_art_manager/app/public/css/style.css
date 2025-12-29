@@ -541,6 +541,18 @@ body {
   margin: -10px 0 10px 0;
 }
 
+/* Extend toolbar background to full width to hide image shadows on sides */
+.gallery-toolbar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -50vw;
+  right: -50vw;
+  background: #f5f5f5;
+  z-index: -1;
+}
+
 /* Desktop: toolbar-right is just a flex container */
 .toolbar-right {
   display: contents;
@@ -4392,7 +4404,7 @@ body.dropdown-open .image-card:hover {
   color: white;
   padding: 15px 20px;
   border-radius: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   align-items: center;
   justify-content: space-between;
   box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
@@ -4400,6 +4412,22 @@ body.dropdown-open .image-card:hover {
   position: sticky;
   top: 60px;
   z-index: 99;
+}
+
+.bulk-actions.visible {
+  display: flex;
+}
+
+/* Buffer zone below bulk actions - images scroll behind this */
+.bulk-actions::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -15px;
+  height: 15px;
+  background: #f5f5f5;
+  pointer-events: none;
 }
 
 /* Desktop: show desktop text, hide mobile text */
@@ -4411,10 +4439,6 @@ body.dropdown-open .image-card:hover {
 .bulk-actions .mobile-text,
 .toolbar-row-1 .mobile-text {
   display: none;
-}
-
-.bulk-actions.visible {
-  display: flex;
 }
 
 .bulk-actions-info {
