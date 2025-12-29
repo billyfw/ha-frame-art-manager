@@ -825,6 +825,70 @@ router.put('/settings', async (req, res) => {
 });
 
 // ============================================
+// Batch Operations
+// ============================================
+
+/**
+ * Batch add a tag to multiple images
+ * POST /api/images/batch/add-tag
+ * Body: { filenames: string[], tag: string }
+ */
+router.post('/batch/add-tag', async (req, res) => {
+  try {
+    const { filenames, tag } = req.body;
+
+    if (!Array.isArray(filenames) || filenames.length === 0) {
+      return res.status(400).json({ error: 'filenames must be a non-empty array' });
+    }
+    if (!tag || typeof tag !== 'string') {
+      return res.status(400).json({ error: 'tag must be a non-empty string' });
+    }
+
+    const helper = new MetadataHelper(req.frameArtPath);
+    const results = await helper.batchAddTag(filenames, tag.trim());
+
+    res.json({
+      success: true,
+      results,
+      message: `Added tag "${tag}" to ${results.success} images (${results.skipped} already had it)`
+    });
+  } catch (error) {
+    console.error('Error in batch add tag:', error);
+    res.status(500).json({ error: 'Failed to batch add tag' });
+  }
+});
+
+/**
+ * Batch remove a tag from multiple images
+ * POST /api/images/batch/remove-tag
+ * Body: { filenames: string[], tag: string }
+ */
+router.post('/batch/remove-tag', async (req, res) => {
+  try {
+    const { filenames, tag } = req.body;
+
+    if (!Array.isArray(filenames) || filenames.length === 0) {
+      return res.status(400).json({ error: 'filenames must be a non-empty array' });
+    }
+    if (!tag || typeof tag !== 'string') {
+      return res.status(400).json({ error: 'tag must be a non-empty string' });
+    }
+
+    const helper = new MetadataHelper(req.frameArtPath);
+    const results = await helper.batchRemoveTag(filenames, tag.trim());
+
+    res.json({
+      success: true,
+      results,
+      message: `Removed tag "${tag}" from ${results.success} images (${results.skipped} didn't have it)`
+    });
+  } catch (error) {
+    console.error('Error in batch remove tag:', error);
+    res.status(500).json({ error: 'Failed to batch remove tag' });
+  }
+});
+
+// ============================================
 // Single Image Routes (MUST be LAST - :filename is a catch-all)
 // ============================================
 

@@ -2061,35 +2061,36 @@ function renderBulkTvTagsHelper(allAppliedTags) {
   });
 }
 
-// Add a tag to all selected images from bulk helper
+// Add a tag to all selected images from bulk helper (uses batch API)
 async function addBulkTagFromHelper(tagName) {
   const selectedArray = Array.from(selectedImages);
-  let successCount = 0;
   
-  for (const filename of selectedArray) {
-    try {
-      const imageData = allImages[filename];
-      const existingTags = imageData.tags || [];
-      
-      // Only add if image doesn't already have this tag
-      if (!existingTags.includes(tagName)) {
-        const newTags = [...existingTags, tagName];
-        
-        const response = await fetch(`${API_BASE}/images/${filename}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tags: newTags })
-        });
-        
-        const result = await response.json();
-        if (result.success && result.data) {
-          successCount++;
-          allImages[filename] = result.data;
+  try {
+    const response = await fetch(`${API_BASE}/images/batch/add-tag`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filenames: selectedArray, tag: tagName })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      // Update local cache - add tag to each image
+      for (const filename of selectedArray) {
+        if (allImages[filename]) {
+          if (!allImages[filename].tags) {
+            allImages[filename].tags = [];
+          }
+          if (!allImages[filename].tags.includes(tagName)) {
+            allImages[filename].tags.push(tagName);
+          }
         }
       }
-    } catch (error) {
-      console.error(`Error adding tag to ${filename}:`, error);
+      console.log(`Batch add tag: ${result.message}`);
+    } else {
+      console.error('Batch add tag failed:', result.error);
     }
+  } catch (error) {
+    console.error('Error in batch add tag:', error);
   }
   
   // Refresh the bulk modal to show updated state
@@ -2134,38 +2135,28 @@ function refreshBulkTagModal() {
 
 async function removeBulkTag(tagName, isPartial) {
   const selectedArray = Array.from(selectedImages);
-  let successCount = 0;
-  let errorCount = 0;
   
-  // Remove tag from all selected images that have it
-  for (const filename of selectedArray) {
-    try {
-      const imageData = allImages[filename];
-      const existingTags = imageData.tags || [];
-      
-      // Only update if this image has the tag
-      if (existingTags.includes(tagName)) {
-        const newTags = existingTags.filter(t => t !== tagName);
-        
-        const response = await fetch(`${API_BASE}/images/${filename}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tags: newTags })
-        });
-        
-        const result = await response.json();
-        if (result.success && result.data) {
-          successCount++;
-          // Update local cache with full response
-          allImages[filename] = result.data;
-        } else {
-          errorCount++;
+  try {
+    const response = await fetch(`${API_BASE}/images/batch/remove-tag`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filenames: selectedArray, tag: tagName })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      // Update local cache - remove tag from each image
+      for (const filename of selectedArray) {
+        if (allImages[filename] && allImages[filename].tags) {
+          allImages[filename].tags = allImages[filename].tags.filter(t => t !== tagName);
         }
       }
-    } catch (error) {
-      console.error(`Error removing tag from ${filename}:`, error);
-      errorCount++;
+      console.log(`Batch remove tag: ${result.message}`);
+    } else {
+      console.error('Batch remove tag failed:', result.error);
     }
+  } catch (error) {
+    console.error('Error in batch remove tag:', error);
   }
   
   // Refresh the modal to show updated tags
@@ -2195,6 +2186,7 @@ async function removeBulkTag(tagName, isPartial) {
   
   renderBulkTagBadges('bulk-all-tags', allTags, false);
   renderBulkTagBadges('bulk-some-tags', someTags, true);
+  renderBulkTvTagsHelper(allTags);
   
   // Reload gallery in background
   loadGallery();
@@ -2205,38 +2197,33 @@ async function removeBulkTag(tagName, isPartial) {
 
 async function makeTagAll(tagName) {
   const selectedArray = Array.from(selectedImages);
-  let successCount = 0;
-  let errorCount = 0;
   
-  // Add tag to all selected images that don't have it
-  for (const filename of selectedArray) {
-    try {
-      const imageData = allImages[filename];
-      const existingTags = imageData.tags || [];
-      
-      // Only update if this image doesn't have the tag
-      if (!existingTags.includes(tagName)) {
-        const newTags = [...existingTags, tagName];
-        
-        const response = await fetch(`${API_BASE}/images/${filename}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tags: newTags })
-        });
-        
-        const result = await response.json();
-        if (result.success && result.data) {
-          successCount++;
-          // Update local cache with full response
-          allImages[filename] = result.data;
-        } else {
-          errorCount++;
+  try {
+    const response = await fetch(`${API_BASE}/images/batch/add-tag`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filenames: selectedArray, tag: tagName })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      // Update local cache - add tag to each image
+      for (const filename of selectedArray) {
+        if (allImages[filename]) {
+          if (!allImages[filename].tags) {
+            allImages[filename].tags = [];
+          }
+          if (!allImages[filename].tags.includes(tagName)) {
+            allImages[filename].tags.push(tagName);
+          }
         }
       }
-    } catch (error) {
-      console.error(`Error adding tag to ${filename}:`, error);
-      errorCount++;
+      console.log(`Batch add tag (makeTagAll): ${result.message}`);
+    } else {
+      console.error('Batch add tag failed:', result.error);
     }
+  } catch (error) {
+    console.error('Error in batch add tag:', error);
   }
   
   // Refresh the modal to show updated tags
@@ -2266,6 +2253,7 @@ async function makeTagAll(tagName) {
   
   renderBulkTagBadges('bulk-all-tags', allTags, false);
   renderBulkTagBadges('bulk-some-tags', someTags, true);
+  renderBulkTvTagsHelper(allTags);
   
   // Reload gallery in background
   loadGallery();
@@ -2290,33 +2278,40 @@ async function saveBulkTags() {
   }
   
   const selectedArray = Array.from(selectedImages);
-  let successCount = 0;
-  let errorCount = 0;
+  let totalSuccess = 0;
+  let hasError = false;
   
-  // Update each selected image
-  for (const filename of selectedArray) {
+  // Use batch API for each tag
+  for (const tag of tags) {
     try {
-      const imageData = allImages[filename];
-      const existingTags = imageData.tags || [];
-      const newTags = [...new Set([...existingTags, ...tags])]; // Merge and dedupe
-      
-      const response = await fetch(`${API_BASE}/images/${filename}`, {
-        method: 'PUT',
+      const response = await fetch(`${API_BASE}/images/batch/add-tag`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags: newTags })
+        body: JSON.stringify({ filenames: selectedArray, tag })
       });
       
       const result = await response.json();
-      if (result.success && result.data) {
-        successCount++;
-        // Update local cache with full response
-        allImages[filename] = result.data;
+      if (result.success) {
+        totalSuccess += result.results.success;
+        // Update local cache - add tag to each image
+        for (const filename of selectedArray) {
+          if (allImages[filename]) {
+            if (!allImages[filename].tags) {
+              allImages[filename].tags = [];
+            }
+            if (!allImages[filename].tags.includes(tag)) {
+              allImages[filename].tags.push(tag);
+            }
+          }
+        }
+        console.log(`Batch add tag "${tag}": ${result.message}`);
       } else {
-        errorCount++;
+        hasError = true;
+        console.error(`Batch add tag "${tag}" failed:`, result.error);
       }
     } catch (error) {
-      console.error(`Error updating ${filename}:`, error);
-      errorCount++;
+      hasError = true;
+      console.error(`Error adding tag "${tag}":`, error);
     }
   }
   
@@ -2330,8 +2325,8 @@ async function saveBulkTags() {
   const tagCounts = {};
   selectedArray.forEach(filename => {
     const imageData = allImages[filename];
-    const tags = imageData.tags || [];
-    tags.forEach(tag => {
+    const imgTags = imageData.tags || [];
+    imgTags.forEach(tag => {
       tagCounts[tag] = (tagCounts[tag] || 0) + 1;
     });
   });
@@ -2349,10 +2344,11 @@ async function saveBulkTags() {
   
   renderBulkTagBadges('bulk-all-tags', allTags, false);
   renderBulkTagBadges('bulk-some-tags', someTags, true);
+  renderBulkTvTagsHelper(allTags);
   
-  // Show result
-  if (errorCount > 0) {
-    alert(`Added tags to ${successCount} images. ${errorCount} failed.`);
+  // Show result if there were errors
+  if (hasError) {
+    alert(`Some tags may not have been added. Check console for details.`);
   }
   
   // Reload gallery and tags in background
