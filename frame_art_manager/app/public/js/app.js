@@ -8847,18 +8847,23 @@ function renderBucketDetailTable() {
     const uploadDisplay = imageData.added ? `${addedDateShort} (${daysAgo})` : '—';
     const displayName = getAnalyticsDisplayName(img.name);
     
-    // Check if image has ever been displayed with filter/matte
-    let everFilter = null, everMatte = null;
-    const imgAnalytics = analyticsData?.images?.[img.name];
-    if (imgAnalytics?.display_periods) {
-      for (const periods of Object.values(imgAnalytics.display_periods)) {
-        for (const p of periods) {
-          if (p.photo_filter && p.photo_filter.toLowerCase() !== 'none') everFilter = p.photo_filter;
-          if (p.matte && p.matte.toLowerCase() !== 'none') everMatte = p.matte;
+    // Use current metadata for filter/matte, fallback to display history for deleted images
+    let currentFilter = imageData.filter;
+    let currentMatte = imageData.matte;
+    
+    // Fallback to display history if image not in gallery (deleted)
+    if (!currentFilter && !currentMatte) {
+      const imgAnalytics = analyticsData?.images?.[img.name];
+      if (imgAnalytics?.display_periods) {
+        for (const periods of Object.values(imgAnalytics.display_periods)) {
+          for (const p of periods) {
+            if (p.photo_filter && p.photo_filter.toLowerCase() !== 'none') currentFilter = p.photo_filter;
+            if (p.matte && p.matte.toLowerCase() !== 'none') currentMatte = p.matte;
+          }
         }
       }
     }
-    const filterMatteSuffix = formatFilterMatteSuffix(everFilter, everMatte);
+    const filterMatteSuffix = formatFilterMatteSuffix(currentFilter, currentMatte);
     
     return `
       <div class="bucket-row" data-filename="${escapeHtml(img.name)}">
