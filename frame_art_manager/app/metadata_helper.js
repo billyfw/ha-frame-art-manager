@@ -183,6 +183,87 @@ class MetadataHelper {
   }
 
   /**
+   * Batch add a tag to multiple images (single write operation)
+   * @param {string[]} filenames - Array of image filenames
+   * @param {string} tag - Tag to add
+   * @returns {Object} Results with success/failure counts
+   */
+  async batchAddTag(filenames, tag) {
+    const metadata = await this.readMetadata();
+    const results = { success: 0, skipped: 0, notFound: [] };
+    const now = new Date().toISOString();
+
+    for (const filename of filenames) {
+      if (!metadata.images[filename]) {
+        results.notFound.push(filename);
+        continue;
+      }
+
+      const image = metadata.images[filename];
+      if (!image.tags) {
+        image.tags = [];
+      }
+
+      if (image.tags.includes(tag)) {
+        results.skipped++;
+      } else {
+        image.tags.push(tag);
+        image.updated = now;
+        results.success++;
+      }
+    }
+
+    // Add tag to global tag library if not present
+    if (!metadata.tags) {
+      metadata.tags = [];
+    }
+    if (!metadata.tags.includes(tag)) {
+      metadata.tags.push(tag);
+    }
+
+    // Single write operation for all changes
+    await this.writeMetadata(metadata);
+
+    return results;
+  }
+
+  /**
+   * Batch remove a tag from multiple images (single write operation)
+   * @param {string[]} filenames - Array of image filenames
+   * @param {string} tag - Tag to remove
+   * @returns {Object} Results with success/failure counts
+   */
+  async batchRemoveTag(filenames, tag) {
+    const metadata = await this.readMetadata();
+    const results = { success: 0, skipped: 0, notFound: [] };
+    const now = new Date().toISOString();
+
+    for (const filename of filenames) {
+      if (!metadata.images[filename]) {
+        results.notFound.push(filename);
+        continue;
+      }
+
+      const image = metadata.images[filename];
+      if (!image.tags || !image.tags.includes(tag)) {
+        results.skipped++;
+      } else {
+        image.tags = image.tags.filter(t => t !== tag);
+        image.updated = now;
+        results.success++;
+      }
+    }
+
+    // Clean up unused tags from global list
+    await this.cleanupUnusedTags(metadata);
+
+    // Single write operation for all changes
+    await this.writeMetadata(metadata);
+
+    return results;
+  }
+
+  /**
    * Delete image entry from metadata
    */
   async deleteImage(filename) {
