@@ -532,6 +532,13 @@ body {
   margin-bottom: 20px;
   align-items: center;
   flex-wrap: wrap;
+  /* Sticky positioning for desktop */
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #f5f5f5;
+  padding: 10px 0;
+  margin: -10px 0 10px 0;
 }
 
 /* Desktop: toolbar-right is just a flex container */
@@ -4389,6 +4396,10 @@ body.dropdown-open .image-card:hover {
   align-items: center;
   justify-content: space-between;
   box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+  /* Sticky positioning for desktop - stacks below toolbar */
+  position: sticky;
+  top: 60px;
+  z-index: 99;
 }
 
 /* Desktop: show desktop text, hide mobile text */
