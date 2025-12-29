@@ -1710,6 +1710,29 @@ async function loadGallery() {
 }
 
 // Selection Functions
+
+/**
+ * Update only the visual selection state of gallery cards without re-rendering.
+ * This prevents scroll position reset and flickering when selecting images.
+ */
+function updateGallerySelectionVisual() {
+  const grid = document.getElementById('image-grid');
+  if (!grid) return;
+  
+  const allCards = grid.querySelectorAll('.image-card');
+  allCards.forEach(card => {
+    const filename = card.dataset.filename;
+    if (selectedImages.has(filename)) {
+      card.classList.add('selected');
+    } else {
+      card.classList.remove('selected');
+    }
+  });
+  
+  // Update the bulk actions bar
+  updateBulkActionsBar(currentFilteredImages.length);
+}
+
 function handleImageClick(filename, index, event) {
   event.stopPropagation();
   
@@ -1741,7 +1764,8 @@ function handleImageClick(filename, index, event) {
   }
   
   lastClickedIndex = index;
-  renderGallery();
+  // Use lightweight visual update instead of full re-render to prevent scroll flickering
+  updateGallerySelectionVisual();
 }
 
 function updateBulkActionsBar(totalSelectableCount) {
@@ -1774,7 +1798,8 @@ function updateBulkActionsBar(totalSelectableCount) {
 function clearSelection() {
   selectedImages.clear();
   lastClickedIndex = null;
-  renderGallery();
+  // Use lightweight visual update instead of full re-render to prevent scroll flickering
+  updateGallerySelectionVisual();
 }
 
 function selectAllImages() {
@@ -4512,8 +4537,8 @@ async function uploadBatchImages(files) {
     uploadedFilenames.forEach(filename => {
       selectedImages.add(filename);
     });
-    renderGallery(); // Re-render to show selection
-    updateBulkActionsBar();
+    // Use lightweight visual update instead of full re-render to prevent scroll flickering
+    updateGallerySelectionVisual();
   }
   
   // Trigger auto-sync
