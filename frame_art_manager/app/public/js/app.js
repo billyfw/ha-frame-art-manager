@@ -9299,22 +9299,31 @@ function renderTagSelector() {
   const select = document.getElementById('analytics-tag-select');
   if (!select || !analyticsData) return;
   
-  const tags = analyticsData.tags || {};
-  const tagNames = Object.keys(tags);
+  // Get tags that have activity in the selected time range
+  const tagsWithActivity = getTagsWithActivityInRange();
   
-  // Sort by display time descending
-  tagNames.sort((a, b) => (tags[b].total_display_seconds || 0) - (tags[a].total_display_seconds || 0));
+  // Sort alphabetically, but keep <none> (untagged) at the end
+  tagsWithActivity.sort((a, b) => {
+    if (a === '<none>') return 1;
+    if (b === '<none>') return -1;
+    return a.localeCompare(b, undefined, { sensitivity: 'base' });
+  });
   
-  select.innerHTML = tagNames.map(tag => {
+  select.innerHTML = tagsWithActivity.map(tag => {
       const displayTag = tag === '<none>' ? '(untagged)' : tag;
       return `<option value="${escapeHtml(tag)}">${escapeHtml(displayTag)}</option>`;
     }).join('');
   
-  // Auto-select first tag
-  if (tagNames.length > 0) {
-    selectedTag = tagNames[0];
+  // If current selection is no longer available, auto-select first
+  if (tagsWithActivity.length > 0) {
+    if (!selectedTag || !tagsWithActivity.includes(selectedTag)) {
+      selectedTag = tagsWithActivity[0];
+    }
     select.value = selectedTag;
     renderTagDetail(selectedTag);
+  } else {
+    selectedTag = null;
+    renderTagDetail(null);
   }
 }
 
@@ -9793,7 +9802,8 @@ function setupAnalyticsEventListeners() {
       selectedTimeRange = btn.dataset.range;
       updateDateRangeHint();
       if (selectedTv) renderTVDetail(selectedTv);
-      if (selectedTag) renderTagDetail(selectedTag);
+      // Re-render tag selector (filters by time range)
+      renderTagSelector();
       if (selectedImage) renderImageDetail(selectedImage);
       // Re-render main chart too
       renderOverallPieChart();
@@ -9993,6 +10003,41 @@ function calculateTVStatsForRange(tvId) {
   const shareOfTotal = allTVsTotal > 0 ? (totalSeconds / allTVsTotal) * 100 : 0;
   
   return { totalSeconds, eventCount, shareOfTotal };
+}
+
+// Helper: get tags that have activity in the selected time range
+function getTagsWithActivityInRange() {
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  const images = analyticsData?.images || {};
+  const tagsWithActivity = new Set();
+  
+  for (const [filename, imageData] of Object.entries(images)) {
+    // Check if this image has any display periods in range
+    let hasActivityInRange = false;
+    for (const periods of Object.values(imageData.display_periods || {})) {
+      for (const period of periods) {
+        if (period.end > rangeStart) {
+          hasActivityInRange = true;
+          break;
+        }
+      }
+      if (hasActivityInRange) break;
+    }
+    
+    if (hasActivityInRange) {
+      const imageTags = imageData.tags || [];
+      if (imageTags.length === 0) {
+        tagsWithActivity.add('<none>');
+      } else {
+        imageTags.forEach(tag => tagsWithActivity.add(tag));
+      }
+    }
+  }
+  
+  return Array.from(tagsWithActivity);
 }
 
 // Helper: calculate tag stats for the selected time range
