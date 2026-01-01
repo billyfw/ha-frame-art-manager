@@ -832,8 +832,8 @@ body {
   font-weight: 500;
 }
 
-/* Hide mobile TV status container on desktop */
-.control-tv-status-mobile {
+/* Hide mobile TV status bar on desktop */
+.tv-status-bar-mobile {
   display: none;
 }
 
@@ -3298,7 +3298,6 @@ body.dropdown-open .image-card:hover {
   .toolbar-row-1 {
     display: flex !important;
     align-items: center;
-    flex-wrap: wrap;
     gap: 6px;
     order: -1 !important;
   }
@@ -3357,36 +3356,38 @@ body.dropdown-open .image-card:hover {
     flex: 1 0 100%;
   }
 
-  /* TV Status on mobile - thin horizontal bars above buttons */
+  /* TV Status on mobile - hide desktop version */
   .toolbar-right .controls .control-tv-status {
     display: none !important;
   }
 
-  .toolbar-row-1 .control-tv-status-mobile {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
+  /* Mobile TV status bar - horizontal row above toolbar */
+  .tv-status-bar-mobile {
+    display: flex !important;
+    flex-direction: row;
+    gap: 4px;
     width: 100%;
-    order: -1;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
   }
 
-  .toolbar-row-1 .control-tv-status-mobile .tv-status-dot {
-    width: 100%;
+  .tv-status-bar-mobile .tv-status-dot {
+    flex: 1;
     height: 6px;
     border-radius: 3px;
   }
 
-  /* Mobile: pill appears below the bar */
-  .toolbar-row-1 .control-tv-status-mobile .tv-status-pill {
-    top: 100%;
-    right: 0;
-    left: 0;
+  /* Mobile: pill appears below the bar, full width */
+  .tv-status-bar-mobile .tv-status-pill {
+    position: fixed;
+    top: auto;
+    bottom: auto;
+    left: 10px;
+    right: 10px;
     transform: none;
-    margin-top: 2px;
-    padding: 6px 10px;
-    border-radius: 6px;
+    padding: 8px 12px;
+    border-radius: 8px;
     text-align: center;
+    z-index: 1000;
   }
 
   .toolbar-row-1 .btn-add {
