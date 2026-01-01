@@ -8057,9 +8057,16 @@ body.dropdown-open .image-card:hover {
   transform: translateY(-1px);
 }
 
-/* Mobile override rows - hidden on desktop */
+/* Mobile-only rows - hidden on desktop */
 .mobile-override-row,
-.mobile-tagset-override-row {
+.mobile-tagset-override-row,
+.mobile-tagset-tags-row {
+  display: none;
+}
+
+/* Mobile-only elements in tagsets table - hidden on desktop */
+.mobile-expand-btn,
+.mobile-tagset-meta {
   display: none;
 }
 
@@ -8989,6 +8996,8 @@ body.dropdown-open .image-card:hover {
     width: auto;
     padding-right: 10px;
     text-align: right;
+    vertical-align: top;
+    padding-top: 12px;
   }
   
   .tagsets-table .td-actions .btn-icon {
@@ -9001,15 +9010,127 @@ body.dropdown-open .image-card:hover {
     opacity: 1;
   }
   
+  /* Mobile tagset name row with expand button */
+  .tagset-name-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .mobile-expand-btn {
+    display: flex;
+    padding: 4px;
+    margin-right: 2px;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  
+  .mobile-expand-btn .expand-arrow {
+    font-size: 10px;
+    color: #718096;
+    transition: transform 0.2s ease;
+  }
+  
+  .mobile-expand-btn .expand-arrow.expanded {
+    transform: rotate(90deg);
+  }
+  
+  .tagset-name-text {
+    font-weight: 600;
+  }
+  
+  /* Mobile tagset meta line (tag counts + used by) */
+  .mobile-tagset-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    margin-left: 22px;
+    font-size: 11px;
+    color: #718096;
+  }
+  
+  .mobile-tagset-meta .tag-counts {
+    color: #4a5568;
+    font-weight: 500;
+  }
+  
+  .mobile-tagset-meta .used-by-info {
+    color: #718096;
+  }
+  
+  /* Mobile tags detail row (expanded) */
+  .mobile-tagset-tags-row {
+    display: table-row;
+  }
+  
+  .mobile-tagset-tags-row td {
+    padding: 0 8px 10px 30px;
+    border-bottom: 1px solid #e8ecf0;
+  }
+  
+  .mobile-tags-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .mobile-tags-detail .tag-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .mobile-tags-detail .tag-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #718096;
+    text-transform: uppercase;
+    min-width: 50px;
+    padding-top: 2px;
+  }
+  
+  .mobile-tags-detail .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex: 1;
+  }
+  
+  .tag-chip-small {
+    display: inline-block;
+    padding: 2px 6px;
+    background: #e8f4fd;
+    border: 1px solid #bee3f8;
+    border-radius: 10px;
+    font-size: 10px;
+    color: #2b6cb0;
+  }
+  
+  .tag-chip-small.exclude {
+    background: #fed7d7;
+    border-color: #feb2b2;
+    color: #c53030;
+  }
+  
+  /* When expanded, remove bottom border from main row */
+  .tagsets-table .tagset-row:has(+ .mobile-tagset-tags-row) td,
+  .tagsets-table .tagset-row:has(+ .mobile-tagset-override-row) td {
+    border-bottom: none;
+  }
+  
   /* Mobile tagset override row - spanning all columns */
   .mobile-tagset-override-row {
     display: table-row;
-    background: #fffaf0;
+    background: #fffaf0 !important;
   }
   
   .mobile-tagset-override-row td {
-    padding: 0 8px 8px 8px;
+    padding: 0 8px 8px 30px;
     border-bottom: 1px solid #e8ecf0;
+    background: #fffaf0 !important;
   }
   
   .mobile-tagset-override-row .mobile-tagset-override-info {
