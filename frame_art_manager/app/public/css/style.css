@@ -7975,6 +7975,12 @@ body.dropdown-open .image-card:hover {
   background: #fafbfc;
 }
 
+/* Override row should always match has-override background */
+.tv-assignments-table tbody tr.mobile-override-row,
+.tv-assignments-table tbody tr.mobile-override-row:nth-child(even) {
+  background: #fffaf0;
+}
+
 .tv-col-name {
   font-weight: 600;
   color: #2d3748;
@@ -8161,27 +8167,21 @@ body.dropdown-open .image-card:hover {
     max-width: 100%;
   }
   
-  /* Undo button on mobile - show below dropdown */
+  /* Undo button on mobile - show below dropdown, in flow */
   .tv-col-tagset .tagset-undo-btn {
     display: none;
-    position: absolute;
-    left: 0;
-    top: 100%;
-    margin-top: 4px;
+    margin-top: 6px;
     margin-left: 0;
     background: #e2e8f0;
     padding: 4px 8px;
     font-size: 11px;
-    opacity: 0;
-    pointer-events: none;
+    border-radius: 4px;
   }
   
   .tv-col-tagset .tagset-undo-btn.show {
     display: flex;
     align-items: center;
     gap: 4px;
-    opacity: 1;
-    pointer-events: auto;
   }
   
   .tv-col-tagset .tagset-undo-btn::before {
