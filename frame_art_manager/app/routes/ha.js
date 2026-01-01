@@ -23,12 +23,30 @@ const requireHA = (req, res, next) => {
 
 // Mock tagsets for development - GLOBAL tagsets (not per-TV)
 const MOCK_GLOBAL_TAGSETS = {
-  'everyday': { tags: ['Landscape', 'Nature', 'Beach', 'Sunset', 'Mountains', 'Ocean', 'Forest', 'Flowers', 'Sky'], exclude_tags: [] },
-  'holidays': { tags: ['Christmas', 'Winter'], exclude_tags: ['Beach'] },
-  'billybirthday': { tags: ['Family', 'Birthday'], exclude_tags: [] },
-  'primary': { tags: ['Family', 'Portrait', 'Kids'], exclude_tags: ['Abstract'] },
-  'work': { tags: ['Abstract', 'Urban', 'Architecture'], exclude_tags: ['Family'] },
-  'relax': { tags: ['Nature', 'Landscape'], exclude_tags: [] }
+  'everyday': { 
+    tags: ['Landscape', 'Nature', 'Beach', 'Sunset', 'Mountains', 'Ocean', 'Forest', 'Flowers', 'Sky', 'Clouds', 'River', 'Lake', 'Meadow', 'Wildlife', 'Scenic', 'Outdoor', 'Horizon', 'Golden Hour'], 
+    exclude_tags: ['Abstract', 'Urban', 'Architecture', 'Modern'] 
+  },
+  'holidays': { 
+    tags: ['Christmas', 'Winter', 'Snow', 'Holiday', 'Festive', 'Cozy', 'Fireplace', 'Pine', 'Decorations', 'Lights', 'Family', 'Celebration', 'Ornaments', 'Gifts', 'Wreath', 'Snowman'], 
+    exclude_tags: ['Beach', 'Summer', 'Tropical', 'Warm', 'Sunny'] 
+  },
+  'billybirthday': { 
+    tags: ['Family', 'Birthday', 'Party', 'Celebration', 'Kids', 'Cake', 'Balloons', 'Fun', 'Happy', 'Memories', 'Portrait', 'Candles', 'Presents', 'Streamers', 'Confetti', 'Gathering'], 
+    exclude_tags: [] 
+  },
+  'primary': { 
+    tags: ['Family', 'Portrait', 'Kids', 'Home', 'Love', 'Together', 'Candid', 'Moments', 'Everyday', 'Life', 'Smiles', 'Joy', 'Siblings', 'Parents', 'Grandparents', 'Pets', 'Indoor'], 
+    exclude_tags: ['Abstract', 'Urban', 'Architecture', 'Commercial', 'Stock'] 
+  },
+  'work': { 
+    tags: ['Abstract', 'Urban', 'Architecture', 'Modern', 'Minimalist', 'Geometric', 'City', 'Building', 'Design', 'Art', 'Contemporary', 'Lines', 'Shapes', 'Monochrome', 'Industrial', 'Corporate'], 
+    exclude_tags: ['Family', 'Kids', 'Portrait', 'Casual', 'Personal', 'Baby', 'Children', 'Wedding', 'Birthday', 'Party', 'Pets', 'Animals', 'Cute', 'Playful', 'Silly', 'Vacation', 'Beach', 'Holiday'] 
+  },
+  'relax': { 
+    tags: ['Nature', 'Landscape', 'Calm', 'Peaceful', 'Zen', 'Water', 'Garden', 'Serene', 'Tranquil', 'Soft', 'Gentle', 'Meditation', 'Spa', 'Wellness', 'Retreat', 'Silence', 'Harmony'], 
+    exclude_tags: ['Urban', 'Busy', 'Bright', 'Loud', 'Crowded', 'Vibrant'] 
+  }
 };
 
 // Mock TV assignments for development

@@ -10888,29 +10888,28 @@ function renderTagsetsTable() {
     
     const isExpanded = expandedTagsets.has(name);
     
-    // Format tag list - either truncated or full
+    // Format tag list - text when collapsed, chips when expanded
     const formatTagList = (tags, emptyText) => {
       if (tags.length === 0) return `<span class="tag-summary-none">${emptyText}</span>`;
       
       const tagStr = tags.join(', ');
-      const needsTruncation = tagStr.length > 30;
+      const needsTruncation = tagStr.length > 120;
       
       if (isExpanded || !needsTruncation) {
         // Show all tags
         if (needsTruncation) {
-          // Expanded view - show as chips
-          return `<div class="tag-chips-inline">
-            ${tags.map(t => `<span class="tag-chip-inline">${escapeHtml(t)}</span>`).join('')}
-          </div>`;
+          // Expanded view - show as chips with collapse option
+          const chips = tags.map(t => `<span class="tag-chip-inline">${escapeHtml(t)}</span>`).join('');
+          return `<div class="tag-chips-inline">${chips}<span class="collapse-link" data-tagset-name="${escapeHtml(name)}">&lt;&lt;</span></div>`;
         }
         return `<span>${escapeHtml(tagStr)}</span>`;
       }
       
-      // Truncated view
+      // Truncated view - show as text
       let shown = [];
       let len = 0;
       for (const tag of tags) {
-        if (len + tag.length + 2 > 25 && shown.length > 0) break;
+        if (len + tag.length + 2 > 100 && shown.length > 0) break;
         shown.push(tag);
         len += tag.length + 2;
       }
@@ -10971,8 +10970,8 @@ function renderTagsetsTable() {
   // Attach event listeners
   container.querySelectorAll('.tagset-row').forEach(row => {
     row.addEventListener('click', (e) => {
-      // Don't open edit if clicking +N more or delete button
-      if (e.target.closest('.more-count') || e.target.closest('.tagset-delete-btn')) return;
+      // Don't open edit if clicking +N more, collapse link, or delete button
+      if (e.target.closest('.more-count') || e.target.closest('.collapse-link') || e.target.closest('.tagset-delete-btn')) return;
       openTagsetModal(row.dataset.tagsetName);
     });
   });
@@ -10982,6 +10981,15 @@ function renderTagsetsTable() {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       expandedTagsets.add(el.dataset.tagsetName);
+      renderTagsetsTable();
+    });
+  });
+  
+  // Make << collapse link clickable
+  container.querySelectorAll('.collapse-link').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      expandedTagsets.delete(el.dataset.tagsetName);
       renderTagsetsTable();
     });
   });
