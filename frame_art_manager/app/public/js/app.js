@@ -10584,8 +10584,7 @@ function populateTagsetDropdowns() {
   const tagsetNames = Object.keys(allGlobalTagsets || {});
   
   // Populate tagset dropdown (no TV selector needed - tagsets are global)
-  tagsetSelect.innerHTML = '<option value="">-- Select Tagset --</option>' +
-    tagsetNames.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+  tagsetSelect.innerHTML = tagsetNames.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
   
   // Restore selection if it still exists
   if (currentTagset && tagsetNames.includes(currentTagset)) {
@@ -10606,8 +10605,6 @@ function populateTagsetDropdowns() {
     const tagsetName = tagsetSelect.value;
     if (tagsetName) {
       renderTagsetDetails(tagsetName);
-    } else if (detailsContainer) {
-      detailsContainer.innerHTML = '<p class="empty-state">Select a tagset to view or edit details.</p>';
     }
   };
   
@@ -10949,14 +10946,19 @@ async function deleteTagset(tagsetName) {
     });
     
     const result = await response.json();
+    console.log('Delete tagset response:', response.status, result);
     
     if (result.success) {
-      // Refresh TV data and re-render
-      await loadTVs();
-      loadTagsTab();
+      // Update local state immediately
+      delete allGlobalTagsets[tagsetName];
+      
+      // Re-render the tagsets UI
+      populateTagsetDropdowns();
+      renderTVAssignments();
     } else {
       // Show detailed error from backend (includes HA validation messages)
       const errorMsg = result.details || result.error || 'Failed to delete tagset';
+      console.error('Delete tagset failed:', errorMsg);
       alert(errorMsg);
     }
   } catch (error) {
