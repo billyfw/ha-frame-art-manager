@@ -11169,10 +11169,37 @@ function renderTagsetsTable() {
       });
       mobileOverrideText = overrideParts.join('; ');
     }
+    
+    // Build mobile "used by" text (non-override TVs only)
+    let mobileUsedByText = '';
+    if (tvsUsing.length > 0) {
+      mobileUsedByText = tvsUsing.length <= 3 
+        ? tvsUsing.map(tv => tv.name).join(', ')
+        : `${tvsUsing.length} TVs`;
+    }
+    
+    // Mobile tag counts
+    const includeCount = includeTags.length;
+    const excludeCount = excludeTags.length;
+    
+    // Check if this tagset is expanded (for mobile tag details)
+    const isMobileExpanded = expandedTagsets.has(name);
 
     html += `
         <tr class="tagset-row clickable-row${hasOverride ? ' has-override' : ''}" data-tagset-name="${escapeHtml(name)}">
-          <td class="td-name">${escapeHtml(name)} <span class="tagset-match-count">(${matchCount})</span></td>
+          <td class="td-name">
+            <div class="tagset-name-row">
+              <button class="btn-icon mobile-expand-btn" data-tagset-name="${escapeHtml(name)}" title="${isMobileExpanded ? 'Collapse' : 'Expand'}">
+                <span class="expand-arrow ${isMobileExpanded ? 'expanded' : ''}">▶</span>
+              </button>
+              <span class="tagset-name-text">${escapeHtml(name)}</span>
+              <span class="tagset-match-count">(${matchCount})</span>
+            </div>
+            <div class="mobile-tagset-meta">
+              <span class="tag-counts">${includeCount}in${excludeCount > 0 ? ` / ${excludeCount}ex` : ''}</span>
+              ${mobileUsedByText ? `<span class="used-by-info">· ${escapeHtml(mobileUsedByText)}</span>` : ''}
+            </div>
+          </td>
           <td class="td-include desktop-only">${includeSummary}</td>
           <td class="td-exclude desktop-only">${excludeSummary}</td>
           <td class="td-used-by desktop-only${hasOverride ? ' has-override' : ''}">${usedBySummary}</td>
@@ -11181,6 +11208,24 @@ function renderTagsetsTable() {
               ${tagsetNames.length <= 1 ? 'disabled' : ''}>×</button>
           </td>
         </tr>
+        ${isMobileExpanded ? `
+        <tr class="mobile-tagset-tags-row">
+          <td colspan="2">
+            <div class="mobile-tags-detail">
+              <div class="tag-group">
+                <span class="tag-label">Include:</span>
+                <span class="tag-list">${includeTags.length > 0 ? includeTags.map(t => `<span class="tag-chip-small">${escapeHtml(t)}</span>`).join('') : '<em>All</em>'}</span>
+              </div>
+              ${excludeTags.length > 0 ? `
+              <div class="tag-group">
+                <span class="tag-label">Exclude:</span>
+                <span class="tag-list">${excludeTags.map(t => `<span class="tag-chip-small exclude">${escapeHtml(t)}</span>`).join('')}</span>
+              </div>
+              ` : ''}
+            </div>
+          </td>
+        </tr>
+        ` : ''}
         ${hasOverride ? `
         <tr class="mobile-tagset-override-row">
           <td colspan="2"><span class="mobile-tagset-override-info">${mobileOverrideText}</span></td>
@@ -11199,9 +11244,23 @@ function renderTagsetsTable() {
   // Attach event listeners
   container.querySelectorAll('.tagset-row').forEach(row => {
     row.addEventListener('click', (e) => {
-      // Don't open edit if clicking +N more, collapse link, or delete button
-      if (e.target.closest('.more-count') || e.target.closest('.collapse-link') || e.target.closest('.tagset-delete-btn')) return;
+      // Don't open edit if clicking expand btn, +N more, collapse link, or delete button
+      if (e.target.closest('.mobile-expand-btn') || e.target.closest('.more-count') || e.target.closest('.collapse-link') || e.target.closest('.tagset-delete-btn')) return;
       openTagsetModal(row.dataset.tagsetName);
+    });
+  });
+  
+  // Mobile expand/collapse button
+  container.querySelectorAll('.mobile-expand-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tagsetName = btn.dataset.tagsetName;
+      if (expandedTagsets.has(tagsetName)) {
+        expandedTagsets.delete(tagsetName);
+      } else {
+        expandedTagsets.add(tagsetName);
+      }
+      renderTagsetsTable();
     });
   });
   
