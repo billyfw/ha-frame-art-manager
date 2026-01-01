@@ -8693,7 +8693,7 @@ body.dropdown-open .image-card:hover {
 
 .tagsets-table .th-actions,
 .tagsets-table .td-actions {
-  width: 80px;
+  width: 100px;
   text-align: right;
   padding-right: 16px;
 }
@@ -8727,15 +8727,17 @@ body.dropdown-open .image-card:hover {
 }
 
 .tagsets-table .td-actions .tagset-edit-btn {
-  color: #718096;
-  font-size: 14px;
+  color: #4a90d9;
+  font-size: 16px;
   cursor: pointer;
-  margin-right: 4px;
+  margin-right: 2px;
+  opacity: 0.8;
 }
 
 .tagsets-table .td-actions .tagset-edit-btn:hover {
-  color: #4a5568;
-  background: #e2e8f0;
+  color: #2b6cb0;
+  background: #ebf4ff;
+  opacity: 1;
 }
 
 .tagsets-table .td-actions .tagset-delete-btn {
