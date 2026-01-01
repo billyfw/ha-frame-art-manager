@@ -3298,6 +3298,7 @@ body.dropdown-open .image-card:hover {
   .toolbar-row-1 {
     display: flex !important;
     align-items: center;
+    flex-wrap: wrap;
     gap: 6px;
     order: -1 !important;
   }
@@ -3356,30 +3357,36 @@ body.dropdown-open .image-card:hover {
     flex: 1 0 100%;
   }
 
-  /* TV Status dots on mobile - show in toolbar-row-1, above sync */
+  /* TV Status on mobile - thin horizontal bars above buttons */
   .toolbar-right .controls .control-tv-status {
     display: none !important;
   }
 
   .toolbar-row-1 .control-tv-status-mobile {
     display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 0 4px;
-    order: 10;
-    margin-left: auto;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    order: -1;
+    margin-bottom: 4px;
   }
 
   .toolbar-row-1 .control-tv-status-mobile .tv-status-dot {
-    width: 10px;
-    height: 10px;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
   }
 
-  /* Mobile: pill expands to the left */
+  /* Mobile: pill appears below the bar */
   .toolbar-row-1 .control-tv-status-mobile .tv-status-pill {
-    right: auto;
+    top: 100%;
+    right: 0;
     left: 0;
-    padding: 6px 20px 6px 10px;
+    transform: none;
+    margin-top: 2px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    text-align: center;
   }
 
   .toolbar-row-1 .btn-add {
