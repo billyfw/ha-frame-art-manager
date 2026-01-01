@@ -186,6 +186,52 @@ Shows all configured TVs with:
 
 ## Tags Tab
 
+The Tags tab has two main sections: **Manage Tagsets** and **TV Tagset Assignments**.
+
+### Manage Tagsets
+
+Tagsets are named collections of include/exclude tags that can be assigned to TVs. They're defined globally (not per-TV), so the same tagset can be used by multiple TVs.
+
+**Tagset Dropdown:**
+- Select a tagset to view its details
+- Shows include tags and exclude tags
+- Displays which TVs are using this tagset
+
+**Edit Tagset:**
+- Click "Edit Tagset" button
+- Opens modal with:
+  - Tagset name (editable for rename)
+  - Include tags (multi-select checkboxes)
+  - Exclude tags (multi-select checkboxes)
+- Renaming automatically updates all TV assignments
+
+**Delete Tagset:**
+- Click "Delete" button (requires confirmation)
+- Cannot delete if any TV is using it (shows which TV)
+- Cannot delete the only tagset
+
+**New Tagset:**
+- Click "+ New Tagset" button
+- Opens modal to create a new tagset
+- Requires at least one include tag
+
+### TV Tagset Assignments
+
+Grid of cards showing each TV's tagset configuration:
+
+**For Each TV:**
+- **Selected Tagset**: Dropdown to choose permanent tagset
+- **Override Status**: Shows active override and expiry time
+- **Override Button**: Apply temporary tagset override
+- **Clear Button**: Remove active override early
+
+**Applying an Override:**
+1. Click "Override" button on TV card
+2. Select tagset and duration (30min to 24h, or custom)
+3. Override shows expiry countdown
+4. Automatically reverts when duration expires
+5. Or click "Clear" to revert early
+
 ### Tag List
 
 Shows all tags with:
