@@ -10637,6 +10637,8 @@ function renderTagsetDetails(tagsetName) {
     return;
   }
   
+  const tagsetCount = Object.keys(allGlobalTagsets || {}).length;
+  
   // Find which TVs are using this tagset
   const tvsUsingSelected = allTVs.filter(tv => tv.selected_tagset === tagsetName);
   const tvsUsingOverride = allTVs.filter(tv => tv.override_tagset === tagsetName);
@@ -10678,7 +10680,8 @@ function renderTagsetDetails(tagsetName) {
       </div>
       <div class="tagset-detail-actions">
         <button class="btn btn-primary tagset-edit-btn" data-tagset-name="${escapeHtml(tagsetName)}">Edit Tagset</button>
-        <button class="btn btn-text btn-danger-text tagset-delete-btn" data-tagset-name="${escapeHtml(tagsetName)}">Delete</button>
+        <button class="btn btn-text btn-danger-text tagset-delete-btn" data-tagset-name="${escapeHtml(tagsetName)}"
+          ${tagsetCount <= 1 ? 'disabled title="Cannot delete the only tagset"' : ''}>Delete</button>
       </div>
     </div>
   `;
@@ -10693,6 +10696,7 @@ function renderTagsetDetails(tagsetName) {
   
   detailsContainer.querySelector('.tagset-delete-btn')?.addEventListener('click', async (e) => {
     e.preventDefault();
+    if (e.target.disabled) return;
     if (confirm(`Delete tagset "${tagsetName}"?`)) {
       await deleteTagset(tagsetName);
     }
@@ -10811,6 +10815,7 @@ function openTagsetModal(tagsetName) {
   // Populate tag checkboxes
   const allTagNames = allTags || [];
   let existingTagset = null;
+  const tagsetCount = Object.keys(allGlobalTagsets || {}).length;
   
   if (tagsetName) {
     // Edit mode - get from global tagsets
@@ -10819,7 +10824,15 @@ function openTagsetModal(tagsetName) {
     nameInput.value = tagsetName;
     nameInput.readOnly = false;
     nameInput.classList.remove('readonly');
+    // Show delete but disable if only 1 tagset exists
     deleteBtn.style.display = 'inline-block';
+    if (tagsetCount <= 1) {
+      deleteBtn.disabled = true;
+      deleteBtn.title = 'Cannot delete the only tagset';
+    } else {
+      deleteBtn.disabled = false;
+      deleteBtn.title = '';
+    }
   } else {
     // Create mode
     titleEl.textContent = 'New Tagset';
@@ -10878,7 +10891,7 @@ async function saveTagset(e) {
   const originalName = form.dataset.originalName || '';
   
   if (!name) {
-    showToast('Tagset name is required', 'error');
+    alert('Tagset name is required');
     return;
   }
   
@@ -10911,17 +10924,16 @@ async function saveTagset(e) {
     const result = await response.json();
     
     if (result.success) {
-      showToast(`Tagset "${name}" saved successfully`, 'success');
       closeTagsetModal();
       // Refresh TV data and re-render
       await loadTVs();
       loadTagsTab();
     } else {
-      showToast(result.error || 'Failed to save tagset', 'error');
+      alert(result.error || 'Failed to save tagset');
     }
   } catch (error) {
     console.error('Error saving tagset:', error);
-    showToast('Error saving tagset: ' + error.message, 'error');
+    alert('Error saving tagset: ' + error.message);
   }
 }
 
@@ -10939,16 +10951,17 @@ async function deleteTagset(tagsetName) {
     const result = await response.json();
     
     if (result.success) {
-      showToast(`Tagset "${tagsetName}" deleted`, 'success');
       // Refresh TV data and re-render
       await loadTVs();
       loadTagsTab();
     } else {
-      showToast(result.error || 'Failed to delete tagset', 'error');
+      // Show detailed error from backend (includes HA validation messages)
+      const errorMsg = result.details || result.error || 'Failed to delete tagset';
+      alert(errorMsg);
     }
   } catch (error) {
     console.error('Error deleting tagset:', error);
-    showToast('Error deleting tagset: ' + error.message, 'error');
+    alert('Error deleting tagset: ' + error.message);
   }
 }
 
@@ -10967,16 +10980,15 @@ async function selectTagset(deviceId, tagsetName) {
     const result = await response.json();
     
     if (result.success) {
-      showToast(tagsetName ? `Selected tagset "${tagsetName}"` : 'Tagset cleared', 'success');
       // Refresh TV data and re-render
       await loadTVs();
       renderTVAssignments();
     } else {
-      showToast(result.error || 'Failed to select tagset', 'error');
+      alert(result.error || 'Failed to select tagset');
     }
   } catch (error) {
     console.error('Error selecting tagset:', error);
-    showToast('Error selecting tagset: ' + error.message, 'error');
+    alert('Error selecting tagset: ' + error.message);
   }
 }
 
@@ -11013,7 +11025,7 @@ function openOverrideModal(deviceId) {
   // Find the TV
   const tv = allTVs.find(t => t.device_id === deviceId);
   if (!tv) {
-    showToast('TV not found', 'error');
+    alert('TV not found');
     return;
   }
   
@@ -11070,11 +11082,11 @@ async function applyOverride(e) {
   const tagsetName = select.value;
   
   if (!tagsetName) {
-    showToast('Please select a tagset', 'error');
+    alert('Please select a tagset');
     return;
   }
   
-  // Calculate duration in hours from minutes
+  // Get duration in minutes
   let durationMinutes;
   if (durationSelect.value === 'custom') {
     durationMinutes = parseInt(customDurationInput.value) || 0;
@@ -11082,7 +11094,10 @@ async function applyOverride(e) {
     durationMinutes = parseInt(durationSelect.value) || 0;
   }
   
-  const durationHours = durationMinutes > 0 ? durationMinutes / 60 : null;
+  if (durationMinutes <= 0) {
+    alert('Please select a duration');
+    return;
+  }
   
   try {
     const response = await fetch(`${API_BASE}/ha/tagsets/override`, {
@@ -11091,24 +11106,23 @@ async function applyOverride(e) {
       body: JSON.stringify({
         device_id: deviceId,
         name: tagsetName,
-        duration_hours: durationHours
+        duration_minutes: durationMinutes
       })
     });
     
     const result = await response.json();
     
     if (result.success) {
-      showToast(`Override set to "${tagsetName}"`, 'success');
       closeOverrideModal();
       // Refresh TV data and re-render
       await loadTVs();
       loadTagsTab();
     } else {
-      showToast(result.error || 'Failed to set override', 'error');
+      alert(result.error || 'Failed to set override');
     }
   } catch (error) {
     console.error('Error setting override:', error);
-    showToast('Error setting override: ' + error.message, 'error');
+    alert('Error setting override: ' + error.message);
   }
 }
 
@@ -11126,16 +11140,15 @@ async function clearOverride(deviceId) {
     const result = await response.json();
     
     if (result.success) {
-      showToast('Override cleared', 'success');
       // Refresh TV data and re-render
       await loadTVs();
       loadTagsTab();
     } else {
-      showToast(result.error || 'Failed to clear override', 'error');
+      alert(result.error || 'Failed to clear override');
     }
   } catch (error) {
     console.error('Error clearing override:', error);
-    showToast('Error clearing override: ' + error.message, 'error');
+    alert('Error clearing override: ' + error.message);
   }
 }
 

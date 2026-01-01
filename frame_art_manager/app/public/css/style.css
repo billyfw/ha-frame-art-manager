@@ -7733,8 +7733,8 @@ body.dropdown-open .image-card:hover {
 
 /* TV Assignment Cards */
 .tv-assignment-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 12px;
 }
 
