@@ -8057,87 +8057,88 @@ body.dropdown-open .image-card:hover {
   transform: translateY(-1px);
 }
 
-/* Mobile: Stack table rows into cards */
+/* Mobile: Keep TV Assignments as table, just make it fit */
 @media (max-width: 768px) {
   .tv-assignments-table {
-    box-shadow: none;
-    border: none;
-    background: transparent;
+    font-size: 12px;
+    table-layout: fixed;
+    width: 100%;
   }
   
-  .tv-assignments-table thead {
-    display: none;
-  }
-  
-  .tv-assignments-table,
-  .tv-assignments-table tbody {
-    display: block;
-  }
-  
-  .tv-assignments-table tbody tr {
-    display: block;
-    background: #fff;
-    border: 1px solid #d8dde3;
-    border-radius: 10px;
-    margin-bottom: 12px;
-    padding: 14px 16px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-  }
-  
-  .tv-assignments-table tbody tr:nth-child(even) {
-    background: #fff;
-  }
-  
-  .tv-assignments-table tbody tr:hover {
-    background: #fff;
-  }
-  
+  .tv-assignments-table th,
   .tv-assignments-table td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid #edf2f7;
+    padding: 8px 6px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
   
-  .tv-assignments-table td:last-child {
-    border-bottom: none;
-    padding-top: 12px;
+  .tv-assignments-table th {
+    font-size: 10px;
+    letter-spacing: 0;
   }
   
-  .tv-assignments-table td::before {
-    content: attr(data-label);
-    font-weight: 500;
-    font-size: 11px;
-    color: #718096;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    flex-shrink: 0;
-    margin-right: 12px;
+  /* Column widths for mobile */
+  .tv-assignments-table th:nth-child(1),
+  .tv-assignments-table td:nth-child(1) {
+    width: 22%;
   }
   
-  .tv-col-name {
-    font-size: 16px;
-    border-bottom: 1px solid #e2e8f0;
-    padding-bottom: 10px;
-    margin-bottom: 2px;
+  .tv-assignments-table th:nth-child(2),
+  .tv-assignments-table td:nth-child(2) {
+    width: 28%;
   }
   
-  .tv-col-name::before {
-    display: none;
+  .tv-assignments-table th:nth-child(3),
+  .tv-assignments-table td:nth-child(3) {
+    width: 14%;
+  }
+  
+  .tv-assignments-table th:nth-child(4),
+  .tv-assignments-table td:nth-child(4) {
+    width: 20%;
+  }
+  
+  .tv-assignments-table th:nth-child(5),
+  .tv-assignments-table td:nth-child(5) {
+    width: 16%;
+  }
+  
+  .tv-col-name .tv-name {
+    font-size: 12px;
+    display: block;
+    line-height: 1.2;
   }
   
   .tv-col-tagset {
-    flex-wrap: wrap;
-    gap: 6px;
+    position: relative;
   }
   
-  .tv-col-actions {
-    justify-content: flex-end;
+  .tv-col-tagset select.tagset-select {
+    font-size: 11px;
+    padding: 4px 2px;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
   }
   
-  .tv-col-actions::before {
+  .tv-col-tagset .tagset-undo-btn {
     display: none;
+  }
+  
+  .tv-col-actions .btn-small {
+    padding: 4px 6px;
+    font-size: 10px;
+    min-width: 0;
+  }
+  
+  .tv-col-override .override-text,
+  .tv-col-override .override-none {
+    font-size: 11px;
+    word-break: break-word;
+  }
+  
+  .tv-col-override-time span {
+    font-size: 10px;
   }
 }
 
@@ -8855,7 +8856,7 @@ body.dropdown-open .image-card:hover {
   text-decoration: underline;
 }
 
-/* Mobile: Stack tagsets table */
+/* Mobile: Tagsets and TV Assignments page */
 @media (max-width: 768px) {
   /* Section headers */
   .subsection h3 {
@@ -8877,208 +8878,217 @@ body.dropdown-open .image-card:hover {
     font-size: 12px;
   }
 
-  /* TV Assignments Table mobile styles */
-  .tv-assignments-table td {
-    padding: 6px 0;
-    font-size: 13px;
-  }
-  
-  .tv-assignments-table td::before {
-    font-size: 10px;
-    min-width: 70px;
-  }
-  
-  .tv-col-name {
-    font-size: 15px;
-    padding-bottom: 8px !important;
-  }
-  
-  .tv-col-tagset select {
-    font-size: 13px;
-    padding: 6px 8px;
-    min-width: 100px;
-    max-width: 140px;
-  }
-  
-  .tv-col-override {
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  
-  .tv-col-override .override-text,
-  .tv-col-override .override-none {
+  /* Tagsets Table mobile - keep as table but fit screen */
+  .tagsets-table {
     font-size: 12px;
+    table-layout: fixed;
+    width: 100%;
   }
   
-  .tv-col-actions .btn-small {
-    width: auto;
-    min-width: 70px;
-    padding: 5px 10px;
-    font-size: 12px;
-  }
-
-  /* Tagsets Table mobile - card layout */
-  .tagsets-table thead {
-    display: none;
+  .tagsets-table th,
+  .tagsets-table td {
+    padding: 8px 5px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
   
-  .tagsets-table,
-  .tagsets-table tbody {
-    display: block;
+  .tagsets-table th {
+    font-size: 9px;
+    letter-spacing: 0;
+    padding: 8px 4px;
   }
   
-  .tagsets-table tbody tr.tagset-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    padding: 12px 14px;
-    gap: 6px;
-    margin-bottom: 8px;
-    background: #fff;
-    border: 1px solid #d8dde3;
-    border-radius: 8px;
-  }
-  
-  .tagsets-table tbody tr.tagset-row td {
-    border: none;
-    padding: 0;
-  }
-  
-  .tagsets-table .td-expand {
-    width: auto;
-    order: 1;
-    padding: 0 4px 0 0;
-  }
-  
-  .tagsets-table .td-expand .btn-expand {
-    padding: 4px 6px;
-  }
-  
-  .tagsets-table .td-name {
-    flex: 1;
-    order: 2;
-    font-size: 14px;
-    min-width: 0;
-  }
-  
-  .tagsets-table .td-name .tagset-match-count {
-    font-size: 11px;
-  }
-  
+  /* Hide Include/Exclude columns on mobile - too much info */
+  .tagsets-table .th-include,
   .tagsets-table .td-include,
+  .tagsets-table .th-exclude,
   .tagsets-table .td-exclude {
     display: none;
   }
   
-  .tagsets-table .td-used-by {
-    order: 4;
-    font-size: 11px;
+  /* Column widths: Name, Used By, Actions */
+  .tagsets-table th:nth-child(1),
+  .tagsets-table td:nth-child(1) {
+    width: 40%;
+  }
+  
+  .tagsets-table th:nth-child(4),
+  .tagsets-table td:nth-child(4) {
+    width: 45%;
+  }
+  
+  .tagsets-table th:nth-child(5),
+  .tagsets-table td:nth-child(5) {
+    width: 15%;
+    text-align: center;
+    padding-right: 4px;
+  }
+  
+  .tagsets-table .td-name {
+    font-size: 13px;
+    line-height: 1.3;
+  }
+  
+  .tagsets-table .td-name .tagset-match-count {
+    font-size: 10px;
+    display: block;
     color: #718096;
-    width: 100%;
+  }
+  
+  .tagsets-table .td-used-by {
+    font-size: 11px;
     max-width: none;
-    padding-top: 6px;
+    width: auto;
+    line-height: 1.3;
   }
   
   .tagsets-table .td-used-by .override-indicator {
-    font-size: 11px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+  
+  .tagsets-table .td-used-by.has-override {
+    min-width: auto;
+    max-width: none;
   }
   
   .tagsets-table .td-actions {
-    order: 3;
     width: auto;
-    padding-right: 0;
+    padding-right: 4px;
   }
   
   .tagsets-table .td-actions .btn-icon {
     padding: 4px 6px;
     font-size: 14px;
   }
-  
-  /* Expanded detail row on mobile */
-  .tagset-detail-row td {
-    display: block;
-  }
-  
-  .tagset-detail-row {
-    margin-top: -8px;
-    margin-bottom: 8px;
-  }
-  
-  .tagset-expanded-content {
-    padding: 12px 14px;
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .tagset-tag-group {
-    flex-direction: column;
-    gap: 4px;
-  }
-  
-  .tagset-tag-group .tag-label {
-    min-width: auto;
-    padding-top: 0;
-    font-size: 11px;
-  }
-  
-  .tagset-tag-group .tag-chips {
-    gap: 4px;
-  }
-  
-  .tag-chip {
-    padding: 2px 8px;
-    font-size: 11px;
-  }
-  
-  /* Tagset modal on mobile */
+
+  /* Tagset modal on mobile - MUST fit and scroll */
   .tagset-modal {
     width: 95%;
     max-width: none;
     margin: 10px;
+    max-height: calc(100vh - 20px);
+    display: flex;
+    flex-direction: column;
   }
   
-  .tagset-modal-body {
+  .tagset-modal .modal-details {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 16px;
+    padding-bottom: 0;
   }
   
-  .tagset-form-group {
+  .tagset-modal .modal-details h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    padding-right: 30px;
+  }
+  
+  .tagset-modal .form-group {
     margin-bottom: 12px;
   }
   
-  .tagset-form-group label {
+  .tagset-modal .form-group label {
     font-size: 12px;
+    margin-bottom: 4px;
   }
   
-  .tagset-form-group input {
+  .tagset-modal .form-group input[type="text"] {
     padding: 8px 10px;
     font-size: 14px;
   }
   
-  .tagset-modal-actions {
+  .tagset-modal .form-hint {
+    font-size: 10px;
+  }
+  
+  /* Tag pool - scrollable, compact */
+  .tagset-modal .tagset-tag-pool {
+    max-height: 100px;
+    overflow-y: auto;
+    padding: 8px;
+    gap: 4px;
+  }
+  
+  .tagset-modal .tagset-tag-pool .tag-pill {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+  
+  .tagset-modal .tagset-tag-pool .tag-pill .tag-count {
+    font-size: 9px;
+  }
+  
+  /* Mode toggle smaller */
+  .tagset-modal .tagset-mode-toggle {
+    padding: 6px 0;
+    gap: 6px;
+  }
+  
+  .tagset-modal .tagset-mode-toggle .mode-btn {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+  
+  .tagset-modal .tagset-mode-toggle .mode-arrow {
+    font-size: 12px;
+  }
+  
+  /* Selected tags sections - compact */
+  .tagset-modal .tagset-selected-tags {
+    min-height: 40px;
+    padding: 6px;
+    gap: 4px;
+  }
+  
+  .tagset-modal .tagset-selected-tags .tag-pill {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+  
+  .tagset-modal .tagset-selected-tags .tag-pill .tag-count {
+    font-size: 9px;
+  }
+  
+  .tagset-modal .tagset-selected-tags .tag-pill .remove-tag {
+    font-size: 12px;
+    margin-left: 4px;
+  }
+  
+  /* Actions - sticky at bottom */
+  .tagset-modal .tagset-modal-actions {
     flex-direction: column;
     gap: 8px;
     padding: 12px 16px;
+    background: #f9f9f9;
+    border-top: 1px solid #eee;
+    flex-shrink: 0;
   }
   
-  .tagset-modal-actions-left {
+  .tagset-modal .tagset-modal-actions-left {
     width: 100%;
     order: 2;
   }
   
-  .tagset-modal-actions-left .btn-danger-text {
+  .tagset-modal .tagset-modal-actions-left .btn-danger {
     width: 100%;
     text-align: center;
     padding: 8px;
   }
   
-  .tagset-modal-actions-right {
+  .tagset-modal .tagset-modal-actions-right {
     width: 100%;
     order: 1;
+    display: flex;
+    gap: 8px;
   }
   
-  .tagset-modal-actions-right button {
+  .tagset-modal .tagset-modal-actions-right button {
     flex: 1;
     padding: 10px;
+    font-size: 14px;
   }
 }
 
