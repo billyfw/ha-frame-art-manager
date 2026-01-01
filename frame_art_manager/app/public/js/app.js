@@ -487,6 +487,7 @@ function renderTVStatusDots() {
     return;
   }
   
+  // Desktop: dots with hover pills
   const dotsHtml = tvStatus.map(tv => {
     const displayName = tv.currentImage ? getDisplayName(tv.currentImage) : 'None';
     const truncatedName = displayName.length > 20 ? displayName.substring(0, 19) + '…' : displayName;
@@ -507,13 +508,43 @@ function renderTVStatusDots() {
     `;
   }).join('');
   
-  if (desktopContainer) desktopContainer.innerHTML = dotsHtml;
-  if (mobileContainer) mobileContainer.innerHTML = dotsHtml;
+  // Mobile: bars with text always visible
+  const barsHtml = tvStatus.map(tv => {
+    const displayName = tv.currentImage ? getDisplayName(tv.currentImage) : 'None';
+    const truncatedImage = displayName.length > 12 ? displayName.substring(0, 11) + '…' : displayName;
+    const truncatedTagset = tv.activeTagset.length > 10 ? tv.activeTagset.substring(0, 9) + '…' : tv.activeTagset;
+    const statusClass = tv.hasOverride ? 'override' : (tv.isOn ? 'on' : 'off');
+    
+    return `
+      <div class="tv-status-bar ${statusClass}" 
+           data-tv-id="${tv.tvId}" 
+           data-filename="${tv.currentImage || ''}">
+        <span class="bar-tv-name">${escapeHtml(tv.tvName)}</span>
+        <span class="bar-tagset">${escapeHtml(truncatedTagset)}</span>
+        <span class="bar-image">${escapeHtml(truncatedImage)}</span>
+      </div>
+    `;
+  }).join('');
   
-  // Add click listeners
+  if (desktopContainer) desktopContainer.innerHTML = dotsHtml;
+  if (mobileContainer) mobileContainer.innerHTML = barsHtml;
+  
+  // Add click listeners for desktop dots
   document.querySelectorAll('.tv-status-dot').forEach(dot => {
     dot.addEventListener('click', (e) => {
       const filename = dot.dataset.filename;
+      if (filename && allImages[filename]) {
+        openImageModal(filename);
+      } else if (filename) {
+        showToast('Image not found in library');
+      }
+    });
+  });
+  
+  // Add click listeners for mobile bars
+  document.querySelectorAll('.tv-status-bar').forEach(bar => {
+    bar.addEventListener('click', (e) => {
+      const filename = bar.dataset.filename;
       if (filename && allImages[filename]) {
         openImageModal(filename);
       } else if (filename) {

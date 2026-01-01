@@ -3361,33 +3361,62 @@ body.dropdown-open .image-card:hover {
     display: none !important;
   }
 
-  /* Mobile TV status bar - horizontal row above toolbar */
+  /* Mobile TV status bar - horizontally scrollable row above toolbar */
   .tv-status-bar-mobile {
     display: flex !important;
     flex-direction: row;
-    gap: 4px;
+    gap: 6px;
     width: 100%;
     margin-bottom: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 
-  .tv-status-bar-mobile .tv-status-dot {
-    flex: 1;
-    height: 6px;
-    border-radius: 3px;
+  .tv-status-bar-mobile::-webkit-scrollbar {
+    display: none;
   }
 
-  /* Mobile: pill appears below the bar, full width */
-  .tv-status-bar-mobile .tv-status-pill {
-    position: fixed;
-    top: auto;
-    bottom: auto;
-    left: 10px;
-    right: 10px;
-    transform: none;
-    padding: 8px 12px;
-    border-radius: 8px;
-    text-align: center;
-    z-index: 1000;
+  /* Mobile TV status bar item */
+  .tv-status-bar {
+    flex: 0 0 auto;
+    min-width: 120px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 10px;
+    font-size: 10px;
+    color: #fff;
+    white-space: nowrap;
+  }
+
+  .tv-status-bar.on {
+    background: #388e3c;
+  }
+
+  .tv-status-bar.override {
+    background: #e65100;
+  }
+
+  .tv-status-bar.off {
+    background: #444;
+  }
+
+  .tv-status-bar .bar-tv-name {
+    font-weight: 600;
+  }
+
+  .tv-status-bar .bar-tagset {
+    opacity: 0.85;
+  }
+
+  .tv-status-bar .bar-image {
+    font-weight: 500;
   }
 
   .toolbar-row-1 .btn-add {
