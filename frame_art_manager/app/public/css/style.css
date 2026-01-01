@@ -7830,38 +7830,9 @@ body.dropdown-open .image-card:hover {
   display: inline-block;
 }
 
-/* Tagset cell - inline layout without breaking table alignment */
+/* Tagset cell */
 .tv-col-tagset {
   white-space: nowrap;
-}
-
-.tv-col-tagset .tagset-display,
-.tv-col-tagset .tagset-edit-select,
-.tv-col-tagset .btn-icon {
-  vertical-align: middle;
-}
-
-.tv-col-tagset .tagset-display {
-  display: inline-block;
-  min-width: 140px;
-}
-
-.tv-col-tagset .tagset-edit-select {
-  width: 140px;
-}
-
-.tagset-edit-select {
-  padding: 4px 8px;
-  font-size: 13px;
-  border: 1px solid #cbd5e0;
-  border-radius: 5px;
-  background: #fff;
-}
-
-.tagset-edit-select:focus {
-  outline: none;
-  border-color: #4299e1;
-  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
 }
 
 .btn-icon {
@@ -7877,38 +7848,6 @@ body.dropdown-open .image-card:hover {
 
 .btn-icon:hover {
   background: #e2e8f0;
-}
-
-.tagset-edit-btn {
-  opacity: 0.5;
-}
-
-.tagset-edit-btn:hover {
-  opacity: 1;
-  background: #edf2f7;
-}
-
-.tagset-save-btn {
-  color: #38a169;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tagset-save-btn:hover {
-  background: #e6ffed;
-}
-
-.tagset-cancel-btn {
-  color: #718096;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tagset-cancel-btn:hover {
-  background: #edf2f7;
-  color: #e53e3e;
 }
 
 .override-none {
@@ -8813,4 +8752,72 @@ body.dropdown-open .image-card:hover {
 
 .btn-danger-text:hover {
   color: #a93226;
+}
+
+/* Toast notification */
+.toast-notification {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: #2d3748;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.toast-notification.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* Tagset dropdown in TV assignments */
+.tagset-select {
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid #cbd5e0;
+  border-radius: 5px;
+  background: #fff;
+  min-width: 140px;
+  cursor: pointer;
+}
+
+.tagset-select:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+}
+
+.tagset-select:hover {
+  border-color: #a0aec0;
+}
+
+/* Tagset undo button */
+.tagset-undo-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  margin-left: 4px;
+  border-radius: 4px;
+  color: #718096;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, background 0.15s ease;
+  vertical-align: middle;
+}
+
+.tagset-undo-btn.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tagset-undo-btn:hover {
+  background: #e2e8f0;
+  color: #4a5568;
 }

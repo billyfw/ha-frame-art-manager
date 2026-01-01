@@ -11161,13 +11161,10 @@ function renderTVAssignments() {
             <span class="tv-name">${escapeHtml(tv.name)}</span>
           </td>
           <td class="tv-col-tagset" data-label="Selected Tagset">
-            <span class="tagset-display">${escapeHtml(selectedTagset)}</span>
-            <select class="tagset-edit-select hidden" data-device-id="${escapeHtml(tv.device_id)}">
+            <select class="tagset-select" data-device-id="${escapeHtml(tv.device_id)}" data-tv-name="${escapeHtml(tv.name)}">
               ${tagsetOptions}
             </select>
-            <button class="btn-icon tagset-edit-btn" title="Edit tagset"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-            <button class="btn-icon tagset-cancel-btn hidden" title="Cancel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-            <button class="btn-icon tagset-save-btn hidden" title="Save"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></button>
+            <button class="tagset-undo-btn" title="Undo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a5 5 0 0 1 0 10H9"/><path d="M3 10l4-4M3 10l4 4"/></svg></button>
           </td>
           <td class="tv-col-actions" data-label="">
             ${hasOverride ? `
@@ -11197,28 +11194,52 @@ function renderTVAssignments() {
   
   container.innerHTML = html;
   
-  // Attach event listeners for inline tagset editing
-  container.querySelectorAll('.tagset-edit-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const row = btn.closest('tr');
-      startTagsetEdit(row);
-    });
-  });
-  
-  container.querySelectorAll('.tagset-save-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const row = btn.closest('tr');
-      await saveTagsetEdit(row);
-    });
-  });
-  
-  container.querySelectorAll('.tagset-cancel-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const row = btn.closest('tr');
-      cancelTagsetEdit(row);
+  // Attach event listeners for tagset dropdown changes
+  container.querySelectorAll('.tagset-select').forEach(select => {
+    // Store original value for undo
+    let previousValue = select.value;
+    let undoTimeout = null;
+    const undoBtn = select.parentElement.querySelector('.tagset-undo-btn');
+    
+    select.addEventListener('change', async (e) => {
+      const deviceId = select.dataset.deviceId;
+      const tvName = select.dataset.tvName;
+      const tagsetName = select.value;
+      
+      const fromName = previousValue || 'None';
+      const toName = tagsetName || 'None';
+      const undoValue = previousValue; // Capture for undo closure
+      
+      await selectTagset(deviceId, tagsetName || null, true); // Skip re-render
+      
+      // Show toast
+      showToast(`${tvName}: tagset changed from "${fromName}" to "${toName}"`);
+      
+      // Show undo button with tooltip
+      undoBtn.title = `Undo - revert to "${fromName}"`;
+      undoBtn.classList.add('show');
+      
+      // Clear any existing timeout
+      if (undoTimeout) clearTimeout(undoTimeout);
+      
+      // Hide undo after 10 seconds
+      undoTimeout = setTimeout(() => {
+        undoBtn.classList.remove('show');
+      }, 10000);
+      
+      // Set up undo handler (replace any existing)
+      undoBtn.onclick = async () => {
+        if (undoTimeout) clearTimeout(undoTimeout);
+        undoBtn.classList.remove('show');
+        
+        select.value = undoValue;
+        await selectTagset(deviceId, undoValue || null, true); // Skip re-render
+        showToast(`${tvName}: tagset reverted to "${undoValue || 'None'}"`);
+        previousValue = undoValue;
+      };
+      
+      // Update previous value for next change
+      previousValue = tagsetName;
     });
   });
   
@@ -11256,33 +11277,29 @@ function startTagsetEdit(row) {
   select.focus();
 }
 
-// Save inline tagset edit
-async function saveTagsetEdit(row) {
-  const deviceId = row.dataset.deviceId;
-  const select = row.querySelector('.tagset-edit-select');
-  const tagsetName = select.value;
+// Show a toast notification
+function showToast(message, duration = 3000) {
+  // Remove any existing toast
+  const existingToast = document.querySelector('.toast-notification');
+  if (existingToast) {
+    existingToast.remove();
+  }
   
-  await selectTagset(deviceId, tagsetName || null);
-  // renderTVAssignments will be called after selectTagset completes
-}
-
-// Cancel inline tagset edit
-function cancelTagsetEdit(row) {
-  const display = row.querySelector('.tagset-display');
-  const select = row.querySelector('.tagset-edit-select');
-  const editBtn = row.querySelector('.tagset-edit-btn');
-  const saveBtn = row.querySelector('.tagset-save-btn');
-  const cancelBtn = row.querySelector('.tagset-cancel-btn');
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  toast.textContent = message;
+  document.body.appendChild(toast);
   
-  // Reset select to original value
-  const originalValue = display.textContent === '-' ? '' : display.textContent;
-  select.value = originalValue;
+  // Trigger animation
+  requestAnimationFrame(() => {
+    toast.classList.add('show');
+  });
   
-  display.classList.remove('hidden');
-  select.classList.add('hidden');
-  editBtn.classList.remove('hidden');
-  saveBtn.classList.add('hidden');
-  cancelBtn.classList.add('hidden');
+  // Remove after duration
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
 }
 
 // Tagset modal state
@@ -11581,7 +11598,7 @@ async function deleteTagset(tagsetName) {
 }
 
 // Select a tagset for a TV
-async function selectTagset(deviceId, tagsetName) {
+async function selectTagset(deviceId, tagsetName, skipRender = false) {
   try {
     const response = await fetch(`${API_BASE}/ha/tagsets/select`, {
       method: 'POST',
@@ -11595,9 +11612,11 @@ async function selectTagset(deviceId, tagsetName) {
     const result = await response.json();
     
     if (result.success) {
-      // Refresh TV data and re-render
+      // Refresh TV data but optionally skip re-render
       await loadTVs();
-      renderTVAssignments();
+      if (!skipRender) {
+        renderTVAssignments();
+      }
     } else {
       alert(result.error || 'Failed to select tagset');
     }
