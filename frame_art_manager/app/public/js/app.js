@@ -2343,13 +2343,14 @@ async function saveBulkTags() {
       const result = await response.json();
       if (result.success) {
         totalSuccess += result.results.success;
-        // Update local cache - add tag to each image
+        // Update local cache - add tag to each image (case-insensitive check)
         for (const filename of selectedArray) {
           if (allImages[filename]) {
             if (!allImages[filename].tags) {
               allImages[filename].tags = [];
             }
-            if (!allImages[filename].tags.includes(tag)) {
+            const lowerTags = allImages[filename].tags.map(t => t.toLowerCase());
+            if (!lowerTags.includes(tag.toLowerCase())) {
               allImages[filename].tags.push(tag);
             }
           }
@@ -2554,7 +2555,7 @@ async function addTagFromHelper(tagName) {
   try {
     const imageData = allImages[currentImage];
     const existingTags = imageData.tags || [];
-    const newTags = [...new Set([...existingTags, tagName])];
+    const newTags = mergeTagsCaseInsensitive(existingTags, [tagName]);
     
     const response = await fetch(`${API_BASE}/images/${currentImage}`, {
       method: 'PUT',
@@ -2775,7 +2776,7 @@ async function addImageTags() {
   try {
     const imageData = allImages[currentImage];
     const existingTags = imageData.tags || [];
-    const newTags = [...new Set([...existingTags, ...tags])]; // Merge and dedupe
+    const newTags = mergeTagsCaseInsensitive(existingTags, tags);
     
     const response = await fetch(`${API_BASE}/images/${currentImage}`, {
       method: 'PUT',
@@ -4103,12 +4104,8 @@ function addUploadTags() {
   
   if (tags.length === 0) return;
   
-  // Add new tags to applied list (avoiding duplicates)
-  tags.forEach(tag => {
-    if (!uploadAppliedTags.includes(tag)) {
-      uploadAppliedTags.push(tag);
-    }
-  });
+  // Add new tags to applied list (avoiding case-insensitive duplicates)
+  uploadAppliedTags = mergeTagsCaseInsensitive(uploadAppliedTags, tags);
   
   // Clear input
   tagsInput.value = '';
@@ -8050,6 +8047,29 @@ function escapeHtml(untrustedValue) {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * Merge tags with case-insensitive deduplication.
+ * When adding a new tag that matches an existing tag (case-insensitive),
+ * the existing tag's casing is preserved.
+ * @param {string[]} existingTags - Current tags on the image
+ * @param {string[]} newTags - Tags to add
+ * @returns {string[]} - Merged tags without case-insensitive duplicates
+ */
+function mergeTagsCaseInsensitive(existingTags, newTags) {
+  const result = [...existingTags];
+  const lowerExisting = existingTags.map(t => t.toLowerCase());
+  
+  for (const tag of newTags) {
+    const lowerTag = tag.toLowerCase();
+    if (!lowerExisting.includes(lowerTag)) {
+      result.push(tag);
+      lowerExisting.push(lowerTag);
+    }
+  }
+  
+  return result;
+}
+
 async function loadSyncStatus() {
   const container = document.getElementById('git-status-container');
   
@@ -8654,6 +8674,11 @@ async function loadAnalytics(selectedImage = null) {
         emptyState.style.display = 'block';
       }
       return;
+    }
+    
+    // Ensure TVs/tagsets are loaded for the tag selector
+    if (!allTVs || allTVs.length === 0 || Object.keys(allGlobalTagsets || {}).length === 0) {
+      await loadTVs();
     }
     
     // Show content
@@ -9426,25 +9451,53 @@ function renderTagSelector() {
   const select = document.getElementById('analytics-tag-select');
   if (!select || !analyticsData) return;
   
-  // Get tags that have activity in the selected time range
+  // Get tagsets and tags that have activity in the selected time range
+  const tagsetsWithActivity = getTagsetsWithActivityInRange();
   const tagsWithActivity = getTagsWithActivityInRange();
   
-  // Sort alphabetically, but keep <none> (untagged) at the end
+  // Sort tagsets alphabetically
+  tagsetsWithActivity.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  
+  // Sort tags alphabetically, but keep <none> (untagged) at the end
   tagsWithActivity.sort((a, b) => {
     if (a === '<none>') return 1;
     if (b === '<none>') return -1;
     return a.localeCompare(b, undefined, { sensitivity: 'base' });
   });
   
-  select.innerHTML = tagsWithActivity.map(tag => {
+  let html = '';
+  
+  // Add tagsets optgroup if any exist
+  if (tagsetsWithActivity.length > 0) {
+    html += '<optgroup label="Tagsets">';
+    html += tagsetsWithActivity.map(name => 
+      `<option value="tagset:${escapeHtml(name)}">${escapeHtml(name)}</option>`
+    ).join('');
+    html += '</optgroup>';
+  }
+  
+  // Add tags optgroup
+  if (tagsWithActivity.length > 0) {
+    html += '<optgroup label="Tags">';
+    html += tagsWithActivity.map(tag => {
       const displayTag = tag === '<none>' ? '(untagged)' : tag;
       return `<option value="${escapeHtml(tag)}">${escapeHtml(displayTag)}</option>`;
     }).join('');
+    html += '</optgroup>';
+  }
+  
+  select.innerHTML = html;
+  
+  // Determine all available options (tagsets prefixed, then tags)
+  const allOptions = [
+    ...tagsetsWithActivity.map(n => `tagset:${n}`),
+    ...tagsWithActivity
+  ];
   
   // If current selection is no longer available, auto-select first
-  if (tagsWithActivity.length > 0) {
-    if (!selectedTag || !tagsWithActivity.includes(selectedTag)) {
-      selectedTag = tagsWithActivity[0];
+  if (allOptions.length > 0) {
+    if (!selectedTag || !allOptions.includes(selectedTag)) {
+      selectedTag = allOptions[0];
     }
     select.value = selectedTag;
     renderTagDetail(selectedTag);
@@ -9481,17 +9534,30 @@ function renderImageSelector() {
   }
 }
 
-function renderTagDetail(tagName) {
+function renderTagDetail(selection) {
   const container = document.getElementById('analytics-tag-detail');
   const statsContainer = document.getElementById('analytics-tag-stats');
   if (!container || !analyticsData) return;
   
-  if (!tagName) {
+  if (!selection) {
     container.innerHTML = '<div class="empty-state-small">Select a tag to view details</div>';
     if (statsContainer) statsContainer.innerHTML = '';
     return;
   }
   
+  // Check if this is a tagset selection
+  const isTagset = selection.startsWith('tagset:');
+  
+  if (isTagset) {
+    const tagsetName = selection.substring(7); // Remove 'tagset:' prefix
+    renderTagsetDetail(tagsetName, container, statsContainer);
+  } else {
+    renderSingleTagDetail(selection, container, statsContainer);
+  }
+}
+
+// Render detail view for a single tag
+function renderSingleTagDetail(tagName, container, statsContainer) {
   const tagData = analyticsData.tags?.[tagName];
   if (!tagData) {
     container.innerHTML = '<div class="empty-state-small">Tag not found</div>';
@@ -9499,11 +9565,8 @@ function renderTagDetail(tagName) {
     return;
   }
   
-  const displayTag = tagName === '<none>' ? '(untagged)' : tagName;
-  
   // Get time-filtered data for this tag
   const perTv = getPerTVStatsForTagInRange(tagName);
-  const topImages = getTopImagesForTagInRange(tagName);
   
   // Calculate stats for selected time range
   const tagStats = calculateTagStatsForRange(tagName);
@@ -9557,7 +9620,78 @@ function renderTagDetail(tagName) {
   html += renderTagEventLog(tagName, showStackedBar, tvColorMap);
   
   container.innerHTML = html;
+  attachTagDetailClickHandlers(container);
+}
+
+// Render detail view for a tagset
+function renderTagsetDetail(tagsetName, container, statsContainer) {
+  const tagset = allGlobalTagsets?.[tagsetName];
+  if (!tagset) {
+    container.innerHTML = '<div class="empty-state-small">Tagset not found</div>';
+    if (statsContainer) statsContainer.innerHTML = '';
+    return;
+  }
   
+  // Get time-filtered data for this tagset
+  const perTv = getPerTVStatsForTagsetInRange(tagsetName);
+  
+  // Calculate stats for selected time range
+  const tagsetStats = calculateTagsetStatsForRange(tagsetName);
+  
+  // Render stats in header area
+  if (statsContainer) {
+    statsContainer.innerHTML = `
+      <div class="stat-row-inline">
+        <span class="stat-inline"><strong>${formatHoursNice(tagsetStats.totalSeconds)}</strong> display time</span>
+        <span class="stat-sep">·</span>
+        <span class="stat-inline"><strong>${tagsetStats.eventCount}</strong> appearances</span>
+      </div>
+    `;
+  }
+  
+  let html = '';
+  
+  // TV breakdown - stacked horizontal bar (only if multiple TVs)
+  const totalTvCount = Object.keys(analyticsData.tvs || {}).length;
+  const showStackedBar = perTv.length > 0 && totalTvCount > 1;
+  
+  // Build TV color map for consistent colors between chart and event log
+  const tvColorMap = {};
+  perTv.forEach((tv, index) => {
+    tvColorMap[tv.tv_id] = CHART_COLORS[index % CHART_COLORS.length];
+  });
+  
+  if (showStackedBar) {
+    const segments = perTv.map((tv, index) => {
+      const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
+      const color = tvColorMap[tv.tv_id];
+      const pct = tv.share || 0;
+      return `<div class="stacked-bar-segment clickable" data-tv-id="${escapeHtml(tv.tv_id)}" style="width: ${pct}%; background: ${color}" title="${escapeHtml(tvName)} (${formatPercent(pct)}, ${formatHoursNice(tv.seconds || 0)})"></div>`;
+    }).join('');
+    
+    const legend = perTv.map((tv, index) => {
+      const tvName = analyticsData.tvs?.[tv.tv_id]?.name || tv.tv_id || 'Unknown';
+      const color = tvColorMap[tv.tv_id];
+      return `<span class="stacked-bar-legend-item clickable" data-tv-id="${escapeHtml(tv.tv_id)}"><span class="stacked-bar-legend-color" style="background: ${color}"></span>${escapeHtml(tvName)}</span>`;
+    }).join('');
+    
+    html += `
+      <div class="stacked-bar-section">
+        <div class="stacked-bar-track">${segments}</div>
+        <div class="stacked-bar-legend">${legend}</div>
+      </div>
+    `;
+  }
+  
+  // Event log for this tagset
+  html += renderTagsetEventLog(tagsetName, showStackedBar, tvColorMap);
+  
+  container.innerHTML = html;
+  attachTagDetailClickHandlers(container);
+}
+
+// Attach click handlers for tag/tagset detail views
+function attachTagDetailClickHandlers(container) {
   // Add click handlers for stacked bar segments
   container.querySelectorAll('.stacked-bar-segment.clickable').forEach(segment => {
     segment.addEventListener('click', () => {
@@ -10167,12 +10301,214 @@ function getTagsWithActivityInRange() {
   return Array.from(tagsWithActivity);
 }
 
+// Helper: check if an image matches a tagset filter (has any include tag AND no exclude tags)
+// Case-insensitive matching to handle different tag casing between systems
+function imageMatchesTagset(imageData, tagset) {
+  const imageTags = (imageData.tags || []).map(t => t.toLowerCase());
+  const includeTags = (tagset.tags || []).map(t => t.toLowerCase());
+  const excludeTags = (tagset.exclude_tags || []).map(t => t.toLowerCase());
+  
+  // If no include tags specified, all images match (unless excluded)
+  const matchesInclude = includeTags.length === 0 || 
+    imageTags.some(tag => includeTags.includes(tag));
+  
+  // Check none of the image tags are in exclude list
+  const matchesExclude = !imageTags.some(tag => excludeTags.includes(tag));
+  
+  return matchesInclude && matchesExclude;
+}
+
+// Helper: get tagsets that have activity in the selected time range
+function getTagsetsWithActivityInRange() {
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  const images = analyticsData?.images || {};
+  const tagsetsWithActivity = [];
+  
+  for (const [tagsetName, tagset] of Object.entries(allGlobalTagsets || {})) {
+    let hasActivity = false;
+    
+    for (const [filename, imageData] of Object.entries(images)) {
+      if (!imageMatchesTagset(imageData, tagset)) continue;
+      
+      // Check if this image has any display periods in range
+      for (const periods of Object.values(imageData.display_periods || {})) {
+        for (const period of periods) {
+          if (period.end > rangeStart) {
+            hasActivity = true;
+            break;
+          }
+        }
+        if (hasActivity) break;
+      }
+      if (hasActivity) break;
+    }
+    
+    if (hasActivity) {
+      tagsetsWithActivity.push(tagsetName);
+    }
+  }
+  
+  return tagsetsWithActivity;
+}
+
+// Helper: calculate tagset stats for the selected time range
+function calculateTagsetStatsForRange(tagsetName) {
+  const tagset = allGlobalTagsets?.[tagsetName];
+  if (!tagset) return { totalSeconds: 0, eventCount: 0 };
+  
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  const images = analyticsData?.images || {};
+  let totalSeconds = 0;
+  let eventCount = 0;
+  
+  for (const [filename, imageData] of Object.entries(images)) {
+    if (!imageMatchesTagset(imageData, tagset)) continue;
+    
+    for (const [tvId, periods] of Object.entries(imageData.display_periods || {})) {
+      for (const period of periods) {
+        if (period.end > rangeStart) {
+          const start = Math.max(period.start, rangeStart);
+          const end = Math.min(period.end, now);
+          totalSeconds += (end - start) / 1000;
+          eventCount++;
+        }
+      }
+    }
+  }
+  
+  return { totalSeconds, eventCount };
+}
+
+// Helper: get per-TV stats for a tagset within the selected time range
+function getPerTVStatsForTagsetInRange(tagsetName) {
+  const tagset = allGlobalTagsets?.[tagsetName];
+  if (!tagset) return [];
+  
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  const images = analyticsData?.images || {};
+  const tvStats = {};
+  let totalSeconds = 0;
+  
+  for (const [filename, imageData] of Object.entries(images)) {
+    if (!imageMatchesTagset(imageData, tagset)) continue;
+    
+    for (const [tvId, periods] of Object.entries(imageData.display_periods || {})) {
+      for (const period of periods) {
+        if (period.end > rangeStart) {
+          const start = Math.max(period.start, rangeStart);
+          const end = Math.min(period.end, now);
+          const seconds = (end - start) / 1000;
+          tvStats[tvId] = (tvStats[tvId] || 0) + seconds;
+          totalSeconds += seconds;
+        }
+      }
+    }
+  }
+  
+  return Object.entries(tvStats)
+    .map(([tv_id, seconds]) => ({
+      tv_id,
+      seconds,
+      share: totalSeconds > 0 ? (seconds / totalSeconds) * 100 : 0
+    }))
+    .sort((a, b) => b.seconds - a.seconds);
+}
+
+// Render event log for a tagset (all events for images matching the tagset filter)
+function renderTagsetEventLog(tagsetName, showSeparator = true, tvColorMap = {}) {
+  const tagset = allGlobalTagsets?.[tagsetName];
+  if (!tagset) return '<div class="event-log"><div class="event-log-empty">Tagset not found</div></div>';
+  
+  const images = analyticsData?.images || {};
+  const tvs = analyticsData?.tvs || {};
+  
+  const now = Date.now();
+  const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
+  const rangeStart = now - rangeMs;
+  
+  // Collect all events for images matching this tagset
+  const allEvents = [];
+  
+  for (const [filename, imageData] of Object.entries(images)) {
+    if (!imageMatchesTagset(imageData, tagset)) continue;
+    
+    for (const [tvId, periods] of Object.entries(imageData.display_periods || {})) {
+      const tvName = tvs[tvId]?.name || 'Unknown TV';
+      for (const period of periods) {
+        if (period.end > rangeStart) {
+          allEvents.push({
+            filename,
+            tvId,
+            tvName,
+            start: period.start,
+            end: period.end,
+            duration: period.end - period.start,
+            matte: period.matte,
+            photo_filter: period.photo_filter
+          });
+        }
+      }
+    }
+  }
+  
+  const separatorClass = showSeparator ? '' : ' no-separator';
+  const hasTvColors = Object.keys(tvColorMap).length > 0;
+  
+  if (allEvents.length === 0) {
+    return `<div class="event-log${separatorClass}"><div class="event-log-title">Display Events</div><div class="event-log-empty">No events in selected time range</div></div>`;
+  }
+  
+  // Sort by start time descending
+  allEvents.sort((a, b) => b.start - a.start);
+  
+  const eventRows = allEvents.map(evt => {
+    const startDate = new Date(evt.start);
+    const dateStr = startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const timeStr = startDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    const imageName = truncateFilename(evt.filename, 18);
+    const filterMatteSuffix = formatFilterMatteSuffix(evt.photo_filter, evt.matte);
+    const tvColor = tvColorMap[evt.tvId] || '#95a5a6';
+    const tvDot = hasTvColors ? `<span class="event-log-tv-dot" style="background: ${tvColor}" title="${escapeHtml(evt.tvName)}"></span>` : '';
+    
+    return `
+      <div class="event-log-row clickable" data-filename="${escapeHtml(evt.filename)}">
+        <span class="event-log-date">${tvDot}${dateStr}</span>
+        <span class="event-log-time">${timeStr}</span>
+        <span class="event-log-image"><span class="event-log-image-text">${escapeHtml(imageName)}</span>${filterMatteSuffix}</span>
+        <span class="event-log-duration">${formatHoursNice((evt.duration) / 1000)}</span>
+      </div>
+    `;
+  }).join('');
+  
+  return `
+    <div class="event-log${separatorClass}">
+      <div class="event-log-title">Display Events (${allEvents.length})</div>
+      <div class="event-log-header">
+        <span>Date</span>
+        <span>Time</span>
+        <span>Image</span>
+        <span>Duration</span>
+      </div>
+      <div class="event-log-rows">${eventRows}</div>
+    </div>
+  `;
+}
+
 // Helper: calculate tag stats for the selected time range
 function calculateTagStatsForRange(tagName) {
   const now = Date.now();
   const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
   const rangeStart = now - rangeMs;
-  
+
   const images = analyticsData?.images || {};
   let totalSeconds = 0;
   let eventCount = 0;
@@ -10507,142 +10843,300 @@ async function loadTagsTab() {
     await loadTVs();
   }
   
-  populateTagsetDropdowns();
+  renderTagsetsTable();
   renderTVAssignments();
 }
 
-// Populate the TV and Tagset dropdown selectors
-// Now uses GLOBAL tagsets instead of per-TV tagsets
-function populateTagsetDropdowns() {
-  const tagsetSelect = document.getElementById('tagset-select');
-  const detailsContainer = document.getElementById('tagset-details');
+// Render the tagsets as an expandable table
+function renderTagsetsTable() {
+  const container = document.getElementById('tagsets-table-container');
+  if (!container) return;
   
-  if (!tagsetSelect) return;
+  const tagsetNames = Object.keys(allGlobalTagsets || {}).sort((a, b) => a.localeCompare(b));
   
-  // Remember current selection
-  const currentTagset = tagsetSelect.value;
-  
-  // Get list of global tagset names
-  const tagsetNames = Object.keys(allGlobalTagsets || {});
-  
-  // Populate tagset dropdown (no TV selector needed - tagsets are global)
-  tagsetSelect.innerHTML = tagsetNames.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
-  
-  // Restore selection if it still exists
-  if (currentTagset && tagsetNames.includes(currentTagset)) {
-    tagsetSelect.value = currentTagset;
-    renderTagsetDetails(currentTagset);
-  } else if (tagsetNames.length > 0) {
-    // Auto-select first tagset
-    tagsetSelect.value = tagsetNames[0];
-    renderTagsetDetails(tagsetNames[0]);
-  } else {
-    if (detailsContainer) {
-      detailsContainer.innerHTML = '<p class="empty-state">No tagsets defined. Click "+ New Tagset" to create one.</p>';
-    }
+  if (tagsetNames.length === 0) {
+    container.innerHTML = '<p class="empty-state">No tagsets defined. Click "+ New" to create one.</p>';
+    initNewTagsetButton();
+    return;
   }
   
-  // Tagset select change handler
-  tagsetSelect.onchange = () => {
-    const tagsetName = tagsetSelect.value;
-    if (tagsetName) {
-      renderTagsetDetails(tagsetName);
-    }
-  };
+  let html = `
+    <table class="tagsets-table">
+      <thead>
+        <tr>
+          <th class="th-expand"></th>
+          <th>Name</th>
+          <th>Include Tags</th>
+          <th>Exclude Tags</th>
+          <th>Used By</th>
+          <th class="th-actions"></th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
   
-  // New tagset button handler (no TV selection needed)
+  for (const name of tagsetNames) {
+    const tagset = allGlobalTagsets[name];
+    const includeTags = [...(tagset.tags || [])].sort((a, b) => a.localeCompare(b));
+    const excludeTags = [...(tagset.exclude_tags || [])].sort((a, b) => a.localeCompare(b));
+    
+    // Find TVs using this tagset
+    const tvsUsing = allTVs.filter(tv => tv.selected_tagset === name);
+    const tvsOverride = allTVs.filter(tv => tv.override_tagset === name);
+    
+    // Summary for collapsed view - show tag names with truncation
+    const formatTagList = (tags, emptyText) => {
+      if (tags.length === 0) return `<span class="tag-summary-none">${emptyText}</span>`;
+      const tagStr = tags.join(', ');
+      // If total length > 30 chars, truncate and show count
+      if (tagStr.length > 30) {
+        // Show as many tags as fit, then "+ N more"
+        let shown = [];
+        let len = 0;
+        for (const tag of tags) {
+          if (len + tag.length + 2 > 25 && shown.length > 0) break;
+          shown.push(tag);
+          len += tag.length + 2;
+        }
+        const remaining = tags.length - shown.length;
+        return remaining > 0 
+          ? `<span class="tag-list-truncated" title="${escapeHtml(tags.join(', '))}">${escapeHtml(shown.join(', '))} <span class="more-count">+${remaining}</span></span>`
+          : `<span title="${escapeHtml(tags.join(', '))}">${escapeHtml(tagStr)}</span>`;
+      }
+      return `<span>${escapeHtml(tagStr)}</span>`;
+    };
+    const includeSummary = formatTagList(includeTags, 'All');
+    const excludeSummary = formatTagList(excludeTags, 'None');
+    
+    // Used by summary - overrides first, then regular assignments on new line
+    let usedByParts = [];
+    
+    // Build override text first
+    if (tvsOverride.length > 0) {
+      const overrideParts = tvsOverride.map(tv => {
+        const timeStr = formatOverrideTimeCompact(tv.override_expiry_time);
+        return `<span class="override-indicator">Overrides ${escapeHtml(tv.name)} ${timeStr}</span>`;
+      });
+      usedByParts.push(overrideParts.join(', '));
+    }
+    
+    // Then regular assignments on new line
+    if (tvsUsing.length > 0) {
+      const tvNames = tvsUsing.length <= 2 
+        ? tvsUsing.map(tv => tv.name).join(', ')
+        : `${tvsUsing.length} TVs`;
+      usedByParts.push(tvNames);
+    }
+    
+    const usedBySummary = usedByParts.length > 0 
+      ? usedByParts.join('<br>')
+      : '<span class="tag-summary-none">—</span>';
+    
+    const hasOverride = tvsOverride.length > 0;
+    
+    html += `
+        <tr class="tagset-row" data-tagset-name="${escapeHtml(name)}">
+          <td class="td-expand"><button class="btn-expand" title="Expand">▶</button></td>
+          <td class="td-name">${escapeHtml(name)}</td>
+          <td class="td-include">${includeSummary}</td>
+          <td class="td-exclude">${excludeSummary}</td>
+          <td class="td-used-by${hasOverride ? ' has-override' : ''}">${usedBySummary}</td>
+          <td class="td-actions">
+            <button class="btn-icon tagset-edit-btn" data-tagset-name="${escapeHtml(name)}" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            <button class="btn-icon tagset-delete-btn" data-tagset-name="${escapeHtml(name)}" title="Delete"
+              ${tagsetNames.length <= 1 ? 'disabled' : ''}>×</button>
+          </td>
+        </tr>
+        <tr class="tagset-detail-row hidden" data-tagset-name="${escapeHtml(name)}">
+          <td colspan="6">
+            <div class="tagset-expanded-content">
+              <div class="tagset-expanded-tags">
+                <div class="tagset-tag-group">
+                  <span class="tag-label">Include:</span>
+                  <div class="tag-chips">
+                    ${includeTags.length > 0 
+                      ? includeTags.map(t => `<span class="tag-chip include">${escapeHtml(t)}</span>`).join('')
+                      : '<span class="none-text">All images (no filter)</span>'}
+                  </div>
+                </div>
+                <div class="tagset-tag-group">
+                  <span class="tag-label">Exclude:</span>
+                  <div class="tag-chips">
+                    ${excludeTags.length > 0 
+                      ? excludeTags.map(t => `<span class="tag-chip exclude">${escapeHtml(t)}</span>`).join('')
+                      : '<span class="none-text">None</span>'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+    `;
+  }
+  
+  html += `
+      </tbody>
+    </table>
+  `;
+  
+  container.innerHTML = html;
+  
+  // Attach event listeners
+  container.querySelectorAll('.tagset-row').forEach(row => {
+    row.addEventListener('click', (e) => {
+      // Don't toggle if clicking a button
+      if (e.target.closest('button')) return;
+      toggleTagsetRow(row.dataset.tagsetName);
+    });
+  });
+  
+  container.querySelectorAll('.btn-expand').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const row = btn.closest('tr');
+      toggleTagsetRow(row.dataset.tagsetName);
+    });
+  });
+  
+  container.querySelectorAll('.tagset-edit-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openTagsetModal(btn.dataset.tagsetName);
+    });
+  });
+  
+  container.querySelectorAll('.tagset-delete-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (btn.disabled) return;
+      const tagsetName = btn.dataset.tagsetName;
+      if (confirm(`Delete tagset "${tagsetName}"?`)) {
+        await deleteTagset(tagsetName);
+      }
+    });
+  });
+  
+  initNewTagsetButton();
+}
+
+// Toggle expand/collapse for a tagset row
+function toggleTagsetRow(tagsetName) {
+  const container = document.getElementById('tagsets-table-container');
+  const row = container.querySelector(`.tagset-row[data-tagset-name="${tagsetName}"]`);
+  const detailRow = container.querySelector(`.tagset-detail-row[data-tagset-name="${tagsetName}"]`);
+  const expandBtn = row.querySelector('.btn-expand');
+  
+  if (detailRow.classList.contains('hidden')) {
+    // Collapse any other expanded rows first
+    container.querySelectorAll('.tagset-detail-row:not(.hidden)').forEach(r => {
+      r.classList.add('hidden');
+      const otherRow = container.querySelector(`.tagset-row[data-tagset-name="${r.dataset.tagsetName}"]`);
+      otherRow?.querySelector('.btn-expand')?.classList.remove('expanded');
+    });
+    
+    // Expand this row
+    detailRow.classList.remove('hidden');
+    expandBtn.classList.add('expanded');
+  } else {
+    // Collapse this row
+    detailRow.classList.add('hidden');
+    expandBtn.classList.remove('expanded');
+  }
+}
+
+// Initialize the new tagset button
+function initNewTagsetButton() {
   const newBtn = document.getElementById('new-tagset-btn');
   if (newBtn) {
     newBtn.onclick = () => {
-      openTagsetModal(null); // null means create new
+      openTagsetModal(null);
     };
   }
 }
 
+// Legacy function - now just calls renderTagsetsTable
+function populateTagsetDropdowns() {
+  renderTagsetsTable();
+}
+
 // NOTE: This function is deprecated - tagsets are now global
-// Keeping for backwards compatibility but it just calls populateTagsetDropdowns
 function updateTagsetDropdownForTV(deviceId, preserveTagset) {
-  populateTagsetDropdowns();
+  renderTagsetsTable();
 }
 
-// Render the details panel for a selected GLOBAL tagset
-function renderTagsetDetails(tagsetName) {
-  const detailsContainer = document.getElementById('tagset-details');
-  if (!detailsContainer) return;
+// Format override time compact for tagsets table: "until 3:00pm (45m)"
+function formatOverrideTimeCompact(expiryTime) {
+  if (!expiryTime) return '';
   
-  const tagset = allGlobalTagsets?.[tagsetName];
-  if (!tagset) {
-    detailsContainer.innerHTML = '<p class="empty-state">Tagset not found.</p>';
-    return;
-  }
+  const now = new Date();
+  const expiry = new Date(expiryTime);
+  const diffMs = expiry - now;
   
-  const tagsetCount = Object.keys(allGlobalTagsets || {}).length;
+  if (diffMs <= 0) return '(expired)';
   
-  // Find which TVs are using this tagset
-  const tvsUsingSelected = allTVs.filter(tv => tv.selected_tagset === tagsetName);
-  const tvsUsingOverride = allTVs.filter(tv => tv.override_tagset === tagsetName);
+  const diffMins = Math.floor(diffMs / 60000);
+  const hours = Math.floor(diffMins / 60);
+  const mins = diffMins % 60;
   
-  // Build assignment text for header
-  let assignmentText = '';
-  if (tvsUsingSelected.length > 0) {
-    assignmentText = 'Assigned to ' + tvsUsingSelected.map(tv => tv.name).join(', ');
+  // Format remaining time
+  let remaining;
+  if (hours > 0) {
+    remaining = `${hours}h${mins > 0 ? mins + 'm' : ''}`;
   } else {
-    assignmentText = 'Not assigned to any TV';
+    remaining = `${mins}m`;
   }
   
-  // Override info (shown separately if present)
-  let overrideHtml = '';
-  if (tvsUsingOverride.length > 0) {
-    overrideHtml = `<div class="tagset-override-note">Override active on: ${tvsUsingOverride.map(tv => escapeHtml(tv.name)).join(', ')}</div>`;
-  }
+  // Format expiry time
+  const timeStr = expiry.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   
-  let html = `
-    <div class="tagset-detail-card">
-      <div class="tagset-detail-header">
-        <span class="tagset-detail-name">${escapeHtml(tagsetName)}</span>
-        <span class="tagset-assignment-text">${escapeHtml(assignmentText)}</span>
-      </div>
-      ${overrideHtml}
-      <div class="tagset-detail-body">
-        <div class="tagset-tags">
-          <span class="tag-label">Include Tags:</span>
-          ${tagset.tags && tagset.tags.length > 0 
-            ? tagset.tags.map(t => `<span class="tag-chip include">${escapeHtml(t)}</span>`).join(' ')
-            : '<span class="none-text">All images (no filter)</span>'}
-        </div>
-        <div class="tagset-tags">
-          <span class="tag-label">Exclude Tags:</span>
-          ${tagset.exclude_tags && tagset.exclude_tags.length > 0 
-            ? tagset.exclude_tags.map(t => `<span class="tag-chip exclude">${escapeHtml(t)}</span>`).join(' ')
-            : '<span class="none-text">None</span>'}
-        </div>
-      </div>
-      <div class="tagset-detail-actions">
-        <button class="btn btn-primary tagset-edit-btn" data-tagset-name="${escapeHtml(tagsetName)}">Edit Tagset</button>
-        <button class="btn btn-text btn-danger-text tagset-delete-btn" data-tagset-name="${escapeHtml(tagsetName)}"
-          ${tagsetCount <= 1 ? 'disabled title="Cannot delete the only tagset"' : ''}>Delete</button>
-      </div>
-    </div>
-  `;
-  
-  detailsContainer.innerHTML = html;
-  
-  // Attach event listeners
-  detailsContainer.querySelector('.tagset-edit-btn')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    openTagsetModal(tagsetName);
-  });
-  
-  detailsContainer.querySelector('.tagset-delete-btn')?.addEventListener('click', async (e) => {
-    e.preventDefault();
-    if (e.target.disabled) return;
-    if (confirm(`Delete tagset "${tagsetName}"?`)) {
-      await deleteTagset(tagsetName);
-    }
-  });
+  return `until ${timeStr} (${remaining})`;
 }
 
-// Render the "TV Tagset Assignments" section
+// Format override time remaining with expiry
+function formatOverrideTimeDisplay(expiryTime) {
+  if (!expiryTime) return '-';
+  
+  const now = new Date();
+  const expiry = new Date(expiryTime);
+  const diffMs = expiry - now;
+  
+  if (diffMs <= 0) return 'Expired';
+  
+  const diffMins = Math.floor(diffMs / 60000);
+  const hours = Math.floor(diffMins / 60);
+  const mins = diffMins % 60;
+  
+  // Format remaining time
+  let remaining;
+  if (hours > 0) {
+    remaining = `${hours}h ${mins}m`;
+  } else {
+    remaining = `${mins}m`;
+  }
+  
+  // Format expiry time
+  const isToday = expiry.toDateString() === now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow = expiry.toDateString() === tomorrow.toDateString();
+  
+  const timeStr = expiry.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  
+  let expiryStr;
+  if (isToday) {
+    expiryStr = timeStr;
+  } else if (isTomorrow) {
+    expiryStr = `tomorrow ${timeStr}`;
+  } else {
+    expiryStr = `${expiry.toLocaleDateString([], { weekday: 'short' })} ${timeStr}`;
+  }
+  
+  return `${remaining} (until ${expiryStr})`;
+}
+
+// Render the "TV Tagset Assignments" section as a table
 function renderTVAssignments() {
   const container = document.getElementById('tv-tagset-assignments');
   if (!container) return;
@@ -10655,68 +11149,103 @@ function renderTVAssignments() {
   // Use GLOBAL tagsets for all TVs
   const tagsetNames = Object.keys(allGlobalTagsets || {});
   
-  let html = '<div class="tv-assignment-list">';
+  // Sort TVs alphabetically by name
+  const sortedTVs = [...allTVs].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   
-  for (const tv of allTVs) {
+  let html = `
+    <table class="tv-assignments-table">
+      <thead>
+        <tr>
+          <th>TV</th>
+          <th>Selected Tagset</th>
+          <th>Override</th>
+          <th>Override Time</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+  
+  for (const tv of sortedTVs) {
     const hasOverride = !!tv.override_tagset;
-    const overrideExpiry = tv.override_expiry_time;
+    const selectedTagset = tv.selected_tagset || '-';
+    const overrideTagset = hasOverride ? tv.override_tagset : '-';
+    const overrideTime = hasOverride ? formatOverrideTimeDisplay(tv.override_expiry_time) : '-';
     
-    html += `
-      <div class="tv-assignment-card" data-device-id="${escapeHtml(tv.device_id)}">
-        <div class="tv-assignment-header">
-          <span class="tv-assignment-name">${escapeHtml(tv.name)}</span>
-        </div>
-        <div class="tv-assignment-body">
-          <div class="tv-assignment-row">
-            <label>Selected Tagset:</label>
-            <select class="tv-tagset-select" data-device-id="${escapeHtml(tv.device_id)}">
-              <option value="">-- None --</option>
-              ${tagsetNames.map(name => `
-                <option value="${escapeHtml(name)}" ${tv.selected_tagset === name ? 'selected' : ''}>
-                  ${escapeHtml(name)}
-                </option>
-              `).join('')}
-            </select>
-          </div>
+    // Build tagset dropdown options
+    const tagsetOptions = `
+      <option value="">-- None --</option>
+      ${tagsetNames.map(name => `
+        <option value="${escapeHtml(name)}" ${tv.selected_tagset === name ? 'selected' : ''}>
+          ${escapeHtml(name)}
+        </option>
+      `).join('')}
     `;
     
-    if (hasOverride) {
-      let expiryText = 'No expiry';
-      if (overrideExpiry) {
-        const expiryDate = new Date(overrideExpiry);
-        expiryText = `Expires: ${expiryDate.toLocaleString()}`;
-      }
-      html += `
-          <div class="tv-assignment-override-info">
-            <span class="override-current">Override: <strong>${escapeHtml(tv.override_tagset)}</strong></span>
-            <span class="override-expiry">${expiryText}</span>
-            <button class="btn btn-small btn-warning clear-override-btn" data-device-id="${escapeHtml(tv.device_id)}">
-              Clear Override
-            </button>
-          </div>
-      `;
-    }
-    
     html += `
-          <div class="tv-assignment-actions">
-            <button class="btn btn-small set-override-btn" data-device-id="${escapeHtml(tv.device_id)}">
-              Set Override...
-            </button>
-          </div>
-        </div>
-      </div>
+        <tr class="tv-assignment-row${hasOverride ? ' has-override' : ''}" data-device-id="${escapeHtml(tv.device_id)}">
+          <td class="tv-col-name" data-label="TV">
+            <span class="tv-name">${escapeHtml(tv.name)}</span>
+          </td>
+          <td class="tv-col-tagset" data-label="Selected Tagset">
+            <span class="tagset-display">${escapeHtml(selectedTagset)}</span>
+            <select class="tagset-edit-select hidden" data-device-id="${escapeHtml(tv.device_id)}">
+              ${tagsetOptions}
+            </select>
+            <button class="btn-icon tagset-edit-btn" title="Edit tagset"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            <button class="btn-icon tagset-save-btn hidden" title="Save"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></button>
+            <button class="btn-icon tagset-cancel-btn hidden" title="Cancel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+          </td>
+          <td class="tv-col-override" data-label="Override">
+            <span class="${hasOverride ? 'override-text' : 'override-none'}">${escapeHtml(overrideTagset)}</span>
+          </td>
+          <td class="tv-col-override-time" data-label="Override Time">
+            <span class="${hasOverride ? 'override-text' : 'override-none'}">${overrideTime}</span>
+          </td>
+          <td class="tv-col-actions" data-label="Actions">
+            ${hasOverride ? `
+              <button class="btn btn-small btn-warning clear-override-btn" data-device-id="${escapeHtml(tv.device_id)}">
+                Clear
+              </button>
+            ` : `
+              <button class="btn btn-small set-override-btn" data-device-id="${escapeHtml(tv.device_id)}">
+                Override...
+              </button>
+            `}
+          </td>
+        </tr>
     `;
   }
   
-  html += '</div>';
+  html += `
+      </tbody>
+    </table>
+  `;
+  
   container.innerHTML = html;
   
-  // Attach event listeners
-  container.querySelectorAll('.tv-tagset-select').forEach(select => {
-    select.addEventListener('change', async (e) => {
-      const deviceId = select.dataset.deviceId;
-      const tagsetName = select.value;
-      await selectTagset(deviceId, tagsetName || null);
+  // Attach event listeners for inline tagset editing
+  container.querySelectorAll('.tagset-edit-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const row = btn.closest('tr');
+      startTagsetEdit(row);
+    });
+  });
+  
+  container.querySelectorAll('.tagset-save-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const row = btn.closest('tr');
+      await saveTagsetEdit(row);
+    });
+  });
+  
+  container.querySelectorAll('.tagset-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const row = btn.closest('tr');
+      cancelTagsetEdit(row);
     });
   });
   
@@ -10735,6 +11264,52 @@ function renderTVAssignments() {
       openOverrideModal(btn.dataset.deviceId);
     });
   });
+}
+
+// Start inline editing of tagset selection
+function startTagsetEdit(row) {
+  const display = row.querySelector('.tagset-display');
+  const select = row.querySelector('.tagset-edit-select');
+  const editBtn = row.querySelector('.tagset-edit-btn');
+  const saveBtn = row.querySelector('.tagset-save-btn');
+  const cancelBtn = row.querySelector('.tagset-cancel-btn');
+  
+  display.classList.add('hidden');
+  select.classList.remove('hidden');
+  editBtn.classList.add('hidden');
+  saveBtn.classList.remove('hidden');
+  cancelBtn.classList.remove('hidden');
+  
+  select.focus();
+}
+
+// Save inline tagset edit
+async function saveTagsetEdit(row) {
+  const deviceId = row.dataset.deviceId;
+  const select = row.querySelector('.tagset-edit-select');
+  const tagsetName = select.value;
+  
+  await selectTagset(deviceId, tagsetName || null);
+  // renderTVAssignments will be called after selectTagset completes
+}
+
+// Cancel inline tagset edit
+function cancelTagsetEdit(row) {
+  const display = row.querySelector('.tagset-display');
+  const select = row.querySelector('.tagset-edit-select');
+  const editBtn = row.querySelector('.tagset-edit-btn');
+  const saveBtn = row.querySelector('.tagset-save-btn');
+  const cancelBtn = row.querySelector('.tagset-cancel-btn');
+  
+  // Reset select to original value
+  const originalValue = display.textContent === '-' ? '' : display.textContent;
+  select.value = originalValue;
+  
+  display.classList.remove('hidden');
+  select.classList.add('hidden');
+  editBtn.classList.remove('hidden');
+  saveBtn.classList.add('hidden');
+  cancelBtn.classList.add('hidden');
 }
 
 // Open the tagset edit/create modal

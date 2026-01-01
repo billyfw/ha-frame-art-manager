@@ -23,7 +23,7 @@ const requireHA = (req, res, next) => {
 
 // Mock tagsets for development - GLOBAL tagsets (not per-TV)
 const MOCK_GLOBAL_TAGSETS = {
-  'everyday': { tags: ['Landscape', 'Nature', 'Beach'], exclude_tags: [] },
+  'everyday': { tags: ['Landscape', 'Nature', 'Beach', 'Sunset', 'Mountains', 'Ocean', 'Forest', 'Flowers', 'Sky'], exclude_tags: [] },
   'holidays': { tags: ['Christmas', 'Winter'], exclude_tags: ['Beach'] },
   'billybirthday': { tags: ['Family', 'Birthday'], exclude_tags: [] },
   'primary': { tags: ['Family', 'Portrait', 'Kids'], exclude_tags: ['Abstract'] },
@@ -39,14 +39,14 @@ const MOCK_TV_TAGSET_ASSIGNMENTS = {
     override_expiry_time: null
   },
   'mock_device_2': {
-    selected_tagset: 'primary',
+    selected_tagset: 'billybirthday',  // Assigned permanently to this TV
     override_tagset: null,
     override_expiry_time: null
   },
   'mock_device_3': {
     selected_tagset: 'work',
-    override_tagset: 'relax',
-    override_expiry_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() // 2 hours from now
+    override_tagset: 'billybirthday',  // Same tagset overrides this TV temporarily
+    override_expiry_time: new Date(Date.now() + 45 * 60 * 1000).toISOString() // 45 minutes from now
   },
   'mock_device_4': {
     selected_tagset: 'primary',
