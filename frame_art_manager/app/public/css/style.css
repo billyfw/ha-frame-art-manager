@@ -7956,7 +7956,7 @@ body.dropdown-open .image-card:hover {
   overflow-y: auto;
 }
 
-.tag-checkbox {
+.tagset-tag-checkbox {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -7969,17 +7969,17 @@ body.dropdown-open .image-card:hover {
   transition: all 0.15s ease;
 }
 
-.tag-checkbox:hover {
+.tagset-tag-checkbox:hover {
   border-color: #2c82c9;
   background: #f0f7fc;
 }
 
-.tag-checkbox input[type="checkbox"] {
+.tagset-tag-checkbox input[type="checkbox"] {
   margin: 0;
   cursor: pointer;
 }
 
-.tag-checkbox input[type="checkbox"]:checked + span {
+.tagset-tag-checkbox input[type="checkbox"]:checked + span {
   font-weight: 500;
   color: #2c82c9;
 }
