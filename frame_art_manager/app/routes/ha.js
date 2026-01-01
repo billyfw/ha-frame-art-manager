@@ -509,7 +509,16 @@ router.post('/tagsets/delete', requireHA, async (req, res) => {
     res.json({ success: true, message: `Tagset '${name}' deleted` });
   } catch (error) {
     console.error('Error deleting tagset:', error.message);
-    const errorMsg = error.response?.data?.message || error.message;
+    // HA returns validation errors in various formats - try to extract the message
+    let errorMsg = 'Failed to delete tagset';
+    if (error.response?.data) {
+      const data = error.response.data;
+      // Try common HA error message paths
+      errorMsg = data.message || data.error || (typeof data === 'string' ? data : JSON.stringify(data));
+    } else {
+      errorMsg = error.message;
+    }
+    console.error('HA error details:', error.response?.data);
     res.status(500).json({ 
       error: 'Failed to delete tagset', 
       details: errorMsg
