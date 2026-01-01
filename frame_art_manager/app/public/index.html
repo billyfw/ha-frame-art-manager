@@ -365,7 +365,7 @@
         <!-- Tags Sub-tab (Tagsets Management) -->
         <div id="advanced-tags-content" class="advanced-tab-content active">
           <!-- TV Tagset Assignments Section -->
-          <div class="subsection">
+          <div class="subsection subsection-no-card">
             <h3>TV Tagset Assignments</h3>
             <div id="tv-tagset-assignments" class="tv-tagset-assignments">
               <div class="loading-indicator">Loading TV assignments...</div>
@@ -374,17 +374,12 @@
 
           <!-- Tagsets Section -->
           <div class="subsection tagsets-section">
-            <h3>Manage Tagsets</h3>
-            <div class="tagset-selector-row">
-              <label for="tagset-select">Tagset:</label>
-              <select id="tagset-select" class="tagset-select">
-                <option value="">-- Select Tagset --</option>
-              </select>
+            <div class="tagsets-header">
+              <h3>Manage Tagsets</h3>
               <button type="button" id="new-tagset-btn" class="btn-primary btn-small">+ New</button>
             </div>
-            
-            <div id="tagset-details" class="tagset-details">
-              <p class="empty-state">Select a tagset above to view or edit details.</p>
+            <div id="tagsets-table-container">
+              <div class="loading-indicator">Loading tagsets...</div>
             </div>
           </div>
         </div>
