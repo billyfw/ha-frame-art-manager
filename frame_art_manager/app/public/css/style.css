@@ -7571,3 +7571,533 @@ body.dropdown-open .image-card:hover {
   color: #444;
 }
 
+
+/* ============================================
+   Tagsets Management Styles
+   ============================================ */
+
+.tagsets-section {
+  margin-bottom: 32px;
+}
+
+.tagsets-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+/* Tagset TV Section */
+.tagset-tv-section {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.tagset-tv-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.tagset-tv-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: #333;
+}
+
+.tagset-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.empty-tagsets {
+  color: #888;
+  font-style: italic;
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+/* Tagset Item Card */
+.tagset-item {
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.tagset-item.selected {
+  border-color: #2c82c9;
+  background: #f0f7fc;
+}
+
+.tagset-item.override-active {
+  border-color: #e67e22;
+  background: #fef5e7;
+}
+
+.tagset-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.tagset-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+.tagset-badges {
+  display: flex;
+  gap: 6px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 10px;
+  text-transform: uppercase;
+}
+
+.badge-selected {
+  background: #2c82c9;
+  color: #fff;
+}
+
+.badge-override {
+  background: #e67e22;
+  color: #fff;
+}
+
+.badge-override-small {
+  background: #e67e22;
+  color: #fff;
+  font-size: 10px;
+  padding: 1px 6px;
+}
+
+.tagset-tags {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.tag-label {
+  font-weight: 500;
+  color: #666;
+  margin-right: 4px;
+}
+
+.tag-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  margin: 2px 4px 2px 0;
+  font-size: 12px;
+  border-radius: 12px;
+  background: #e8e8e8;
+  color: #444;
+}
+
+.tag-chip.include {
+  background: #d4edda;
+  color: #155724;
+}
+
+.tag-chip.exclude {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.none-text {
+  color: #999;
+  font-style: italic;
+}
+
+.tagset-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e8e8e8;
+}
+
+/* TV Assignment Cards */
+.tv-assignment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tv-assignment-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  transition: box-shadow 0.15s ease;
+}
+
+.tv-assignment-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.tv-assignment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.tv-assignment-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: #333;
+}
+
+.tv-assignment-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tv-assignment-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tv-assignment-row label {
+  font-weight: 500;
+  font-size: 13px;
+  color: #666;
+  min-width: 110px;
+}
+
+.tv-tagset-select {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.tv-assignment-override-info {
+  background: #fef5e7;
+  border: 1px solid #f5d89a;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 13px;
+}
+
+.override-current {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.override-expiry {
+  display: block;
+  color: #888;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.tv-assignment-actions {
+  padding-top: 8px;
+}
+
+/* Tagset Modal */
+.tagset-modal-body {
+  padding: 20px;
+}
+
+.tagset-form-group {
+  margin-bottom: 16px;
+}
+
+.tagset-form-group label {
+  display: block;
+  font-weight: 500;
+  font-size: 13px;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.tagset-form-group input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  transition: border-color 0.15s ease;
+}
+
+.tagset-form-group input:focus {
+  outline: none;
+  border-color: #2c82c9;
+}
+
+.tagset-form-hint {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+.tagset-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+  background: #f9f9f9;
+}
+
+/* Override Modal */
+.override-modal-body {
+  padding: 20px;
+}
+
+.override-form-group {
+  margin-bottom: 16px;
+}
+
+.override-form-group label {
+  display: block;
+  font-weight: 500;
+  font-size: 13px;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.override-form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.override-duration-row {
+  display: flex;
+  gap: 10px;
+}
+
+.override-duration-row input {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.override-duration-row select {
+  width: 120px;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.override-form-hint {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+.override-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+  background: #f9f9f9;
+}
+
+/* Button variants */
+.btn-warning {
+  background: #e67e22;
+  color: #fff;
+  border: none;
+}
+
+.btn-warning:hover {
+  background: #d35400;
+}
+
+/* Empty state */
+.empty-state {
+  color: #888;
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+}
+
+/* Tag checkbox selector in modal */
+.tagset-tag-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.tag-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.tag-checkbox:hover {
+  border-color: #2c82c9;
+  background: #f0f7fc;
+}
+
+.tag-checkbox input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.tag-checkbox input[type="checkbox"]:checked + span {
+  font-weight: 500;
+  color: #2c82c9;
+}
+
+.no-tags-hint {
+  color: #888;
+  font-style: italic;
+  font-size: 13px;
+  padding: 8px;
+}
+
+/* Form hint for modals */
+.form-hint {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+/* Tagset Selector Row */
+.tagset-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.tagset-selector-row label {
+  font-weight: 500;
+  font-size: 13px;
+  color: #666;
+}
+
+.tagset-select {
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  min-width: 160px;
+}
+
+/* Tagset Details Card */
+.tagset-details {
+  margin-top: 8px;
+}
+
+.tagset-detail-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.tagset-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.tagset-detail-name {
+  font-weight: 600;
+  font-size: 16px;
+  color: #333;
+}
+
+.tagset-assignment-text {
+  font-size: 13px;
+  color: #666;
+  font-style: italic;
+}
+
+.tagset-override-note {
+  font-size: 12px;
+  color: #b36200;
+  background: #fff8e6;
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.tagset-detail-body {
+  margin-bottom: 16px;
+}
+
+.tagset-detail-body .tagset-tags {
+  margin-bottom: 10px;
+}
+
+.tagset-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+}
+
+/* Text-style button (less prominent) */
+.btn-text {
+  background: transparent;
+  border: none;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.btn-text:hover {
+  text-decoration: underline;
+}
+
+.btn-danger-text {
+  color: #c0392b;
+}
+
+.btn-danger-text:hover {
+  color: #a93226;
+}
