@@ -10935,13 +10935,16 @@ async function saveTagset(e) {
 }
 
 // Delete tagset - GLOBAL tagsets, no device_id needed
+// Passes tagsets and tvs for pre-validation (HA Supervisor strips error messages)
 async function deleteTagset(tagsetName) {
   try {
     const response = await fetch(`${API_BASE}/ha/tagsets/delete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: tagsetName
+        name: tagsetName,
+        tagsets: allGlobalTagsets,
+        tvs: allTVs
       })
     });
     
@@ -10956,7 +10959,7 @@ async function deleteTagset(tagsetName) {
       populateTagsetDropdowns();
       renderTVAssignments();
     } else {
-      // Show detailed error from backend (includes HA validation messages)
+      // Show detailed error from backend
       const errorMsg = result.details || result.error || 'Failed to delete tagset';
       console.error('Delete tagset failed:', errorMsg);
       alert(errorMsg);

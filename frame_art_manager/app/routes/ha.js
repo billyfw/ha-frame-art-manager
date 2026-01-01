@@ -493,44 +493,59 @@ router.post('/tagsets/upsert', requireHA, async (req, res) => {
 });
 
 // POST /api/ha/tagsets/delete - Delete a GLOBAL tagset
+// Pre-validates in add-on since HA Supervisor API strips error messages
 router.post('/tagsets/delete', requireHA, async (req, res) => {
-  const { name } = req.body;
+  const { name, tagsets, tvs } = req.body;
 
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: 'Tagset name is required' });
   }
 
-  try {
-    const payload = {
-      name: name.trim()
-    };
+  const tagsetName = name.trim();
 
-    await haRequest('POST', '/services/frame_art_shuffler/delete_tagset', payload);
-    res.json({ success: true, message: `Tagset '${name}' deleted` });
-  } catch (error) {
-    // Log full error structure for debugging
-    console.error('Error deleting tagset:', {
-      message: error.message,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data
-    });
-    
-    // HA returns ServiceValidationError messages in different formats
-    let errorMsg = 'Failed to delete tagset';
-    if (error.response?.data) {
-      const data = error.response.data;
-      // Try all known HA error message paths
-      errorMsg = data.message || data.error || data.details || 
-                 (typeof data === 'string' ? data : null) || 
-                 JSON.stringify(data);
-    } else if (error.message) {
-      errorMsg = error.message;
+  // Pre-validation using client-provided data (since HA strips error messages)
+  if (tagsets && tvs) {
+    // Check if tagset exists
+    if (!tagsets[tagsetName]) {
+      return res.status(400).json({ 
+        error: 'Failed to delete tagset',
+        details: `Tagset '${tagsetName}' not found`
+      });
     }
-    
-    res.status(error.response?.status || 500).json({ 
+
+    // Check if it's the only tagset
+    if (Object.keys(tagsets).length <= 1) {
+      return res.status(400).json({ 
+        error: 'Failed to delete tagset',
+        details: 'Cannot delete the only tagset'
+      });
+    }
+
+    // Check if any TV is using this tagset
+    for (const tv of tvs) {
+      if (tv.selected_tagset === tagsetName) {
+        return res.status(400).json({ 
+          error: 'Failed to delete tagset',
+          details: `Cannot delete tagset '${tagsetName}': selected by ${tv.name}. Select a different tagset for that TV first.`
+        });
+      }
+      if (tv.override_tagset === tagsetName) {
+        return res.status(400).json({ 
+          error: 'Failed to delete tagset',
+          details: `Cannot delete tagset '${tagsetName}': active override on ${tv.name}. Clear the override first.`
+        });
+      }
+    }
+  }
+
+  try {
+    await haRequest('POST', '/services/frame_art_shuffler/delete_tagset', { name: tagsetName });
+    res.json({ success: true, message: `Tagset '${tagsetName}' deleted` });
+  } catch (error) {
+    console.error('Error deleting tagset:', error.message);
+    res.status(500).json({ 
       error: 'Failed to delete tagset', 
-      details: errorMsg
+      details: error.message || 'Unknown error'
     });
   }
 });
