@@ -11344,10 +11344,10 @@ function renderTVAssignments() {
       <thead>
         <tr>
           <th>TV</th>
-          <th>Selected Tagset</th>
-          <th>Override</th>
-          <th>Override Tagset</th>
-          <th>Override Time</th>
+          <th>Tagset</th>
+          <th></th>
+          <th class="desktop-only">Override Tagset</th>
+          <th class="desktop-only">Override Time</th>
         </tr>
       </thead>
       <tbody>
@@ -11373,6 +11373,7 @@ function renderTVAssignments() {
         <tr class="tv-assignment-row${hasOverride ? ' has-override' : ''}" data-device-id="${escapeHtml(tv.device_id)}">
           <td class="tv-col-name" data-label="TV">
             <span class="tv-name">${escapeHtml(tv.name)}</span>
+            ${hasOverride ? `<span class="mobile-override-info">⚠️ ${escapeHtml(overrideTagset)} (${overrideTime})</span>` : ''}
           </td>
           <td class="tv-col-tagset" data-label="Selected Tagset">
             <select class="tagset-select" data-device-id="${escapeHtml(tv.device_id)}" data-tv-name="${escapeHtml(tv.name)}">
@@ -11391,10 +11392,10 @@ function renderTVAssignments() {
               </button>
             `}
           </td>
-          <td class="tv-col-override" data-label="Override">
+          <td class="tv-col-override desktop-only" data-label="Override">
             <span class="${hasOverride ? 'override-text' : 'override-none'}">${escapeHtml(overrideTagset)}</span>
           </td>
-          <td class="tv-col-override-time" data-label="Override Time">
+          <td class="tv-col-override-time desktop-only" data-label="Override Time">
             <span class="${hasOverride ? 'override-text' : 'override-none'}">${overrideTime}</span>
           </td>
         </tr>
