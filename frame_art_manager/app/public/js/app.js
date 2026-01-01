@@ -348,6 +348,32 @@ async function fetchRecentlyDisplayed() {
   }
 }
 
+// Last displayed timestamps for sorting (filename -> timestamp)
+let lastDisplayedTimes = null; // null = not fetched yet, {} = fetched but empty
+
+/**
+ * Fetch last displayed timestamps for all images
+ * Returns map of filename -> timestamp (most recent completed_at)
+ */
+async function fetchLastDisplayedTimes() {
+  // Return cached data if already fetched
+  if (lastDisplayedTimes !== null) {
+    return lastDisplayedTimes;
+  }
+  
+  try {
+    const response = await fetch(`${API_BASE}/analytics/last-displayed`);
+    if (!response.ok) throw new Error('Failed to fetch last displayed times');
+    const data = await response.json();
+    lastDisplayedTimes = data.lastDisplayed || {};
+    return lastDisplayedTimes;
+  } catch (error) {
+    console.error('Error fetching last displayed times:', error);
+    lastDisplayedTimes = {}; // Set to empty so we don't keep retrying
+    return {};
+  }
+}
+
 /**
  * Get set of filenames that are recently displayed
  */
@@ -1702,6 +1728,13 @@ async function loadGallery() {
 
     // Also load tags for filter dropdown
     await loadTagsForFilter();
+    
+    // Prefetch last displayed times if needed for 'displayed' sort
+    const sortOrderSelect = document.getElementById('sort-order');
+    const currentSortOrder = sortOrderSelect ? sortOrderSelect.value : initialSortOrderPreference;
+    if (currentSortOrder === 'displayed' && lastDisplayedTimes === null) {
+      await fetchLastDisplayedTimes();
+    }
 
     renderGallery();
   } catch (error) {
@@ -3219,7 +3252,7 @@ function renderGallery(filter = '') {
       return timestampB - timestampA;
     });
   } else {
-    // Standard sort modes: "name" or "date" (from dropdown)
+    // Standard sort modes: "name", "date", "modified", or "displayed" (from dropdown)
     filteredImages.sort((a, b) => {
       const [filenameA, dataA] = a;
       const [filenameB, dataB] = b;
@@ -3235,6 +3268,24 @@ function renderGallery(filter = '') {
         const dateA = new Date(dataA.updated || dataA.added || 0);
         const dateB = new Date(dataB.updated || dataB.added || 0);
         comparison = dateA - dateB; // older first when ascending
+      } else if (sortOrder === 'displayed') {
+        // Sort by last displayed time
+        // Secondary sort: added date, then filename for images with same/no display time
+        const timeA = lastDisplayedTimes?.[filenameA] || 0;
+        const timeB = lastDisplayedTimes?.[filenameB] || 0;
+        comparison = timeA - timeB;
+        
+        // If both have same display time (or both never displayed), use added date as tiebreaker
+        if (comparison === 0) {
+          const dateA = new Date(dataA.added || 0);
+          const dateB = new Date(dataB.added || 0);
+          comparison = dateA - dateB;
+          
+          // If still tied, use filename
+          if (comparison === 0) {
+            comparison = filenameA.localeCompare(filenameB);
+          }
+        }
       } else {
         // Sort by name (alphabetically)
         comparison = filenameA.localeCompare(filenameB);
@@ -3660,8 +3711,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (sortOrderSelect) {
-    sortOrderSelect.addEventListener('change', () => {
+    sortOrderSelect.addEventListener('change', async () => {
       resizeSortSelect('change');
+      
+      // Fetch last displayed times if needed for 'displayed' sort
+      if (sortOrderSelect.value === 'displayed' && lastDisplayedTimes === null) {
+        await fetchLastDisplayedTimes();
+      }
+      
       renderGallery();
       saveSortPreference(sortOrderSelect.value, sortAscending);
     });
