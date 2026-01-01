@@ -1022,7 +1022,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadTVs();
   initUploadForm();
   initBatchUploadForm(); // Initialize batch upload
-  initTagForm();
   initModal();
   initMetadataViewer();
   initSyncDetail();
@@ -4660,7 +4659,6 @@ async function loadTags() {
   try {
     const response = await fetch(`${API_BASE}/tags`);
     allTags = await response.json();
-    renderTagList();
   } catch (error) {
     console.error('Error loading tags:', error);
   }
@@ -5554,62 +5552,6 @@ function updateTagFilterDisplay() {
 // Wrapper to filter and render gallery (used for async filter changes)
 function filterAndRenderGallery() {
   renderGallery();
-}
-
-function renderTagList() {
-  const list = document.getElementById('tag-list');
-  
-  if (allTags.length === 0) {
-    list.innerHTML = '<div class="empty-state">No tags created yet</div>';
-    return;
-  }
-
-  list.innerHTML = allTags.map(tag => `
-    <div class="tag-item">
-      <span>${tag}</span>
-      <button class="tag-remove" onclick="removeTag('${tag}')" title="Remove tag">×</button>
-    </div>
-  `).join('');
-}
-
-function initTagForm() {
-  const form = document.getElementById('tag-form');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const name = document.getElementById('tag-name').value;
-
-    try {
-      const response = await fetch(`${API_BASE}/tags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        form.reset();
-        loadTags();
-        loadTagsForFilter();
-      }
-    } catch (error) {
-      console.error('Error adding tag:', error);
-    }
-  });
-}
-
-async function removeTag(tagName) {
-  if (!confirm(`Remove tag "${tagName}" from all images?`)) return;
-
-  try {
-    await fetch(`${API_BASE}/tags/${encodeURIComponent(tagName)}`, { method: 'DELETE' });
-    loadTags();
-    loadTagsForFilter();
-    loadGallery(); // Reload gallery to reflect removed tags
-  } catch (error) {
-    console.error('Error removing tag:', error);
-  }
 }
 
 // Image Editing Helpers
