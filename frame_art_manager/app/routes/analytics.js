@@ -155,4 +155,44 @@ router.get('/status', async (req, res) => {
   }
 });
 
+// GET /api/analytics/last-displayed - Get last displayed timestamp for each image
+// Returns { filename: timestamp } for sorting by last displayed
+router.get('/last-displayed', async (req, res) => {
+  const logsPath = getLogsPath();
+  const eventsPath = path.join(logsPath, 'events.json');
+  
+  try {
+    const data = await fs.readFile(eventsPath, 'utf8');
+    const events = JSON.parse(data);
+    
+    if (!Array.isArray(events)) {
+      return res.json({ success: true, lastDisplayed: {} });
+    }
+    
+    // Find the most recent completed_at for each filename
+    const lastDisplayed = {};
+    for (const event of events) {
+      const { filename, completed_at } = event;
+      if (!filename || !completed_at) continue;
+      
+      const timestamp = new Date(completed_at).getTime();
+      if (isNaN(timestamp)) continue;
+      
+      if (!lastDisplayed[filename] || timestamp > lastDisplayed[filename]) {
+        lastDisplayed[filename] = timestamp;
+      }
+    }
+    
+    res.json({ success: true, lastDisplayed });
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      // No events file - return empty (no display history)
+      res.json({ success: true, lastDisplayed: {} });
+    } else {
+      console.error('Error reading events.json for last-displayed:', error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+});
+
 module.exports = router;
