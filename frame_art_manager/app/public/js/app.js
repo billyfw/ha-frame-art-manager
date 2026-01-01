@@ -11373,7 +11373,6 @@ function renderTVAssignments() {
         <tr class="tv-assignment-row${hasOverride ? ' has-override' : ''}" data-device-id="${escapeHtml(tv.device_id)}">
           <td class="tv-col-name" data-label="TV">
             <span class="tv-name">${escapeHtml(tv.name)}</span>
-            ${hasOverride ? `<span class="mobile-override-info">⚠️ ${escapeHtml(overrideTagset)} (${overrideTime})</span>` : ''}
           </td>
           <td class="tv-col-tagset" data-label="Selected Tagset">
             <select class="tagset-select" data-device-id="${escapeHtml(tv.device_id)}" data-tv-name="${escapeHtml(tv.name)}">
@@ -11399,6 +11398,11 @@ function renderTVAssignments() {
             <span class="${hasOverride ? 'override-text' : 'override-none'}">${overrideTime}</span>
           </td>
         </tr>
+        ${hasOverride ? `
+        <tr class="mobile-override-row">
+          <td colspan="3"><span class="mobile-override-info">Overridden: ${escapeHtml(overrideTagset)} (${overrideTime})</span></td>
+        </tr>
+        ` : ''}
     `;
   }
   
