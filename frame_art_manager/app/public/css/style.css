@@ -799,17 +799,17 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
-/* Pill inherits dot color */
+/* Pill inherits dot color - darker shade for better text contrast */
 .tv-status-dot.on .tv-status-pill {
-  background: #4caf50;
+  background: #388e3c;
 }
 
 .tv-status-dot.override .tv-status-pill {
-  background: #ff9800;
+  background: #e65100;
 }
 
 .tv-status-dot.off .tv-status-pill {
-  background: #666;
+  background: #444;
 }
 
 .tv-status-dot:hover .tv-status-pill,
@@ -820,14 +820,16 @@ body {
 
 .tv-status-pill .pill-tv-name {
   font-weight: 600;
+  color: #fff;
 }
 
 .tv-status-pill .pill-tagset {
-  color: rgba(255,255,255,0.7);
+  color: rgba(255,255,255,0.85);
 }
 
 .tv-status-pill .pill-image {
-  color: #7cb3f5;
+  color: #fff;
+  font-weight: 500;
 }
 
 /* Hide mobile TV status container on desktop */
