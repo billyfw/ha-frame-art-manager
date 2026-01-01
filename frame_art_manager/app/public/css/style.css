@@ -7817,10 +7817,6 @@ body.dropdown-open .image-card:hover {
   background: #fafbfc;
 }
 
-.tv-assignments-table tbody tr:hover {
-  background: #f0f7ff;
-}
-
 .tv-col-name {
   font-weight: 600;
   color: #2d3748;
@@ -7865,10 +7861,6 @@ body.dropdown-open .image-card:hover {
   background: #fffaf0;
 }
 
-.tv-assignment-row.has-override:hover {
-  background: #fff5e6;
-}
-
 .tv-col-actions {
   white-space: nowrap;
 }
@@ -7879,6 +7871,32 @@ body.dropdown-open .image-card:hover {
   text-align: center;
   padding: 6px 12px;
   font-size: 13px;
+}
+
+/* Override button styles with clear hover feedback */
+.tv-col-actions .btn-small.clear-override-btn {
+  background: #ff9800;
+  color: white;
+  border: none;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.tv-col-actions .btn-small.clear-override-btn:hover {
+  background: #e65100;
+  transform: translateY(-1px);
+}
+
+.tv-col-actions .btn-small.set-override-btn {
+  background: #f5f5f5;
+  color: #333;
+  border: 1px solid #ccc;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.tv-col-actions .btn-small.set-override-btn:hover {
+  background: #e0e0e0;
+  border-color: #999;
+  transform: translateY(-1px);
 }
 
 /* Mobile: Stack table rows into cards */
