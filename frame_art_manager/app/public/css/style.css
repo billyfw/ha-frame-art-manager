@@ -8414,6 +8414,17 @@ body.dropdown-open .image-card:hover {
   color: #2d3748;
 }
 
+.tagset-match-count {
+  font-weight: 400;
+  color: #718096;
+  font-size: 12px;
+}
+
+.tag-count {
+  color: #a0aec0;
+  font-size: 11px;
+}
+
 .tagsets-table .th-include,
 .tagsets-table .td-include,
 .tagsets-table .th-exclude,
