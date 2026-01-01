@@ -11196,7 +11196,7 @@ function renderTagsetsTable() {
               <span class="tagset-match-count">(${matchCount})</span>
             </div>
             <div class="mobile-tagset-meta">
-              <span class="tag-counts">${includeCount}in${excludeCount > 0 ? ` / ${excludeCount}ex` : ''}</span>
+              <span class="tag-counts">${includeCount}incl${excludeCount > 0 ? ` / ${excludeCount}excl` : ''}</span>
               ${mobileUsedByText ? `<span class="used-by-info">· ${escapeHtml(mobileUsedByText)}</span>` : ''}
             </div>
           </td>
@@ -11204,7 +11204,7 @@ function renderTagsetsTable() {
           <td class="td-exclude desktop-only">${excludeSummary}</td>
           <td class="td-used-by desktop-only${hasOverride ? ' has-override' : ''}">${usedBySummary}</td>
           <td class="td-actions">
-            <button class="btn-icon tagset-edit-btn" data-tagset-name="${escapeHtml(name)}" title="Edit">✎</button>
+            <button class="btn-icon tagset-edit-btn" data-tagset-name="${escapeHtml(name)}" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
             <button class="btn-icon tagset-delete-btn" data-tagset-name="${escapeHtml(name)}" title="Delete"
               ${tagsetNames.length <= 1 ? 'disabled' : ''}>×</button>
           </td>
