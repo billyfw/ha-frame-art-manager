@@ -8726,6 +8726,18 @@ body.dropdown-open .image-card:hover {
   cursor: not-allowed;
 }
 
+.tagsets-table .td-actions .tagset-edit-btn {
+  color: #718096;
+  font-size: 14px;
+  cursor: pointer;
+  margin-right: 4px;
+}
+
+.tagsets-table .td-actions .tagset-edit-btn:hover {
+  color: #4a5568;
+  background: #e2e8f0;
+}
+
 .tagsets-table .td-actions .tagset-delete-btn {
   color: #c53030;
   font-size: 18px;

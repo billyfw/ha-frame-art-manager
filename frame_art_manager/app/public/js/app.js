@@ -11204,6 +11204,7 @@ function renderTagsetsTable() {
           <td class="td-exclude desktop-only">${excludeSummary}</td>
           <td class="td-used-by desktop-only${hasOverride ? ' has-override' : ''}">${usedBySummary}</td>
           <td class="td-actions">
+            <button class="btn-icon tagset-edit-btn" data-tagset-name="${escapeHtml(name)}" title="Edit">✎</button>
             <button class="btn-icon tagset-delete-btn" data-tagset-name="${escapeHtml(name)}" title="Delete"
               ${tagsetNames.length <= 1 ? 'disabled' : ''}>×</button>
           </td>
@@ -11241,12 +11242,26 @@ function renderTagsetsTable() {
   
   container.innerHTML = html;
   
-  // Attach event listeners
+  // Attach event listeners - row click toggles expand/collapse
   container.querySelectorAll('.tagset-row').forEach(row => {
     row.addEventListener('click', (e) => {
-      // Don't open edit if clicking expand btn, +N more, collapse link, or delete button
-      if (e.target.closest('.mobile-expand-btn') || e.target.closest('.more-count') || e.target.closest('.collapse-link') || e.target.closest('.tagset-delete-btn')) return;
-      openTagsetModal(row.dataset.tagsetName);
+      // Don't toggle if clicking action buttons
+      if (e.target.closest('.tagset-edit-btn') || e.target.closest('.tagset-delete-btn') || e.target.closest('.more-count') || e.target.closest('.collapse-link')) return;
+      const tagsetName = row.dataset.tagsetName;
+      if (expandedTagsets.has(tagsetName)) {
+        expandedTagsets.delete(tagsetName);
+      } else {
+        expandedTagsets.add(tagsetName);
+      }
+      renderTagsetsTable();
+    });
+  });
+  
+  // Edit button opens modal
+  container.querySelectorAll('.tagset-edit-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openTagsetModal(btn.dataset.tagsetName);
     });
   });
   
