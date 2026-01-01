@@ -10850,6 +10850,28 @@ async function loadTagsTab() {
 // Track which tagsets have expanded tag lists
 const expandedTagsets = new Set();
 
+// Count images per tag (for tag pool display)
+function getImageCountPerTag() {
+  const counts = {};
+  for (const [filename, imageData] of Object.entries(allImages || {})) {
+    for (const tag of (imageData.tags || [])) {
+      counts[tag] = (counts[tag] || 0) + 1;
+    }
+  }
+  return counts;
+}
+
+// Count images matching a tagset
+function countImagesForTagset(tagset) {
+  let count = 0;
+  for (const [filename, imageData] of Object.entries(allImages || {})) {
+    if (imageMatchesTagset(imageData, tagset)) {
+      count++;
+    }
+  }
+  return count;
+}
+
 // Render the tagsets as an expandable table
 function renderTagsetsTable() {
   const container = document.getElementById('tagsets-table-container');
@@ -10946,9 +10968,12 @@ function renderTagsetsTable() {
     
     const hasOverride = tvsOverride.length > 0;
     
+    // Count images matching this tagset
+    const matchCount = countImagesForTagset(tagset);
+    
     html += `
         <tr class="tagset-row clickable-row" data-tagset-name="${escapeHtml(name)}">
-          <td class="td-name">${escapeHtml(name)}</td>
+          <td class="td-name">${escapeHtml(name)} <span class="tagset-match-count">(${matchCount})</span></td>
           <td class="td-include">${includeSummary}</td>
           <td class="td-exclude">${excludeSummary}</td>
           <td class="td-used-by${hasOverride ? ' has-override' : ''}">${usedBySummary}</td>
@@ -11385,6 +11410,7 @@ function renderTagsetTagPool() {
   if (!container) return;
   
   const allTagNames = allTags || [];
+  const tagCounts = getImageCountPerTag();
   
   // Filter out tags already in include or exclude
   const availableTags = allTagNames.filter(tag => 
@@ -11401,9 +11427,10 @@ function renderTagsetTagPool() {
     return;
   }
   
-  container.innerHTML = availableTags.map(tag => 
-    `<span class="tag-pill" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</span>`
-  ).join('');
+  container.innerHTML = availableTags.map(tag => {
+    const count = tagCounts[tag] || 0;
+    return `<span class="tag-pill" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)} <span class="tag-count">(${count})</span></span>`;
+  }).join('');
   
   // Add click handlers
   container.querySelectorAll('.tag-pill').forEach(pill => {
@@ -11429,6 +11456,7 @@ function renderTagsetSelectedTags(type) {
   if (!container) return;
   
   const tags = type === 'include' ? tagsetModalIncludeTags : tagsetModalExcludeTags;
+  const tagCounts = getImageCountPerTag();
   
   if (tags.length === 0) {
     const hint = type === 'include' ? 'Click tags above to include' : 'Click tags above to exclude';
@@ -11436,12 +11464,13 @@ function renderTagsetSelectedTags(type) {
     return;
   }
   
-  container.innerHTML = tags.map(tag => 
-    `<span class="tag-pill" data-tag="${escapeHtml(tag)}">
-      ${escapeHtml(tag)}
+  container.innerHTML = tags.map(tag => {
+    const count = tagCounts[tag] || 0;
+    return `<span class="tag-pill" data-tag="${escapeHtml(tag)}">
+      ${escapeHtml(tag)} <span class="tag-count">(${count})</span>
       <span class="tag-remove">×</span>
-    </span>`
-  ).join('');
+    </span>`;
+  }).join('');
   
   // Add click handlers to remove
   container.querySelectorAll('.tag-pill').forEach(pill => {
