@@ -8057,8 +8057,9 @@ body.dropdown-open .image-card:hover {
   transform: translateY(-1px);
 }
 
-/* Mobile override row - hidden on desktop */
-.mobile-override-row {
+/* Mobile override rows - hidden on desktop */
+.mobile-override-row,
+.mobile-tagset-override-row {
   display: none;
 }
 
@@ -8904,88 +8905,104 @@ body.dropdown-open .image-card:hover {
     font-size: 12px;
   }
 
+  /* Hide desktop-only columns */
+  .tagsets-table th.desktop-only,
+  .tagsets-table td.desktop-only {
+    display: none;
+  }
+
   /* Tagsets Table mobile - keep as table but fit screen */
   .tagsets-table {
     font-size: 12px;
     table-layout: fixed;
     width: 100%;
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
   }
   
   .tagsets-table th,
   .tagsets-table td {
-    padding: 8px 5px;
+    padding: 8px 8px;
     word-wrap: break-word;
     overflow-wrap: break-word;
   }
   
   .tagsets-table th {
-    font-size: 9px;
+    font-size: 10px;
     letter-spacing: 0;
-    padding: 8px 4px;
+    padding: 8px 8px;
   }
   
-  /* Hide Include/Exclude columns on mobile - too much info */
-  .tagsets-table .th-include,
-  .tagsets-table .td-include,
-  .tagsets-table .th-exclude,
-  .tagsets-table .td-exclude {
-    display: none;
-  }
-  
-  /* Column widths: Name, Used By, Actions */
+  /* Column widths for mobile: Name, Actions (only 2 visible) */
   .tagsets-table th:nth-child(1),
   .tagsets-table td:nth-child(1) {
-    width: 40%;
-  }
-  
-  .tagsets-table th:nth-child(4),
-  .tagsets-table td:nth-child(4) {
-    width: 45%;
+    width: 85%;
   }
   
   .tagsets-table th:nth-child(5),
   .tagsets-table td:nth-child(5) {
     width: 15%;
-    text-align: center;
-    padding-right: 4px;
+    text-align: right;
+    padding-right: 10px;
   }
   
   .tagsets-table .td-name {
-    font-size: 13px;
+    font-size: 14px;
+    font-weight: 600;
     line-height: 1.3;
   }
   
   .tagsets-table .td-name .tagset-match-count {
-    font-size: 10px;
-    display: block;
+    font-size: 12px;
+    display: inline;
     color: #718096;
-  }
-  
-  .tagsets-table .td-used-by {
-    font-size: 11px;
-    max-width: none;
-    width: auto;
-    line-height: 1.3;
-  }
-  
-  .tagsets-table .td-used-by .override-indicator {
-    font-size: 10px;
-    line-height: 1.2;
-  }
-  
-  .tagsets-table .td-used-by.has-override {
-    min-width: auto;
-    max-width: none;
+    font-weight: 400;
   }
   
   .tagsets-table .td-actions {
     width: auto;
-    padding-right: 4px;
+    padding-right: 10px;
+    text-align: right;
   }
   
   .tagsets-table .td-actions .btn-icon {
-    padding: 4px 6px;
-    font-size: 14px;
+    padding: 6px 8px;
+    font-size: 16px;
+    opacity: 0.6;
+  }
+  
+  .tagsets-table .td-actions .btn-icon:hover {
+    opacity: 1;
+  }
+  
+  /* Mobile tagset override row - spanning all columns */
+  .mobile-tagset-override-row {
+    display: table-row;
+    background: #fffaf0;
+  }
+  
+  .mobile-tagset-override-row td {
+    padding: 0 8px 8px 8px;
+    border-bottom: 1px solid #e8ecf0;
+  }
+  
+  .mobile-tagset-override-row .mobile-tagset-override-info {
+    display: block;
+    font-size: 11px;
+    color: #c05621;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  
+  /* Remove border from main row when followed by override row */
+  .tagsets-table .tagset-row.has-override td {
+    border-bottom: none;
+  }
+  
+  /* Row highlight for active overrides */
+  .tagsets-table .tagset-row.has-override {
+    background: #fffaf0;
   }
 
   /* Tagset modal on mobile - MUST fit and scroll */
