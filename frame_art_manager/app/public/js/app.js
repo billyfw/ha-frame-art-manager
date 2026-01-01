@@ -469,7 +469,7 @@ function getTVStatusData() {
       currentImage: current?.filename || null,
       isOn: current?.isOn || false
     };
-  });
+  }).sort((a, b) => a.tvName.localeCompare(b.tvName));
 }
 
 /**
