@@ -8745,6 +8745,7 @@ body.dropdown-open .image-card:hover {
   font-size: 18px;
   font-weight: 400;
   cursor: pointer;
+  background: magenta !important; /* DEBUG */
 }
 
 .tagsets-table .td-actions .tagset-delete-btn:hover:not(:disabled) {

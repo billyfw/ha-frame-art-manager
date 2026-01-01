@@ -11488,8 +11488,8 @@ function renderTVAssignments() {
           </td>
         </tr>
         ${hasOverride ? `
-        <tr class="mobile-override-row" style="background: #fffaf0 !important;">
-          <td colspan="3" style="background: #fffaf0 !important;"><span class="mobile-override-info">Overridden: ${escapeHtml(overrideTagset)} for ${overrideTime}</span></td>
+        <tr class="mobile-override-row" style="background: cyan !important;">
+          <td colspan="3" style="background: cyan !important;"><span class="mobile-override-info">Overridden: ${escapeHtml(overrideTagset)} for ${overrideTime}</span></td>
         </tr>
         ` : ''}
     `;
