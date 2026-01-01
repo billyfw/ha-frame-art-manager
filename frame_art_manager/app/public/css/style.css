@@ -8857,6 +8857,67 @@ body.dropdown-open .image-card:hover {
 
 /* Mobile: Stack tagsets table */
 @media (max-width: 768px) {
+  /* Section headers */
+  .subsection h3 {
+    font-size: 15px;
+  }
+  
+  /* Tagsets header - keep compact */
+  .tagsets-header {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .tagsets-header h3 {
+    font-size: 15px;
+  }
+  
+  .tagsets-header .btn-primary.btn-small {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  /* TV Assignments Table mobile styles */
+  .tv-assignments-table td {
+    padding: 6px 0;
+    font-size: 13px;
+  }
+  
+  .tv-assignments-table td::before {
+    font-size: 10px;
+    min-width: 70px;
+  }
+  
+  .tv-col-name {
+    font-size: 15px;
+    padding-bottom: 8px !important;
+  }
+  
+  .tv-col-tagset select {
+    font-size: 13px;
+    padding: 6px 8px;
+    min-width: 100px;
+    max-width: 140px;
+  }
+  
+  .tv-col-override {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .tv-col-override .override-text,
+  .tv-col-override .override-none {
+    font-size: 12px;
+  }
+  
+  .tv-col-actions .btn-small {
+    width: auto;
+    min-width: 70px;
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  /* Tagsets Table mobile - card layout */
   .tagsets-table thead {
     display: none;
   }
@@ -8870,8 +8931,12 @@ body.dropdown-open .image-card:hover {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    padding: 12px 16px;
-    gap: 8px;
+    padding: 12px 14px;
+    gap: 6px;
+    margin-bottom: 8px;
+    background: #fff;
+    border: 1px solid #d8dde3;
+    border-radius: 8px;
   }
   
   .tagsets-table tbody tr.tagset-row td {
@@ -8882,12 +8947,22 @@ body.dropdown-open .image-card:hover {
   .tagsets-table .td-expand {
     width: auto;
     order: 1;
+    padding: 0 4px 0 0;
+  }
+  
+  .tagsets-table .td-expand .btn-expand {
+    padding: 4px 6px;
   }
   
   .tagsets-table .td-name {
     flex: 1;
     order: 2;
-    font-size: 15px;
+    font-size: 14px;
+    min-width: 0;
+  }
+  
+  .tagsets-table .td-name .tagset-match-count {
+    font-size: 11px;
   }
   
   .tagsets-table .td-include,
@@ -8897,9 +8972,15 @@ body.dropdown-open .image-card:hover {
   
   .tagsets-table .td-used-by {
     order: 4;
-    font-size: 12px;
+    font-size: 11px;
     color: #718096;
     width: 100%;
+    max-width: none;
+    padding-top: 6px;
+  }
+  
+  .tagsets-table .td-used-by .override-indicator {
+    font-size: 11px;
   }
   
   .tagsets-table .td-actions {
@@ -8908,14 +8989,96 @@ body.dropdown-open .image-card:hover {
     padding-right: 0;
   }
   
+  .tagsets-table .td-actions .btn-icon {
+    padding: 4px 6px;
+    font-size: 14px;
+  }
+  
+  /* Expanded detail row on mobile */
   .tagset-detail-row td {
     display: block;
   }
   
+  .tagset-detail-row {
+    margin-top: -8px;
+    margin-bottom: 8px;
+  }
+  
   .tagset-expanded-content {
-    padding: 12px 16px;
+    padding: 12px 14px;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
+  }
+  
+  .tagset-tag-group {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .tagset-tag-group .tag-label {
+    min-width: auto;
+    padding-top: 0;
+    font-size: 11px;
+  }
+  
+  .tagset-tag-group .tag-chips {
+    gap: 4px;
+  }
+  
+  .tag-chip {
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+  
+  /* Tagset modal on mobile */
+  .tagset-modal {
+    width: 95%;
+    max-width: none;
+    margin: 10px;
+  }
+  
+  .tagset-modal-body {
+    padding: 16px;
+  }
+  
+  .tagset-form-group {
+    margin-bottom: 12px;
+  }
+  
+  .tagset-form-group label {
+    font-size: 12px;
+  }
+  
+  .tagset-form-group input {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+  
+  .tagset-modal-actions {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+  
+  .tagset-modal-actions-left {
+    width: 100%;
+    order: 2;
+  }
+  
+  .tagset-modal-actions-left .btn-danger-text {
+    width: 100%;
+    text-align: center;
+    padding: 8px;
+  }
+  
+  .tagset-modal-actions-right {
+    width: 100%;
+    order: 1;
+  }
+  
+  .tagset-modal-actions-right button {
+    flex: 1;
+    padding: 10px;
   }
 }
 
