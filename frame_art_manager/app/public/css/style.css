@@ -4255,7 +4255,7 @@ body.dropdown-open .image-card:hover {
 
   /* Subsections - less padding on mobile */
   #advanced-tab .subsection {
-    padding: 15px !important;
+    padding: 12px 8px !important;
     margin-bottom: 20px !important;
   }
 
@@ -8119,6 +8119,7 @@ body.dropdown-open .image-card:hover {
   /* Mobile override row - spanning all columns */
   .mobile-override-row {
     display: table-row;
+    background: #fffaf0;
   }
   
   .mobile-override-row td {
@@ -8129,7 +8130,7 @@ body.dropdown-open .image-card:hover {
   .mobile-override-row .mobile-override-info {
     display: block;
     font-size: 11px;
-    color: #e67e22;
+    color: #c05621;
     font-weight: 500;
     line-height: 1.3;
   }

@@ -11400,7 +11400,7 @@ function renderTVAssignments() {
         </tr>
         ${hasOverride ? `
         <tr class="mobile-override-row">
-          <td colspan="3"><span class="mobile-override-info">Overridden: ${escapeHtml(overrideTagset)} (${overrideTime})</span></td>
+          <td colspan="3"><span class="mobile-override-info">Overridden: ${escapeHtml(overrideTagset)} for ${overrideTime}</span></td>
         </tr>
         ` : ''}
     `;
