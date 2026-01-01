@@ -465,6 +465,7 @@ function getTVStatusData() {
       tvId: tv.device_id,
       tvName: tv.name || 'Unknown TV',
       activeTagset: tv.active_tagset || '-',
+      hasOverride: !!tv.override_tagset,
       currentImage: current?.filename || null,
       isOn: current?.isOn || false
     };
@@ -489,7 +490,8 @@ function renderTVStatusDots() {
   const dotsHtml = tvStatus.map(tv => {
     const displayName = tv.currentImage ? getDisplayName(tv.currentImage) : 'None';
     const truncatedName = displayName.length > 20 ? displayName.substring(0, 19) + '…' : displayName;
-    const statusClass = tv.isOn ? 'on' : 'off';
+    // Status: override (orange) > on (green) > off (gray)
+    const statusClass = tv.hasOverride ? 'override' : (tv.isOn ? 'on' : 'off');
     
     return `
       <div class="tv-status-dot ${statusClass}" 

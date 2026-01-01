@@ -767,6 +767,11 @@ body {
   box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
 }
 
+.tv-status-dot.override {
+  background: #ff9800;
+  box-shadow: 0 0 4px rgba(255, 152, 0, 0.5);
+}
+
 .tv-status-dot.off {
   background: #666;
 }
@@ -779,11 +784,10 @@ body {
 .tv-status-pill {
   position: absolute;
   top: 50%;
-  right: 0;
+  right: -6px;
   transform: translateY(-50%);
-  background: #333;
   color: #fff;
-  padding: 6px 10px 6px 20px;
+  padding: 6px 12px 6px 22px;
   border-radius: 12px;
   font-size: 11px;
   white-space: nowrap;
@@ -791,11 +795,25 @@ body {
   visibility: hidden;
   transition: opacity 0.2s ease, visibility 0.2s ease;
   z-index: 100;
-  pointer-events: none;
+  pointer-events: auto;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
-.tv-status-dot:hover .tv-status-pill {
+/* Pill inherits dot color */
+.tv-status-dot.on .tv-status-pill {
+  background: #4caf50;
+}
+
+.tv-status-dot.override .tv-status-pill {
+  background: #ff9800;
+}
+
+.tv-status-dot.off .tv-status-pill {
+  background: #666;
+}
+
+.tv-status-dot:hover .tv-status-pill,
+.tv-status-pill:hover {
   opacity: 1;
   visibility: visible;
 }
@@ -805,7 +823,7 @@ body {
 }
 
 .tv-status-pill .pill-tagset {
-  color: #aaa;
+  color: rgba(255,255,255,0.7);
 }
 
 .tv-status-pill .pill-image {
