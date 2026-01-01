@@ -10845,7 +10845,7 @@ function openTagsetModal(tagsetName) {
   // Build include tags checkboxes
   const includeTags = existingTagset?.tags || [];
   includeContainer.innerHTML = allTagNames.map(tag => `
-    <label class="tag-checkbox">
+    <label class="tagset-tag-checkbox">
       <input type="checkbox" name="include-tag" value="${escapeHtml(tag)}" ${includeTags.includes(tag) ? 'checked' : ''} />
       <span>${escapeHtml(tag)}</span>
     </label>
@@ -10858,7 +10858,7 @@ function openTagsetModal(tagsetName) {
   // Build exclude tags checkboxes
   const excludeTags = existingTagset?.exclude_tags || [];
   excludeContainer.innerHTML = allTagNames.map(tag => `
-    <label class="tag-checkbox">
+    <label class="tagset-tag-checkbox">
       <input type="checkbox" name="exclude-tag" value="${escapeHtml(tag)}" ${excludeTags.includes(tag) ? 'checked' : ''} />
       <span>${escapeHtml(tag)}</span>
     </label>
