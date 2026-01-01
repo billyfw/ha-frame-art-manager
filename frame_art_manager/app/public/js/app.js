@@ -11079,9 +11079,9 @@ function renderTagsetsTable() {
       <thead>
         <tr>
           <th>Name</th>
-          <th>Include Tags</th>
-          <th>Exclude Tags</th>
-          <th>Used By</th>
+          <th class="desktop-only">Include Tags</th>
+          <th class="desktop-only">Exclude Tags</th>
+          <th class="desktop-only">Used By</th>
           <th class="th-actions"></th>
         </tr>
       </thead>
@@ -11160,17 +11160,32 @@ function renderTagsetsTable() {
     // Count images matching this tagset
     const matchCount = countImagesForTagset(tagset);
     
+    // Build mobile override callout text
+    let mobileOverrideText = '';
+    if (hasOverride) {
+      const overrideParts = tvsOverride.map(tv => {
+        const timeStr = formatOverrideTimeCompact(tv.override_expiry_time);
+        return `Overriding ${escapeHtml(tv.name)} ${timeStr}`;
+      });
+      mobileOverrideText = overrideParts.join('; ');
+    }
+
     html += `
-        <tr class="tagset-row clickable-row" data-tagset-name="${escapeHtml(name)}">
+        <tr class="tagset-row clickable-row${hasOverride ? ' has-override' : ''}" data-tagset-name="${escapeHtml(name)}">
           <td class="td-name">${escapeHtml(name)} <span class="tagset-match-count">(${matchCount})</span></td>
-          <td class="td-include">${includeSummary}</td>
-          <td class="td-exclude">${excludeSummary}</td>
-          <td class="td-used-by${hasOverride ? ' has-override' : ''}">${usedBySummary}</td>
+          <td class="td-include desktop-only">${includeSummary}</td>
+          <td class="td-exclude desktop-only">${excludeSummary}</td>
+          <td class="td-used-by desktop-only${hasOverride ? ' has-override' : ''}">${usedBySummary}</td>
           <td class="td-actions">
             <button class="btn-icon tagset-delete-btn" data-tagset-name="${escapeHtml(name)}" title="Delete"
               ${tagsetNames.length <= 1 ? 'disabled' : ''}>×</button>
           </td>
         </tr>
+        ${hasOverride ? `
+        <tr class="mobile-tagset-override-row">
+          <td colspan="2"><span class="mobile-tagset-override-info">${mobileOverrideText}</span></td>
+        </tr>
+        ` : ''}
     `;
   }
   
