@@ -76,7 +76,7 @@ function saveSortPreference(order, ascending) {
 }
 
 const storedSortPreference = loadSortPreference();
-const initialSortOrderPreference = storedSortPreference?.order || 'modified';
+const initialSortOrderPreference = storedSortPreference?.order || 'name';
 let sortAscending = typeof storedSortPreference?.ascending === 'boolean' ? storedSortPreference.ascending : false;
 
 
@@ -2847,6 +2847,14 @@ async function addImageTags() {
 
 // Get last display info for an image from analytics data
 function getLastDisplayInfo(filename) {
+  // First check if image is currently displaying (from recently displayed data)
+  const recentEntries = recentlyDisplayedData[filename] || [];
+  const currentlyDisplaying = recentEntries.find(entry => entry.time === 'now');
+  if (currentlyDisplaying) {
+    return { timeAgo: 'Now', tvName: currentlyDisplaying.tv_name || 'Unknown TV' };
+  }
+  
+  // Fall back to analytics data for historical display info
   const imageData = analyticsData?.images?.[filename];
   if (!imageData?.display_periods) return null;
   
