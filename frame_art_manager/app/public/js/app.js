@@ -4807,21 +4807,6 @@ async function loadTagsForFilter() {
     // Special Filters Section (at top)
     html += `<div class="tv-shortcuts-header">Filters</div>`;
     
-    // Recently Displayed filter
-    const recentCount = getRecentlyDisplayedFilenames().size;
-    html += `
-      <div class="multiselect-option tv-shortcut recently-displayed-filter">
-        <input type="checkbox" id="filter-recently-displayed" 
-               value="recently-displayed" 
-               class="recently-displayed-checkbox"
-               ${recentlyDisplayedFilterActive ? 'checked' : ''}>
-        <label for="filter-recently-displayed">
-          <div class="tv-name">Recently Displayed <span class="tv-count">(${recentCount})</span></div>
-          <div class="tv-tags-subtitle">Current and previous images on each TV</div>
-        </label>
-      </div>
-    `;
-    
     // Similar Images filter
     const { dupeCount, simCount } = getSimilarBreakpointCounts();
     html += `
@@ -4863,6 +4848,21 @@ async function loadTagsForFilter() {
         <label for="filter-non169">
           <div class="tv-name">Landscape (Non 16:9) <span class="tv-count">(${non169Count})</span></div>
           <div class="tv-tags-subtitle">Landscape images that are not 16:9</div>
+        </label>
+      </div>
+    `;
+    
+    // Recently Displayed filter (at bottom of special filters)
+    const recentCount = getRecentlyDisplayedFilenames().size;
+    html += `
+      <div class="multiselect-option tv-shortcut recently-displayed-filter">
+        <input type="checkbox" id="filter-recently-displayed" 
+               value="recently-displayed" 
+               class="recently-displayed-checkbox"
+               ${recentlyDisplayedFilterActive ? 'checked' : ''}>
+        <label for="filter-recently-displayed">
+          <div class="tv-name">Recently Displayed <span class="tv-count">(${recentCount})</span></div>
+          <div class="tv-tags-subtitle">Current and previous images on each TV</div>
         </label>
       </div>
     `;
