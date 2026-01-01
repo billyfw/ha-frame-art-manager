@@ -21,42 +21,94 @@ const requireHA = (req, res, next) => {
   next();
 };
 
+// Mock tagsets for development - GLOBAL tagsets (not per-TV)
+const MOCK_GLOBAL_TAGSETS = {
+  'everyday': { tags: ['Landscape', 'Nature', 'Beach'], exclude_tags: [] },
+  'holidays': { tags: ['Christmas', 'Winter'], exclude_tags: ['Beach'] },
+  'billybirthday': { tags: ['Family', 'Birthday'], exclude_tags: [] },
+  'primary': { tags: ['Family', 'Portrait', 'Kids'], exclude_tags: ['Abstract'] },
+  'work': { tags: ['Abstract', 'Urban', 'Architecture'], exclude_tags: ['Family'] },
+  'relax': { tags: ['Nature', 'Landscape'], exclude_tags: [] }
+};
+
+// Mock TV assignments for development
+const MOCK_TV_TAGSET_ASSIGNMENTS = {
+  'mock_device_1': {
+    selected_tagset: 'everyday',
+    override_tagset: null,
+    override_expiry_time: null
+  },
+  'mock_device_2': {
+    selected_tagset: 'primary',
+    override_tagset: null,
+    override_expiry_time: null
+  },
+  'mock_device_3': {
+    selected_tagset: 'work',
+    override_tagset: 'relax',
+    override_expiry_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() // 2 hours from now
+  },
+  'mock_device_4': {
+    selected_tagset: 'primary',
+    override_tagset: null,
+    override_expiry_time: null
+  }
+};
+
 // Helper for HA requests
 const haRequest = async (method, endpoint, data = null) => {
   if (!SUPERVISOR_TOKEN && process.env.NODE_ENV === 'development') {
     // Mock responses for dev
     if (endpoint.includes('template')) {
-      return [
-        { 
-          device_id: 'mock_device_1', 
-          name: 'Living Room Frame', 
-          tags: ['Landscape', 'Nature', 'Beach', 'Mountains'],
-          exclude_tags: ['Portrait', 'Dark']
-        },
-        { 
-          device_id: 'mock_device_2', 
-          name: 'Bedroom Frame', 
-          tags: ['Family', 'Portrait', 'Kids'],
-          exclude_tags: ['Abstract']
-        },
-        { 
-          device_id: 'mock_device_3', 
-          name: 'Office Frame', 
-          tags: ['Abstract', 'Urban', 'Architecture'],
-          exclude_tags: ['Family']
-        },
-        { 
-          device_id: 'mock_device_4', 
-          name: 'Kitchen Frame', 
-          tags: ['Nature', 'Food', 'Colorful'],
-          exclude_tags: []
-        }
-      ];
+      // Helper to get effective tags for a TV based on global tagsets
+      const getEffectiveTags = (deviceId) => {
+        const assignment = MOCK_TV_TAGSET_ASSIGNMENTS[deviceId];
+        if (!assignment) return { tags: [], exclude_tags: [] };
+        const activeTagset = assignment.override_tagset || assignment.selected_tagset;
+        return MOCK_GLOBAL_TAGSETS[activeTagset] || { tags: [], exclude_tags: [] };
+      };
+      
+      // Return mock data with GLOBAL tagsets structure
+      return {
+        tagsets: MOCK_GLOBAL_TAGSETS,
+        tvs: [
+          { 
+            device_id: 'mock_device_1', 
+            name: 'Living Room Frame', 
+            ...getEffectiveTags('mock_device_1'),
+            ...MOCK_TV_TAGSET_ASSIGNMENTS['mock_device_1']
+          },
+          { 
+            device_id: 'mock_device_2', 
+            name: 'Bedroom Frame', 
+            ...getEffectiveTags('mock_device_2'),
+            ...MOCK_TV_TAGSET_ASSIGNMENTS['mock_device_2']
+          },
+          { 
+            device_id: 'mock_device_3', 
+            name: 'Office Frame', 
+            ...getEffectiveTags('mock_device_3'),
+            ...MOCK_TV_TAGSET_ASSIGNMENTS['mock_device_3']
+          },
+          { 
+            device_id: 'mock_device_4', 
+            name: 'Kitchen Frame', 
+            ...getEffectiveTags('mock_device_4'),
+            ...MOCK_TV_TAGSET_ASSIGNMENTS['mock_device_4']
+          }
+        ]
+      };
     }
     
     // Add delay for display_image to simulate upload time
     if (endpoint.includes('display_image')) {
       await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+    
+    // Mock service calls for tagsets
+    if (endpoint.includes('services/frame_art_shuffler')) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return { success: true };
     }
     
     return { success: true };
@@ -83,33 +135,49 @@ const haRequest = async (method, endpoint, data = null) => {
   }
 };
 
-// GET /api/ha/tvs - Get list of Frame TVs
+// GET /api/ha/tvs - Get list of Frame TVs with tagset data
 router.get('/tvs', requireHA, async (req, res) => {
   try {
-    // Template to find devices belonging to the integration and their tags
+    // Template to find devices belonging to the integration
+    // Global tagsets are exposed as full definitions in sensor attributes
     const template = `
-      {% set ns = namespace(tvs=[]) %}
+      {% set ns = namespace(tvs=[], global_tagsets={}) %}
       {% set devices = integration_entities('frame_art_shuffler') | map('device_id') | unique | list %}
+      
       {% for device_id in devices %}
         {% if device_id and device_id != 'None' %}
           {% set device_name = device_attr(device_id, 'name') %}
           {% set entities = device_entities(device_id) %}
           {% set ns.tags = [] %}
           {% set ns.exclude_tags = [] %}
+          {% set ns.selected_tagset = none %}
+          {% set ns.override_tagset = none %}
+          {% set ns.override_expiry_time = none %}
+          {% set ns.active_tagset = none %}
           
           {% for entity in entities %}
-            {% if entity.startswith('text.') %}
-              {% set fname = (state_attr(entity, 'friendly_name') or '')|lower %}
-              {% if 'tags' in fname and 'include' in fname %}
-                 {% set state = states(entity) %}
-                 {% if state and state != 'unknown' and state != 'unavailable' and state != '' %}
-                   {% set ns.tags = state.split(',') | map('trim') | list %}
-                 {% endif %}
-              {% elif 'tags' in fname and 'exclude' in fname %}
-                 {% set state = states(entity) %}
-                 {% if state and state != 'unknown' and state != 'unavailable' and state != '' %}
-                   {% set ns.exclude_tags = state.split(',') | map('trim') | list %}
-                 {% endif %}
+            {% if entity.endswith('_current_artwork') %}
+              {# Get global tagsets (full definitions - same on all TVs) #}
+              {% set tagsets_attr = state_attr(entity, 'tagsets') %}
+              {% if tagsets_attr and tagsets_attr is mapping and not ns.global_tagsets %}
+                {% set ns.global_tagsets = tagsets_attr %}
+              {% endif %}
+              {% set selected = state_attr(entity, 'selected_tagset') %}
+              {% if selected %}{% set ns.selected_tagset = selected %}{% endif %}
+              {% set override = state_attr(entity, 'override_tagset') %}
+              {% if override %}{% set ns.override_tagset = override %}{% endif %}
+              {% set expiry = state_attr(entity, 'override_expiry_time') %}
+              {% if expiry %}{% set ns.override_expiry_time = expiry %}{% endif %}
+              {% set active = state_attr(entity, 'active_tagset') %}
+              {% if active %}{% set ns.active_tagset = active %}{% endif %}
+              {# Get effective tags for this TV #}
+              {% set tags_attr = state_attr(entity, 'tags') %}
+              {% if tags_attr and tags_attr is iterable and tags_attr is not string %}
+                {% set ns.tags = tags_attr %}
+              {% endif %}
+              {% set exclude_attr = state_attr(entity, 'exclude_tags') %}
+              {% if exclude_attr and exclude_attr is iterable and exclude_attr is not string %}
+                {% set ns.exclude_tags = exclude_attr %}
               {% endif %}
             {% endif %}
           {% endfor %}
@@ -118,30 +186,37 @@ router.get('/tvs', requireHA, async (req, res) => {
             'device_id': device_id,
             'name': device_name,
             'tags': ns.tags,
-            'exclude_tags': ns.exclude_tags
+            'exclude_tags': ns.exclude_tags,
+            'selected_tagset': ns.selected_tagset,
+            'override_tagset': ns.override_tagset,
+            'override_expiry_time': ns.override_expiry_time,
+            'active_tagset': ns.active_tagset
           }] %}
         {% endif %}
       {% endfor %}
-      {{ ns.tvs | to_json }}
+      {{ {'tagsets': ns.global_tagsets, 'tvs': ns.tvs} | to_json }}
     `;
 
     const result = await haRequest('POST', '/template', { template });
     
     // The template API returns the rendered string, we need to parse it
-    let tvs = [];
+    let data = { tagsets: {}, tvs: [] };
     if (typeof result === 'string') {
       try {
-        tvs = JSON.parse(result);
+        data = JSON.parse(result);
       } catch (e) {
         console.error('Failed to parse TV list template result:', result);
-        tvs = [];
       }
-    } else if (Array.isArray(result)) {
-      // In case our mock or some other mechanism returns an array directly
-      tvs = result;
+    } else if (result && typeof result === 'object') {
+      // Mock or direct object return
+      data = result;
     }
 
-    res.json({ success: true, tvs });
+    // Global tagsets as object: { name: { tags, exclude_tags }, ... }
+    const tagsets = data.tagsets || {};
+    const tvs = data.tvs || [];
+
+    res.json({ success: true, tagsets, tvs });
   } catch (error) {
     console.error('Error in /tvs route:', error.message);
     if (error.config) {
@@ -373,6 +448,153 @@ router.get('/recently-displayed', requireHA, async (req, res) => {
     res.status(500).json({ 
       error: 'Failed to fetch recently displayed images', 
       details: error.message 
+    });
+  }
+});
+
+// ============================================================================
+// TAGSET ENDPOINTS
+// Tagsets are GLOBAL (not per-TV). upsert and delete don't need device_id.
+// select, override, and clear-override still need device_id (per-TV assignment).
+// ============================================================================
+
+// POST /api/ha/tagsets/upsert - Create or update a GLOBAL tagset
+router.post('/tagsets/upsert', requireHA, async (req, res) => {
+  const { name, original_name, tags, exclude_tags } = req.body;
+
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'Tagset name is required' });
+  }
+  if (!tags || !Array.isArray(tags) || tags.length === 0) {
+    return res.status(400).json({ error: 'At least one tag is required' });
+  }
+
+  try {
+    const payload = {
+      name: name.trim(),
+      tags,
+      exclude_tags: exclude_tags || []
+    };
+    
+    // Include original_name for rename support
+    if (original_name && original_name.trim() && original_name.trim() !== name.trim()) {
+      payload.original_name = original_name.trim();
+    }
+
+    await haRequest('POST', '/services/frame_art_shuffler/upsert_tagset', payload);
+    res.json({ success: true, message: `Tagset '${name}' saved` });
+  } catch (error) {
+    console.error('Error upserting tagset:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to save tagset', 
+      details: error.response?.data?.message || error.message 
+    });
+  }
+});
+
+// POST /api/ha/tagsets/delete - Delete a GLOBAL tagset
+router.post('/tagsets/delete', requireHA, async (req, res) => {
+  const { name } = req.body;
+
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'Tagset name is required' });
+  }
+
+  try {
+    const payload = {
+      name: name.trim()
+    };
+
+    await haRequest('POST', '/services/frame_art_shuffler/delete_tagset', payload);
+    res.json({ success: true, message: `Tagset '${name}' deleted` });
+  } catch (error) {
+    console.error('Error deleting tagset:', error.message);
+    const errorMsg = error.response?.data?.message || error.message;
+    res.status(500).json({ 
+      error: 'Failed to delete tagset', 
+      details: errorMsg
+    });
+  }
+});
+
+// POST /api/ha/tagsets/select - Select a tagset for a specific TV
+router.post('/tagsets/select', requireHA, async (req, res) => {
+  const { device_id, name } = req.body;
+
+  if (!device_id) {
+    return res.status(400).json({ error: 'device_id is required' });
+  }
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'Tagset name is required' });
+  }
+
+  try {
+    const payload = {
+      device_id,
+      name: name.trim()
+    };
+
+    await haRequest('POST', '/services/frame_art_shuffler/select_tagset', payload);
+    res.json({ success: true, message: `Tagset '${name}' selected` });
+  } catch (error) {
+    console.error('Error selecting tagset:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to select tagset', 
+      details: error.response?.data?.message || error.message 
+    });
+  }
+});
+
+// POST /api/ha/tagsets/override - Apply a temporary tagset override
+router.post('/tagsets/override', requireHA, async (req, res) => {
+  const { device_id, name, duration_minutes } = req.body;
+
+  if (!device_id) {
+    return res.status(400).json({ error: 'device_id is required' });
+  }
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'Tagset name is required' });
+  }
+  if (!duration_minutes || typeof duration_minutes !== 'number' || duration_minutes <= 0) {
+    return res.status(400).json({ error: 'Duration (in minutes) must be a positive number' });
+  }
+
+  try {
+    const payload = {
+      device_id,
+      name: name.trim(),
+      duration_minutes
+    };
+
+    await haRequest('POST', '/services/frame_art_shuffler/override_tagset', payload);
+    res.json({ success: true, message: `Override '${name}' applied for ${duration_minutes} minutes` });
+  } catch (error) {
+    console.error('Error applying tagset override:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to apply tagset override', 
+      details: error.response?.data?.message || error.message 
+    });
+  }
+});
+
+// POST /api/ha/tagsets/clear-override - Clear an active tagset override
+router.post('/tagsets/clear-override', requireHA, async (req, res) => {
+  const { device_id } = req.body;
+
+  if (!device_id) {
+    return res.status(400).json({ error: 'device_id is required' });
+  }
+
+  try {
+    const payload = { device_id };
+
+    await haRequest('POST', '/services/frame_art_shuffler/clear_tagset_override', payload);
+    res.json({ success: true, message: 'Override cleared' });
+  } catch (error) {
+    console.error('Error clearing tagset override:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to clear tagset override', 
+      details: error.response?.data?.message || error.message 
     });
   }
 });

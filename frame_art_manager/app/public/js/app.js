@@ -83,6 +83,7 @@ let sortAscending = typeof storedSortPreference?.ascending === 'boolean' ? store
 let allImages = {};
 let allTags = [];
 let allTVs = [];
+let allGlobalTagsets = {}; // Global tagsets (name -> {tags, exclude_tags})
 let currentImage = null;
 let selectedImages = new Set();
 let lastClickedIndex = null;
@@ -584,8 +585,8 @@ function getSimilarBreakpointCounts() {
   return { dupeCount, simCount: Math.max(0, simCount) };
 }
 
-const ADVANCED_TAB_DEFAULT = 'settings';
-const VALID_ADVANCED_TABS = new Set(['settings', 'metadata', 'sync']);
+const ADVANCED_TAB_DEFAULT = 'tags';
+const VALID_ADVANCED_TABS = new Set(['tags', 'settings', 'metadata', 'sync']);
 
 function normalizeEditingFilterName(name) {
   if (!name) return 'none';
@@ -695,6 +696,8 @@ function switchToAdvancedSubTab(tabName) {
     }, 0);
   } else if (targetTab === 'metadata') {
     loadMetadata();
+  } else if (targetTab === 'tags') {
+    loadTagsTab();
   }
 }
 
@@ -1028,6 +1031,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initUploadNavigation();
   initTvModal();
   initGalleryInfiniteScroll(); // Initialize infinite scroll for gallery
+  initTagsetModalListeners(); // Initialize tagset modal event listeners
   
   // Pre-fetch similar groups for filter counts
   fetchSimilarGroups();
@@ -3505,6 +3509,12 @@ document.addEventListener('DOMContentLoaded', () => {
       // Reset all tag checkboxes to unchecked state
       const checkboxes = document.querySelectorAll('.tag-checkbox');
       checkboxes.forEach(cb => setTagState(cb, 'unchecked'));
+      // Uncheck all TV checkboxes
+      const tvCheckboxes = document.querySelectorAll('.tv-checkbox');
+      tvCheckboxes.forEach(cb => cb.checked = false);
+      // Uncheck all tagset checkboxes
+      const tagsetCheckboxes = document.querySelectorAll('.tagset-checkbox');
+      tagsetCheckboxes.forEach(cb => cb.checked = false);
       // Uncheck "None" checkbox
       const noneCheckbox = document.querySelector('.tv-none-checkbox');
       if (noneCheckbox) {
@@ -3556,7 +3566,8 @@ document.addEventListener('DOMContentLoaded', () => {
       non169FilterActive = false;
       recentlyDisplayedFilterActive = false;
       updateTagFilterDisplay();
-      updateTVShortcutStates();
+      // Re-render gallery with no filters
+      filterAndRenderGallery();
       // Close the dropdown if it's open
       if (!DEBUG_ALWAYS_SHOW_TAG_DROPDOWN) {
         closeTagDropdownPortal();
@@ -4625,8 +4636,15 @@ async function loadTVs() {
   try {
     const response = await fetch(`${API_BASE}/ha/tvs`);
     const data = await response.json();
-    if (data.success && Array.isArray(data.tvs)) {
-      allTVs = data.tvs;
+    if (data.success) {
+      // Store TVs array
+      if (Array.isArray(data.tvs)) {
+        allTVs = data.tvs;
+      }
+      // Store global tagsets (name -> definition)
+      if (data.tagsets && typeof data.tagsets === 'object') {
+        allGlobalTagsets = data.tagsets;
+      }
       // Refresh filter dropdown if it's already rendered
       const dropdownOptions = document.querySelector('.multiselect-options');
       if (dropdownOptions && dropdownOptions.children.length > 0) {
@@ -4821,7 +4839,13 @@ async function loadTagsForFilter() {
         // Count images that match this TV's criteria
         const matchCount = countImagesForTV(tv);
         
+        // Get active tagset name (override takes precedence)
+        const activeTagset = tv.override_tagset || tv.selected_tagset;
+        
         let subtitleHtml = '';
+        if (activeTagset) {
+          subtitleHtml += `<div class="tv-tags-subtitle">Tagset: ${escapeHtml(activeTagset)}</div>`;
+        }
         if (tv.tags && tv.tags.length > 0) {
           subtitleHtml += `<div class="tv-tags-subtitle">+ ${tv.tags.join(', ')}</div>`;
         }
@@ -4837,6 +4861,58 @@ async function loadTagsForFilter() {
                  data-tags="${safeTags}">
           <label for="tv-shortcut-${id}">
             <div class="tv-name">${escapeHtml(tv.name)} <span class="tv-count">(${matchCount})</span></div>
+            ${subtitleHtml}
+          </label>
+        </div>
+      `}).join('');
+      html += `<div class="tv-shortcuts-divider"></div>`;
+    }
+    
+    // Tagsets Section
+    const tagsetNames = Object.keys(allGlobalTagsets || {});
+    if (tagsetNames.length > 0) {
+      html += `<div class="tv-shortcuts-header">Tagsets</div>`;
+      
+      html += tagsetNames.map(tagsetName => {
+        const tagset = allGlobalTagsets[tagsetName];
+        const includeTags = tagset.tags || [];
+        const excludeTags = tagset.exclude_tags || [];
+        const safeIncludeTags = JSON.stringify(includeTags).replace(/"/g, '&quot;');
+        const safeExcludeTags = JSON.stringify(excludeTags).replace(/"/g, '&quot;');
+        
+        // Count images that match this tagset's criteria
+        let matchCount = 0;
+        for (const [filename, data] of Object.entries(allImages)) {
+          const imageTagSet = new Set(data.tags || []);
+          if (includeTags.length > 0 && !includeTags.some(tag => imageTagSet.has(tag))) {
+            continue;
+          }
+          if (excludeTags.length > 0 && excludeTags.some(tag => imageTagSet.has(tag))) {
+            continue;
+          }
+          matchCount++;
+        }
+        
+        let subtitleHtml = '';
+        if (includeTags.length > 0) {
+          subtitleHtml += `<div class="tv-tags-subtitle">+ ${includeTags.join(', ')}</div>`;
+        }
+        if (excludeTags.length > 0) {
+          subtitleHtml += `<div class="tv-tags-subtitle">- ${excludeTags.join(', ')}</div>`;
+        }
+        if (!subtitleHtml) {
+          subtitleHtml = `<div class="tv-tags-subtitle">All images (no filter)</div>`;
+        }
+
+        return `
+        <div class="multiselect-option tv-shortcut">
+          <input type="checkbox" id="tagset-shortcut-${escapeHtml(tagsetName)}" 
+                 value="${escapeHtml(tagsetName)}" 
+                 class="tagset-checkbox"
+                 data-include-tags="${safeIncludeTags}"
+                 data-exclude-tags="${safeExcludeTags}">
+          <label for="tagset-shortcut-${escapeHtml(tagsetName)}">
+            <div class="tv-name">${escapeHtml(tagsetName)} <span class="tv-count">(${matchCount})</span></div>
             ${subtitleHtml}
           </label>
         </div>
@@ -4915,6 +4991,12 @@ async function loadTagsForFilter() {
     const tvCheckboxes = dropdownOptions.querySelectorAll('.tv-checkbox');
     tvCheckboxes.forEach(checkbox => {
       checkbox.addEventListener('change', (e) => handleTVShortcutChange(e));
+    });
+
+    // Add listeners for Tagset shortcuts
+    const tagsetCheckboxes = dropdownOptions.querySelectorAll('.tagset-checkbox');
+    tagsetCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', (e) => handleTagsetShortcutChange(e));
     });
 
     // Add listener for "None" checkbox
@@ -5213,6 +5295,10 @@ function handleTVShortcutChange(event) {
     noneCheckbox.checked = false;
   }
   
+  // Clear tagset checkboxes (mutually exclusive)
+  const allTagsetCheckboxes = document.querySelectorAll('.tagset-checkbox');
+  allTagsetCheckboxes.forEach(cb => cb.checked = false);
+  
   // Clear special filters when selecting a TV shortcut
   clearSimilarFilter();
   clearPortraitFilter();
@@ -5242,7 +5328,70 @@ function handleTVShortcutChange(event) {
   }
   
   updateTagFilterDisplay();
-  updateTVShortcutStates();
+  filterAndRenderGallery();
+}
+
+function handleTagsetShortcutChange(event) {
+  const tagsetCheckbox = event.target;
+  const tagsetName = tagsetCheckbox.value;
+  
+  // Get include/exclude tags from data attributes
+  let includeTags = [];
+  let excludeTags = [];
+  try {
+    includeTags = JSON.parse(tagsetCheckbox.dataset.includeTags || '[]');
+    excludeTags = JSON.parse(tagsetCheckbox.dataset.excludeTags || '[]');
+  } catch (e) {
+    console.error('Error parsing tagset tags:', e);
+  }
+  
+  const isChecked = tagsetCheckbox.checked;
+  
+  // Clear "None" checkbox when selecting a tagset
+  const noneCheckbox = document.querySelector('.tv-none-checkbox');
+  if (noneCheckbox) {
+    noneCheckbox.checked = false;
+  }
+  
+  // Clear TV checkboxes (mutually exclusive)
+  const allTvCheckboxes = document.querySelectorAll('.tv-checkbox');
+  allTvCheckboxes.forEach(cb => cb.checked = false);
+  
+  // Clear other tagset checkboxes (mutually exclusive)
+  const allTagsetCheckboxes = document.querySelectorAll('.tagset-checkbox');
+  allTagsetCheckboxes.forEach(cb => {
+    if (cb !== tagsetCheckbox) cb.checked = false;
+  });
+  
+  // Clear special filters when selecting a tagset shortcut
+  clearSimilarFilter();
+  clearPortraitFilter();
+  clearNon169Filter();
+  clearRecentlyDisplayedFilter();
+  
+  // Clear all tag states first
+  const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
+  allTagCheckboxes.forEach(cb => setTagState(cb, 'unchecked'));
+  
+  if (isChecked) {
+    // Set include tags to 'included' state
+    includeTags.forEach(tag => {
+      const tagCheckbox = getTagCheckbox(tag);
+      if (tagCheckbox) {
+        setTagState(tagCheckbox, 'included');
+      }
+    });
+    
+    // Set exclude tags to 'excluded' state
+    excludeTags.forEach(tag => {
+      const tagCheckbox = getTagCheckbox(tag);
+      if (tagCheckbox) {
+        setTagState(tagCheckbox, 'excluded');
+      }
+    });
+  }
+  
+  updateTagFilterDisplay();
   filterAndRenderGallery();
 }
 
@@ -5254,6 +5403,10 @@ function handleNoneShortcutChange(event) {
     // Clear all TV shortcuts when selecting "None"
     const allTvCheckboxes = document.querySelectorAll('.tv-checkbox');
     allTvCheckboxes.forEach(cb => cb.checked = false);
+    
+    // Clear all tagset shortcuts when selecting "None"
+    const allTagsetCheckboxes = document.querySelectorAll('.tagset-checkbox');
+    allTagsetCheckboxes.forEach(cb => cb.checked = false);
     
     // Reset all tag checkboxes to unchecked state
     const allTagCheckboxes = document.querySelectorAll('.tag-checkbox');
@@ -5267,25 +5420,22 @@ function handleNoneShortcutChange(event) {
   }
   
   updateTagFilterDisplay();
-  updateTVShortcutStates();
+  filterAndRenderGallery();
 }
 
 function updateTVShortcutStates() {
   // Get currently included and excluded tags (lowercase for comparison)
-  const includedTagsSet = new Set(getIncludedTags().map(t => t.toLowerCase()));
-  const excludedTagsSet = new Set(getExcludedTags().map(t => t.toLowerCase()));
-
-  // If no tags are selected, don't auto-check any TV shortcuts
-  // (this prevents TVs with empty tag configs from being checked when "None" is selected)
-  if (includedTagsSet.size === 0 && excludedTagsSet.size === 0) {
-    return;
-  }
+  const includedTags = getIncludedTags().map(t => t.toLowerCase());
+  const excludedTags = getExcludedTags().map(t => t.toLowerCase());
+  const includedTagsSet = new Set(includedTags);
+  const excludedTagsSet = new Set(excludedTags);
 
   // Create a Set of all available tags (lowercase)
   const availableTagsSet = new Set(
     Array.from(document.querySelectorAll('.tag-checkbox')).map(cb => cb.value.toLowerCase())
   );
 
+  // Update TV checkboxes
   const tvCheckboxes = document.querySelectorAll('.tv-checkbox');
   
   tvCheckboxes.forEach(tvCheckbox => {
@@ -5298,17 +5448,19 @@ function updateTVShortcutStates() {
       return;
     }
     
-    const tvIncludeTags = (tv.tags || []).filter(tag => availableTagsSet.has(tag.toLowerCase()));
-    const tvExcludeTags = (tv.exclude_tags || []).filter(tag => availableTagsSet.has(tag.toLowerCase()));
+    const tvIncludeTags = (tv.tags || []).map(tag => tag.toLowerCase()).filter(tag => availableTagsSet.has(tag));
+    const tvExcludeTags = (tv.exclude_tags || []).map(tag => tag.toLowerCase()).filter(tag => availableTagsSet.has(tag));
     
-    // Check for exact match on both include and exclude tags
+    // EXACT match: same size AND same contents (bidirectional)
     const includeMatch = 
       tvIncludeTags.length === includedTagsSet.size &&
-      tvIncludeTags.every(tag => includedTagsSet.has(tag.toLowerCase()));
+      tvIncludeTags.every(tag => includedTagsSet.has(tag)) &&
+      includedTags.every(tag => tvIncludeTags.includes(tag));
     
     const excludeMatch = 
       tvExcludeTags.length === excludedTagsSet.size &&
-      tvExcludeTags.every(tag => excludedTagsSet.has(tag.toLowerCase()));
+      tvExcludeTags.every(tag => excludedTagsSet.has(tag)) &&
+      excludedTags.every(tag => tvExcludeTags.includes(tag));
     
     if (includeMatch && excludeMatch) {
       tvCheckbox.checked = true;
@@ -5316,6 +5468,39 @@ function updateTVShortcutStates() {
     } else {
       tvCheckbox.checked = false;
       tvCheckbox.indeterminate = false;
+    }
+  });
+
+  // Update Tagset checkboxes
+  const tagsetCheckboxes = document.querySelectorAll('.tagset-checkbox');
+  
+  tagsetCheckboxes.forEach(tagsetCheckbox => {
+    const tagsetName = tagsetCheckbox.value;
+    const tagset = allGlobalTagsets?.[tagsetName];
+    
+    if (!tagset) {
+      tagsetCheckbox.checked = false;
+      return;
+    }
+    
+    const tagsetIncludeTags = (tagset.tags || []).map(tag => tag.toLowerCase()).filter(tag => availableTagsSet.has(tag));
+    const tagsetExcludeTags = (tagset.exclude_tags || []).map(tag => tag.toLowerCase()).filter(tag => availableTagsSet.has(tag));
+    
+    // EXACT match: same size AND same contents (bidirectional)
+    const includeMatch = 
+      tagsetIncludeTags.length === includedTagsSet.size &&
+      tagsetIncludeTags.every(tag => includedTagsSet.has(tag)) &&
+      includedTags.every(tag => tagsetIncludeTags.includes(tag));
+    
+    const excludeMatch = 
+      tagsetExcludeTags.length === excludedTagsSet.size &&
+      tagsetExcludeTags.every(tag => excludedTagsSet.has(tag)) &&
+      excludedTags.every(tag => tagsetExcludeTags.includes(tag));
+    
+    if (includeMatch && excludeMatch) {
+      tagsetCheckbox.checked = true;
+    } else {
+      tagsetCheckbox.checked = false;
     }
   });
 }
@@ -10368,3 +10553,659 @@ function renderTagEventLog(tagName, showSeparator = true, tvColorMap = {}) {
     </div>
   `;
 }
+
+// ============================================================================
+// TAGSETS MANAGEMENT
+// ============================================================================
+
+// Load and render the Tags tab content
+async function loadTagsTab() {
+  // Ensure we have TV data
+  if (!allTVs || allTVs.length === 0) {
+    await loadTVs();
+  }
+  
+  populateTagsetDropdowns();
+  renderTVAssignments();
+}
+
+// Populate the TV and Tagset dropdown selectors
+// Now uses GLOBAL tagsets instead of per-TV tagsets
+function populateTagsetDropdowns() {
+  const tagsetSelect = document.getElementById('tagset-select');
+  const detailsContainer = document.getElementById('tagset-details');
+  
+  if (!tagsetSelect) return;
+  
+  // Remember current selection
+  const currentTagset = tagsetSelect.value;
+  
+  // Get list of global tagset names
+  const tagsetNames = Object.keys(allGlobalTagsets || {});
+  
+  // Populate tagset dropdown (no TV selector needed - tagsets are global)
+  tagsetSelect.innerHTML = '<option value="">-- Select Tagset --</option>' +
+    tagsetNames.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+  
+  // Restore selection if it still exists
+  if (currentTagset && tagsetNames.includes(currentTagset)) {
+    tagsetSelect.value = currentTagset;
+    renderTagsetDetails(currentTagset);
+  } else if (tagsetNames.length > 0) {
+    // Auto-select first tagset
+    tagsetSelect.value = tagsetNames[0];
+    renderTagsetDetails(tagsetNames[0]);
+  } else {
+    if (detailsContainer) {
+      detailsContainer.innerHTML = '<p class="empty-state">No tagsets defined. Click "+ New Tagset" to create one.</p>';
+    }
+  }
+  
+  // Tagset select change handler
+  tagsetSelect.onchange = () => {
+    const tagsetName = tagsetSelect.value;
+    if (tagsetName) {
+      renderTagsetDetails(tagsetName);
+    } else if (detailsContainer) {
+      detailsContainer.innerHTML = '<p class="empty-state">Select a tagset to view or edit details.</p>';
+    }
+  };
+  
+  // New tagset button handler (no TV selection needed)
+  const newBtn = document.getElementById('new-tagset-btn');
+  if (newBtn) {
+    newBtn.onclick = () => {
+      openTagsetModal(null); // null means create new
+    };
+  }
+}
+
+// NOTE: This function is deprecated - tagsets are now global
+// Keeping for backwards compatibility but it just calls populateTagsetDropdowns
+function updateTagsetDropdownForTV(deviceId, preserveTagset) {
+  populateTagsetDropdowns();
+}
+
+// Render the details panel for a selected GLOBAL tagset
+function renderTagsetDetails(tagsetName) {
+  const detailsContainer = document.getElementById('tagset-details');
+  if (!detailsContainer) return;
+  
+  const tagset = allGlobalTagsets?.[tagsetName];
+  if (!tagset) {
+    detailsContainer.innerHTML = '<p class="empty-state">Tagset not found.</p>';
+    return;
+  }
+  
+  // Find which TVs are using this tagset
+  const tvsUsingSelected = allTVs.filter(tv => tv.selected_tagset === tagsetName);
+  const tvsUsingOverride = allTVs.filter(tv => tv.override_tagset === tagsetName);
+  
+  // Build assignment text for header
+  let assignmentText = '';
+  if (tvsUsingSelected.length > 0) {
+    assignmentText = 'Assigned to ' + tvsUsingSelected.map(tv => tv.name).join(', ');
+  } else {
+    assignmentText = 'Not assigned to any TV';
+  }
+  
+  // Override info (shown separately if present)
+  let overrideHtml = '';
+  if (tvsUsingOverride.length > 0) {
+    overrideHtml = `<div class="tagset-override-note">Override active on: ${tvsUsingOverride.map(tv => escapeHtml(tv.name)).join(', ')}</div>`;
+  }
+  
+  let html = `
+    <div class="tagset-detail-card">
+      <div class="tagset-detail-header">
+        <span class="tagset-detail-name">${escapeHtml(tagsetName)}</span>
+        <span class="tagset-assignment-text">${escapeHtml(assignmentText)}</span>
+      </div>
+      ${overrideHtml}
+      <div class="tagset-detail-body">
+        <div class="tagset-tags">
+          <span class="tag-label">Include Tags:</span>
+          ${tagset.tags && tagset.tags.length > 0 
+            ? tagset.tags.map(t => `<span class="tag-chip include">${escapeHtml(t)}</span>`).join(' ')
+            : '<span class="none-text">All images (no filter)</span>'}
+        </div>
+        <div class="tagset-tags">
+          <span class="tag-label">Exclude Tags:</span>
+          ${tagset.exclude_tags && tagset.exclude_tags.length > 0 
+            ? tagset.exclude_tags.map(t => `<span class="tag-chip exclude">${escapeHtml(t)}</span>`).join(' ')
+            : '<span class="none-text">None</span>'}
+        </div>
+      </div>
+      <div class="tagset-detail-actions">
+        <button class="btn btn-primary tagset-edit-btn" data-tagset-name="${escapeHtml(tagsetName)}">Edit Tagset</button>
+        <button class="btn btn-text btn-danger-text tagset-delete-btn" data-tagset-name="${escapeHtml(tagsetName)}">Delete</button>
+      </div>
+    </div>
+  `;
+  
+  detailsContainer.innerHTML = html;
+  
+  // Attach event listeners
+  detailsContainer.querySelector('.tagset-edit-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    openTagsetModal(tagsetName);
+  });
+  
+  detailsContainer.querySelector('.tagset-delete-btn')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (confirm(`Delete tagset "${tagsetName}"?`)) {
+      await deleteTagset(tagsetName);
+    }
+  });
+}
+
+// Render the "TV Tagset Assignments" section
+function renderTVAssignments() {
+  const container = document.getElementById('tv-tagset-assignments');
+  if (!container) return;
+  
+  if (!allTVs || allTVs.length === 0) {
+    container.innerHTML = '<p class="empty-state">No TVs found.</p>';
+    return;
+  }
+  
+  // Use GLOBAL tagsets for all TVs
+  const tagsetNames = Object.keys(allGlobalTagsets || {});
+  
+  let html = '<div class="tv-assignment-list">';
+  
+  for (const tv of allTVs) {
+    const hasOverride = !!tv.override_tagset;
+    const overrideExpiry = tv.override_expiry_time;
+    
+    html += `
+      <div class="tv-assignment-card" data-device-id="${escapeHtml(tv.device_id)}">
+        <div class="tv-assignment-header">
+          <span class="tv-assignment-name">${escapeHtml(tv.name)}</span>
+        </div>
+        <div class="tv-assignment-body">
+          <div class="tv-assignment-row">
+            <label>Selected Tagset:</label>
+            <select class="tv-tagset-select" data-device-id="${escapeHtml(tv.device_id)}">
+              <option value="">-- None --</option>
+              ${tagsetNames.map(name => `
+                <option value="${escapeHtml(name)}" ${tv.selected_tagset === name ? 'selected' : ''}>
+                  ${escapeHtml(name)}
+                </option>
+              `).join('')}
+            </select>
+          </div>
+    `;
+    
+    if (hasOverride) {
+      let expiryText = 'No expiry';
+      if (overrideExpiry) {
+        const expiryDate = new Date(overrideExpiry);
+        expiryText = `Expires: ${expiryDate.toLocaleString()}`;
+      }
+      html += `
+          <div class="tv-assignment-override-info">
+            <span class="override-current">Override: <strong>${escapeHtml(tv.override_tagset)}</strong></span>
+            <span class="override-expiry">${expiryText}</span>
+            <button class="btn btn-small btn-warning clear-override-btn" data-device-id="${escapeHtml(tv.device_id)}">
+              Clear Override
+            </button>
+          </div>
+      `;
+    }
+    
+    html += `
+          <div class="tv-assignment-actions">
+            <button class="btn btn-small set-override-btn" data-device-id="${escapeHtml(tv.device_id)}">
+              Set Override...
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  html += '</div>';
+  container.innerHTML = html;
+  
+  // Attach event listeners
+  container.querySelectorAll('.tv-tagset-select').forEach(select => {
+    select.addEventListener('change', async (e) => {
+      const deviceId = select.dataset.deviceId;
+      const tagsetName = select.value;
+      await selectTagset(deviceId, tagsetName || null);
+    });
+  });
+  
+  container.querySelectorAll('.clear-override-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const deviceId = btn.dataset.deviceId;
+      await clearOverride(deviceId);
+    });
+  });
+  
+  container.querySelectorAll('.set-override-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openOverrideModal(btn.dataset.deviceId);
+    });
+  });
+}
+
+// Open the tagset edit/create modal
+// tagsetName: name of tagset to edit, or null to create new
+function openTagsetModal(tagsetName) {
+  const modal = document.getElementById('tagset-modal');
+  const titleEl = document.getElementById('tagset-modal-title');
+  const form = document.getElementById('tagset-form');
+  const nameInput = document.getElementById('tagset-name-input');
+  const deleteBtn = document.getElementById('delete-tagset-btn');
+  const includeContainer = document.getElementById('tagset-include-tags');
+  const excludeContainer = document.getElementById('tagset-exclude-tags');
+  
+  // Store original name for rename support
+  form.dataset.originalName = tagsetName || '';
+  
+  // Populate tag checkboxes
+  const allTagNames = allTags || [];
+  let existingTagset = null;
+  
+  if (tagsetName) {
+    // Edit mode - get from global tagsets
+    titleEl.textContent = `Edit Tagset: ${tagsetName}`;
+    existingTagset = allGlobalTagsets?.[tagsetName];
+    nameInput.value = tagsetName;
+    nameInput.readOnly = false;
+    nameInput.classList.remove('readonly');
+    deleteBtn.style.display = 'inline-block';
+  } else {
+    // Create mode
+    titleEl.textContent = 'New Tagset';
+    nameInput.value = '';
+    nameInput.readOnly = false;
+    nameInput.classList.remove('readonly');
+    deleteBtn.style.display = 'none';
+  }
+  
+  // Build include tags checkboxes
+  const includeTags = existingTagset?.tags || [];
+  includeContainer.innerHTML = allTagNames.map(tag => `
+    <label class="tag-checkbox">
+      <input type="checkbox" name="include-tag" value="${escapeHtml(tag)}" ${includeTags.includes(tag) ? 'checked' : ''} />
+      <span>${escapeHtml(tag)}</span>
+    </label>
+  `).join('');
+  
+  if (allTagNames.length === 0) {
+    includeContainer.innerHTML = '<p class="no-tags-hint">No tags available. Create tags in the Manage Tags section first.</p>';
+  }
+  
+  // Build exclude tags checkboxes
+  const excludeTags = existingTagset?.exclude_tags || [];
+  excludeContainer.innerHTML = allTagNames.map(tag => `
+    <label class="tag-checkbox">
+      <input type="checkbox" name="exclude-tag" value="${escapeHtml(tag)}" ${excludeTags.includes(tag) ? 'checked' : ''} />
+      <span>${escapeHtml(tag)}</span>
+    </label>
+  `).join('');
+  
+  if (allTagNames.length === 0) {
+    excludeContainer.innerHTML = '<p class="no-tags-hint">No tags available.</p>';
+  }
+  
+  modal.classList.add('active');
+}
+
+// Close the tagset modal
+function closeTagsetModal() {
+  const modal = document.getElementById('tagset-modal');
+  modal.classList.remove('active');
+}
+
+// Save tagset (create or update) - GLOBAL tagsets, no device_id needed
+// Supports renaming via original_name parameter
+async function saveTagset(e) {
+  if (e) e.preventDefault();
+  
+  const form = document.getElementById('tagset-form');
+  const nameInput = document.getElementById('tagset-name-input');
+  const includeContainer = document.getElementById('tagset-include-tags');
+  const excludeContainer = document.getElementById('tagset-exclude-tags');
+  
+  const name = nameInput.value.trim();
+  const originalName = form.dataset.originalName || '';
+  
+  if (!name) {
+    showToast('Tagset name is required', 'error');
+    return;
+  }
+  
+  // Get selected include tags
+  const tags = Array.from(includeContainer.querySelectorAll('input[name="include-tag"]:checked'))
+    .map(cb => cb.value);
+  
+  // Get selected exclude tags
+  const excludeTags = Array.from(excludeContainer.querySelectorAll('input[name="exclude-tag"]:checked'))
+    .map(cb => cb.value);
+  
+  try {
+    const payload = {
+      name: name,
+      tags: tags,
+      exclude_tags: excludeTags
+    };
+    
+    // Include original_name for rename support
+    if (originalName && originalName !== name) {
+      payload.original_name = originalName;
+    }
+    
+    const response = await fetch(`${API_BASE}/ha/tagsets/upsert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast(`Tagset "${name}" saved successfully`, 'success');
+      closeTagsetModal();
+      // Refresh TV data and re-render
+      await loadTVs();
+      loadTagsTab();
+    } else {
+      showToast(result.error || 'Failed to save tagset', 'error');
+    }
+  } catch (error) {
+    console.error('Error saving tagset:', error);
+    showToast('Error saving tagset: ' + error.message, 'error');
+  }
+}
+
+// Delete tagset - GLOBAL tagsets, no device_id needed
+async function deleteTagset(tagsetName) {
+  try {
+    const response = await fetch(`${API_BASE}/ha/tagsets/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: tagsetName
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast(`Tagset "${tagsetName}" deleted`, 'success');
+      // Refresh TV data and re-render
+      await loadTVs();
+      loadTagsTab();
+    } else {
+      showToast(result.error || 'Failed to delete tagset', 'error');
+    }
+  } catch (error) {
+    console.error('Error deleting tagset:', error);
+    showToast('Error deleting tagset: ' + error.message, 'error');
+  }
+}
+
+// Select a tagset for a TV
+async function selectTagset(deviceId, tagsetName) {
+  try {
+    const response = await fetch(`${API_BASE}/ha/tagsets/select`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_id: deviceId,
+        name: tagsetName
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast(tagsetName ? `Selected tagset "${tagsetName}"` : 'Tagset cleared', 'success');
+      // Refresh TV data and re-render
+      await loadTVs();
+      renderTVAssignments();
+    } else {
+      showToast(result.error || 'Failed to select tagset', 'error');
+    }
+  } catch (error) {
+    console.error('Error selecting tagset:', error);
+    showToast('Error selecting tagset: ' + error.message, 'error');
+  }
+}
+
+// Format expiry time for display
+function formatExpiryTime(minutes) {
+  const now = new Date();
+  const expiry = new Date(now.getTime() + minutes * 60 * 1000);
+  const isToday = expiry.toDateString() === now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow = expiry.toDateString() === tomorrow.toDateString();
+  
+  const timeStr = expiry.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  
+  if (isToday) {
+    return `(${timeStr})`;
+  } else if (isTomorrow) {
+    return `(tomorrow ${timeStr})`;
+  } else {
+    return `(${expiry.toLocaleDateString([], { weekday: 'short' })} ${timeStr})`;
+  }
+}
+
+// Open the override modal
+function openOverrideModal(deviceId) {
+  const modal = document.getElementById('override-modal');
+  const form = document.getElementById('override-form');
+  const select = document.getElementById('override-tagset-select');
+  const durationSelect = document.getElementById('override-duration-select');
+  const customDurationInput = document.getElementById('override-custom-duration');
+  const deviceIdInput = document.getElementById('override-device-id');
+  const tvNameSpan = document.getElementById('override-tv-name');
+  
+  // Find the TV
+  const tv = allTVs.find(t => t.device_id === deviceId);
+  if (!tv) {
+    showToast('TV not found', 'error');
+    return;
+  }
+  
+  // Store device ID
+  deviceIdInput.value = deviceId;
+  tvNameSpan.textContent = tv.name;
+  
+  // Populate tagset options from GLOBAL tagsets - exclude currently selected tagset
+  const tagsetNames = Object.keys(allGlobalTagsets || {})
+    .filter(name => name !== tv.selected_tagset);
+  
+  select.innerHTML = '<option value="">-- Select Tagset --</option>' + 
+    tagsetNames.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+  
+  // Update duration options with expiry times
+  const durations = [
+    { value: '30', label: '30 minutes' },
+    { value: '60', label: '1 hour' },
+    { value: '120', label: '2 hours' },
+    { value: '240', label: '4 hours' },
+    { value: '480', label: '8 hours' },
+    { value: '720', label: '12 hours' },
+    { value: '1440', label: '24 hours' },
+    { value: 'custom', label: 'Custom...' }
+  ];
+  
+  durationSelect.innerHTML = durations.map(d => {
+    const expiryStr = d.value !== 'custom' ? ' ' + formatExpiryTime(parseInt(d.value)) : '';
+    return `<option value="${d.value}"${d.value === '240' ? ' selected' : ''}>${d.label}${expiryStr}</option>`;
+  }).join('');
+  
+  customDurationInput.classList.add('hidden');
+  customDurationInput.value = '';
+  
+  modal.classList.add('active');
+}
+
+// Close the override modal
+function closeOverrideModal() {
+  const modal = document.getElementById('override-modal');
+  modal.classList.remove('active');
+}
+
+// Apply override
+async function applyOverride(e) {
+  if (e) e.preventDefault();
+  
+  const deviceIdInput = document.getElementById('override-device-id');
+  const select = document.getElementById('override-tagset-select');
+  const durationSelect = document.getElementById('override-duration-select');
+  const customDurationInput = document.getElementById('override-custom-duration');
+  
+  const deviceId = deviceIdInput.value;
+  const tagsetName = select.value;
+  
+  if (!tagsetName) {
+    showToast('Please select a tagset', 'error');
+    return;
+  }
+  
+  // Calculate duration in hours from minutes
+  let durationMinutes;
+  if (durationSelect.value === 'custom') {
+    durationMinutes = parseInt(customDurationInput.value) || 0;
+  } else {
+    durationMinutes = parseInt(durationSelect.value) || 0;
+  }
+  
+  const durationHours = durationMinutes > 0 ? durationMinutes / 60 : null;
+  
+  try {
+    const response = await fetch(`${API_BASE}/ha/tagsets/override`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_id: deviceId,
+        name: tagsetName,
+        duration_hours: durationHours
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast(`Override set to "${tagsetName}"`, 'success');
+      closeOverrideModal();
+      // Refresh TV data and re-render
+      await loadTVs();
+      loadTagsTab();
+    } else {
+      showToast(result.error || 'Failed to set override', 'error');
+    }
+  } catch (error) {
+    console.error('Error setting override:', error);
+    showToast('Error setting override: ' + error.message, 'error');
+  }
+}
+
+// Clear override
+async function clearOverride(deviceId) {
+  try {
+    const response = await fetch(`${API_BASE}/ha/tagsets/clear-override`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_id: deviceId
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast('Override cleared', 'success');
+      // Refresh TV data and re-render
+      await loadTVs();
+      loadTagsTab();
+    } else {
+      showToast(result.error || 'Failed to clear override', 'error');
+    }
+  } catch (error) {
+    console.error('Error clearing override:', error);
+    showToast('Error clearing override: ' + error.message, 'error');
+  }
+}
+
+// Initialize tagset modal event listeners
+function initTagsetModalListeners() {
+  // Tagset modal
+  const tagsetModal = document.getElementById('tagset-modal');
+  if (tagsetModal) {
+    // Close button
+    document.getElementById('tagset-modal-close')?.addEventListener('click', closeTagsetModal);
+    
+    // Cancel button
+    document.getElementById('cancel-tagset-btn')?.addEventListener('click', closeTagsetModal);
+    
+    // Form submission
+    const tagsetForm = document.getElementById('tagset-form');
+    tagsetForm?.addEventListener('submit', saveTagset);
+    
+    // Delete button - GLOBAL tagsets, no device_id needed
+    document.getElementById('delete-tagset-btn')?.addEventListener('click', async () => {
+      const form = document.getElementById('tagset-form');
+      const tagsetName = form.dataset.originalName;
+      if (tagsetName && confirm(`Delete tagset "${tagsetName}"?`)) {
+        await deleteTagset(tagsetName);
+        closeTagsetModal();
+      }
+    });
+    
+    // Close on background click
+    tagsetModal.addEventListener('click', (e) => {
+      if (e.target === tagsetModal) {
+        closeTagsetModal();
+      }
+    });
+  }
+  
+  // Override modal
+  const overrideModal = document.getElementById('override-modal');
+  if (overrideModal) {
+    // Close button
+    document.getElementById('override-modal-close')?.addEventListener('click', closeOverrideModal);
+    
+    // Cancel button
+    document.getElementById('cancel-override-btn')?.addEventListener('click', closeOverrideModal);
+    
+    // Form submission
+    const overrideForm = document.getElementById('override-form');
+    overrideForm?.addEventListener('submit', applyOverride);
+    
+    // Duration select change handler for custom option
+    const durationSelect = document.getElementById('override-duration-select');
+    const customDurationInput = document.getElementById('override-custom-duration');
+    durationSelect?.addEventListener('change', () => {
+      if (durationSelect.value === 'custom') {
+        customDurationInput?.classList.remove('hidden');
+        customDurationInput?.focus();
+      } else {
+        customDurationInput?.classList.add('hidden');
+      }
+    });
+    
+    // Close on background click
+    overrideModal.addEventListener('click', (e) => {
+      if (e.target === overrideModal) {
+        closeOverrideModal();
+      }
+    });
+  }
+  
+  // "New Tagset" button in Tags tab - needs to open modal with no device pre-selected
+  // We'll handle this differently - through the individual TV sections
+}
+

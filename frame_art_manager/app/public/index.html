@@ -345,13 +345,14 @@
         
         <!-- Sub-tabs for Advanced section -->
         <div class="advanced-tabs">
-          <button class="advanced-tab-btn active" data-tab="settings">Settings</button>
+          <button class="advanced-tab-btn active" data-tab="tags">Tags</button>
+          <button class="advanced-tab-btn" data-tab="settings">Settings</button>
           <button class="advanced-tab-btn" data-tab="metadata">Metadata</button>
           <button class="advanced-tab-btn" data-tab="sync">Sync Detail</button>
         </div>
 
         <!-- Settings Sub-tab -->
-        <div id="advanced-settings-content" class="advanced-tab-content active">
+        <div id="advanced-settings-content" class="advanced-tab-content">
           <div class="subsection">
             <h3>Library Path</h3>
             <div class="info-box">
@@ -359,9 +360,42 @@
               <code id="advanced-path-value" class="path-code">Loading...</code>
             </div>
           </div>
+        </div>
 
+        <!-- Tags Sub-tab (Tagsets Management) -->
+        <div id="advanced-tags-content" class="advanced-tab-content active">
+          <!-- TV Tagset Assignments Section -->
+          <div class="subsection">
+            <h3>TV Tagset Assignments</h3>
+            <p class="subsection-description">Assign tagsets to each TV. Override temporarily activates a different tagset with auto-expiry.</p>
+            
+            <div id="tv-tagset-assignments" class="tv-tagset-assignments">
+              <div class="loading-indicator">Loading TV assignments...</div>
+            </div>
+          </div>
+
+          <!-- Tagsets Section -->
+          <div class="subsection tagsets-section">
+            <h3>Manage Tagsets</h3>
+            <p class="subsection-description">Tagsets are global collections of include/exclude tags shared by all TVs. Assign tagsets to TVs in the section above.</p>
+            
+            <div class="tagset-selector-row">
+              <label for="tagset-select">Tagset:</label>
+              <select id="tagset-select" class="tagset-select">
+                <option value="">-- Select Tagset --</option>
+              </select>
+              <button type="button" id="new-tagset-btn" class="btn-primary btn-small">+ New</button>
+            </div>
+            
+            <div id="tagset-details" class="tagset-details">
+              <p class="empty-state">Select a tagset above to view or edit details.</p>
+            </div>
+          </div>
+
+          <!-- Tag Management Section -->
           <div class="subsection">
             <h3>Manage Tags</h3>
+            <p class="subsection-description">Add, rename, or delete individual tags used in your library.</p>
             <form id="tag-form" class="inline-form">
               <input type="text" id="tag-name" placeholder="New Tag" required />
               <button type="submit" class="btn-primary">Add Tag</button>
@@ -1050,6 +1084,93 @@
         </div>
         
         <div id="tv-upload-logs" class="tv-upload-logs" style="display: none; margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 0.85em; max-height: 150px; overflow-y: auto; white-space: pre-wrap; border: 1px solid #ddd;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tagset Edit Modal -->
+  <div id="tagset-modal" class="modal">
+    <div class="modal-content tagset-modal">
+      <button class="close close-simple" id="tagset-modal-close">✕</button>
+      <div class="modal-details">
+        <h3 id="tagset-modal-title">New Tagset</h3>
+        
+        <form id="tagset-form">
+          <div class="form-group">
+            <label for="tagset-name-input">Tagset Name:</label>
+            <input type="text" id="tagset-name-input" placeholder="e.g., everyday, holidays, billybirthday" required />
+            <small class="form-hint">Lowercase letters, numbers, and hyphens only</small>
+          </div>
+          
+          <div class="form-group">
+            <label>Include Tags:</label>
+            <p class="form-hint">Images must have at least one of these tags</p>
+            <div id="tagset-include-tags" class="tagset-tag-selector">
+              <!-- Tag checkboxes populated by JS -->
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>Exclude Tags:</label>
+            <p class="form-hint">Images with any of these tags will be excluded</p>
+            <div id="tagset-exclude-tags" class="tagset-tag-selector">
+              <!-- Tag checkboxes populated by JS -->
+            </div>
+          </div>
+          
+          <input type="hidden" id="tagset-device-id" />
+          <input type="hidden" id="tagset-original-name" />
+          
+          <div class="tagset-modal-actions">
+            <button type="button" id="delete-tagset-btn" class="btn-danger" style="display: none;">Delete</button>
+            <div class="tagset-modal-actions-right">
+              <button type="button" id="cancel-tagset-btn" class="btn-secondary">Cancel</button>
+              <button type="submit" id="save-tagset-btn" class="btn-primary">Save Tagset</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Override Tagset Modal -->
+  <div id="override-modal" class="modal">
+    <div class="modal-content override-modal">
+      <button class="close close-simple" id="override-modal-close">✕</button>
+      <div class="modal-details">
+        <h3>Apply Override for <span id="override-tv-name"></span></h3>
+        <p class="form-hint">Temporarily switch to a different tagset. Will auto-revert after the specified duration.</p>
+        
+        <form id="override-form">
+          <div class="form-group">
+            <label for="override-tagset-select">Tagset:</label>
+            <select id="override-tagset-select" required>
+              <!-- Options populated by JS -->
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="override-duration-select">Duration:</label>
+            <select id="override-duration-select" required>
+              <option value="30">30 minutes</option>
+              <option value="60">1 hour</option>
+              <option value="120">2 hours</option>
+              <option value="240" selected>4 hours</option>
+              <option value="480">8 hours</option>
+              <option value="720">12 hours</option>
+              <option value="1440">24 hours</option>
+              <option value="custom">Custom...</option>
+            </select>
+            <input type="number" id="override-custom-duration" class="hidden" min="1" max="10080" placeholder="Minutes" />
+          </div>
+          
+          <input type="hidden" id="override-device-id" />
+          
+          <div class="tagset-modal-actions">
+            <button type="button" id="cancel-override-btn" class="btn-secondary">Cancel</button>
+            <button type="submit" id="apply-override-btn" class="btn-primary">Apply Override</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
