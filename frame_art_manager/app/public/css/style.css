@@ -8120,12 +8120,13 @@ body.dropdown-open .image-card:hover {
   /* Mobile override row - spanning all columns */
   .mobile-override-row {
     display: table-row;
-    background: #fffaf0;
+    background: #fffaf0 !important;
   }
   
   .mobile-override-row td {
     padding: 0 8px 8px 8px;
     border-bottom: 1px solid #e8ecf0;
+    background: #fffaf0 !important;
   }
   
   .mobile-override-row .mobile-override-info {
@@ -8153,8 +8154,32 @@ body.dropdown-open .image-card:hover {
     max-width: 100%;
   }
   
+  /* Undo button on mobile - show below dropdown */
   .tv-col-tagset .tagset-undo-btn {
     display: none;
+    position: absolute;
+    left: 0;
+    top: 100%;
+    margin-top: 4px;
+    margin-left: 0;
+    background: #e2e8f0;
+    padding: 4px 8px;
+    font-size: 11px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  .tv-col-tagset .tagset-undo-btn.show {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 1;
+    pointer-events: auto;
+  }
+  
+  .tv-col-tagset .tagset-undo-btn::before {
+    content: 'Undo';
+    font-size: 11px;
   }
   
   .tv-col-actions {
