@@ -11228,8 +11228,8 @@ function renderTagsetsTable() {
         </tr>
         ` : ''}
         ${hasOverride ? `
-        <tr class="mobile-tagset-override-row">
-          <td colspan="2"><span class="mobile-tagset-override-info">${mobileOverrideText}</span></td>
+        <tr class="mobile-tagset-override-row" style="background: #fffaf0 !important;">
+          <td colspan="2" style="background: #fffaf0 !important;"><span class="mobile-tagset-override-info">${mobileOverrideText}</span></td>
         </tr>
         ` : ''}
     `;
@@ -11488,8 +11488,8 @@ function renderTVAssignments() {
           </td>
         </tr>
         ${hasOverride ? `
-        <tr class="mobile-override-row">
-          <td colspan="3"><span class="mobile-override-info">Overridden: ${escapeHtml(overrideTagset)} for ${overrideTime}</span></td>
+        <tr class="mobile-override-row" style="background: #fffaf0 !important;">
+          <td colspan="3" style="background: #fffaf0 !important;"><span class="mobile-override-info">Overridden: ${escapeHtml(overrideTagset)} for ${overrideTime}</span></td>
         </tr>
         ` : ''}
     `;
