@@ -8715,6 +8715,20 @@ body.dropdown-open .image-card:hover {
   color: #2b6cb0;
 }
 
+.collapse-link {
+  color: #2c82c9;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 6px;
+  user-select: none;
+}
+
+.collapse-link:hover {
+  color: #1a5a8a;
+  text-decoration: underline;
+}
+
 /* Mobile: Stack tagsets table */
 @media (max-width: 768px) {
   .tagsets-table thead {
