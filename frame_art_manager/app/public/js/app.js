@@ -3270,9 +3270,12 @@ function renderGallery(filter = '') {
         comparison = dateA - dateB; // older first when ascending
       } else if (sortOrder === 'displayed') {
         // Sort by last displayed time
+        // Images currently displaying (time: 'now') get Date.now() as their timestamp
         // Secondary sort: added date, then filename for images with same/no display time
-        const timeA = lastDisplayedTimes?.[filenameA] || 0;
-        const timeB = lastDisplayedTimes?.[filenameB] || 0;
+        const isCurrentlyDisplayingA = recentlyDisplayedData[filenameA]?.some(d => d.time === 'now');
+        const isCurrentlyDisplayingB = recentlyDisplayedData[filenameB]?.some(d => d.time === 'now');
+        const timeA = isCurrentlyDisplayingA ? Date.now() : (lastDisplayedTimes?.[filenameA] || 0);
+        const timeB = isCurrentlyDisplayingB ? Date.now() : (lastDisplayedTimes?.[filenameB] || 0);
         comparison = timeA - timeB;
         
         // If both have same display time (or both never displayed), use added date as tiebreaker
