@@ -10847,6 +10847,9 @@ async function loadTagsTab() {
   renderTVAssignments();
 }
 
+// Track which tagsets have expanded tag lists
+const expandedTagsets = new Set();
+
 // Render the tagsets as an expandable table
 function renderTagsetsTable() {
   const container = document.getElementById('tagsets-table-container');
@@ -10864,7 +10867,6 @@ function renderTagsetsTable() {
     <table class="tagsets-table">
       <thead>
         <tr>
-          <th class="th-expand"></th>
           <th>Name</th>
           <th>Include Tags</th>
           <th>Exclude Tags</th>
@@ -10884,27 +10886,38 @@ function renderTagsetsTable() {
     const tvsUsing = allTVs.filter(tv => tv.selected_tagset === name);
     const tvsOverride = allTVs.filter(tv => tv.override_tagset === name);
     
-    // Summary for collapsed view - show tag names with truncation
+    const isExpanded = expandedTagsets.has(name);
+    
+    // Format tag list - either truncated or full
     const formatTagList = (tags, emptyText) => {
       if (tags.length === 0) return `<span class="tag-summary-none">${emptyText}</span>`;
+      
       const tagStr = tags.join(', ');
-      // If total length > 30 chars, truncate and show count
-      if (tagStr.length > 30) {
-        // Show as many tags as fit, then "+ N more"
-        let shown = [];
-        let len = 0;
-        for (const tag of tags) {
-          if (len + tag.length + 2 > 25 && shown.length > 0) break;
-          shown.push(tag);
-          len += tag.length + 2;
+      const needsTruncation = tagStr.length > 30;
+      
+      if (isExpanded || !needsTruncation) {
+        // Show all tags
+        if (needsTruncation) {
+          // Expanded view - show as chips
+          return `<div class="tag-chips-inline">
+            ${tags.map(t => `<span class="tag-chip-inline">${escapeHtml(t)}</span>`).join('')}
+          </div>`;
         }
-        const remaining = tags.length - shown.length;
-        return remaining > 0 
-          ? `<span class="tag-list-truncated" title="${escapeHtml(tags.join(', '))}">${escapeHtml(shown.join(', '))} <span class="more-count">+${remaining}</span></span>`
-          : `<span title="${escapeHtml(tags.join(', '))}">${escapeHtml(tagStr)}</span>`;
+        return `<span>${escapeHtml(tagStr)}</span>`;
       }
-      return `<span>${escapeHtml(tagStr)}</span>`;
+      
+      // Truncated view
+      let shown = [];
+      let len = 0;
+      for (const tag of tags) {
+        if (len + tag.length + 2 > 25 && shown.length > 0) break;
+        shown.push(tag);
+        len += tag.length + 2;
+      }
+      const remaining = tags.length - shown.length;
+      return `<span class="tag-list-truncated" title="${escapeHtml(tags.join(', '))}">${escapeHtml(shown.join(', '))} <span class="more-count expandable" data-tagset-name="${escapeHtml(name)}">+${remaining}</span></span>`;
     };
+    
     const includeSummary = formatTagList(includeTags, 'All');
     const excludeSummary = formatTagList(excludeTags, 'None');
     
@@ -10935,40 +10948,14 @@ function renderTagsetsTable() {
     const hasOverride = tvsOverride.length > 0;
     
     html += `
-        <tr class="tagset-row" data-tagset-name="${escapeHtml(name)}">
-          <td class="td-expand"><button class="btn-expand" title="Expand">▶</button></td>
+        <tr class="tagset-row clickable-row" data-tagset-name="${escapeHtml(name)}">
           <td class="td-name">${escapeHtml(name)}</td>
           <td class="td-include">${includeSummary}</td>
           <td class="td-exclude">${excludeSummary}</td>
           <td class="td-used-by${hasOverride ? ' has-override' : ''}">${usedBySummary}</td>
           <td class="td-actions">
-            <button class="btn-icon tagset-edit-btn" data-tagset-name="${escapeHtml(name)}" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
             <button class="btn-icon tagset-delete-btn" data-tagset-name="${escapeHtml(name)}" title="Delete"
               ${tagsetNames.length <= 1 ? 'disabled' : ''}>×</button>
-          </td>
-        </tr>
-        <tr class="tagset-detail-row hidden" data-tagset-name="${escapeHtml(name)}">
-          <td colspan="6">
-            <div class="tagset-expanded-content">
-              <div class="tagset-expanded-tags">
-                <div class="tagset-tag-group">
-                  <span class="tag-label">Include:</span>
-                  <div class="tag-chips">
-                    ${includeTags.length > 0 
-                      ? includeTags.map(t => `<span class="tag-chip include">${escapeHtml(t)}</span>`).join('')
-                      : '<span class="none-text">All images (no filter)</span>'}
-                  </div>
-                </div>
-                <div class="tagset-tag-group">
-                  <span class="tag-label">Exclude:</span>
-                  <div class="tag-chips">
-                    ${excludeTags.length > 0 
-                      ? excludeTags.map(t => `<span class="tag-chip exclude">${escapeHtml(t)}</span>`).join('')
-                      : '<span class="none-text">None</span>'}
-                  </div>
-                </div>
-              </div>
-            </div>
           </td>
         </tr>
     `;
@@ -10984,25 +10971,18 @@ function renderTagsetsTable() {
   // Attach event listeners
   container.querySelectorAll('.tagset-row').forEach(row => {
     row.addEventListener('click', (e) => {
-      // Don't toggle if clicking a button
-      if (e.target.closest('button')) return;
-      toggleTagsetRow(row.dataset.tagsetName);
+      // Don't open edit if clicking +N more or delete button
+      if (e.target.closest('.more-count') || e.target.closest('.tagset-delete-btn')) return;
+      openTagsetModal(row.dataset.tagsetName);
     });
   });
   
-  container.querySelectorAll('.btn-expand').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  // Make +N more text clickable to expand
+  container.querySelectorAll('.more-count.expandable').forEach(el => {
+    el.addEventListener('click', (e) => {
       e.stopPropagation();
-      const row = btn.closest('tr');
-      toggleTagsetRow(row.dataset.tagsetName);
-    });
-  });
-  
-  container.querySelectorAll('.tagset-edit-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openTagsetModal(btn.dataset.tagsetName);
+      expandedTagsets.add(el.dataset.tagsetName);
+      renderTagsetsTable();
     });
   });
   
@@ -11021,29 +11001,14 @@ function renderTagsetsTable() {
   initNewTagsetButton();
 }
 
-// Toggle expand/collapse for a tagset row
+// Toggle expand/collapse for a tagset row (legacy - now handled inline)
 function toggleTagsetRow(tagsetName) {
-  const container = document.getElementById('tagsets-table-container');
-  const row = container.querySelector(`.tagset-row[data-tagset-name="${tagsetName}"]`);
-  const detailRow = container.querySelector(`.tagset-detail-row[data-tagset-name="${tagsetName}"]`);
-  const expandBtn = row.querySelector('.btn-expand');
-  
-  if (detailRow.classList.contains('hidden')) {
-    // Collapse any other expanded rows first
-    container.querySelectorAll('.tagset-detail-row:not(.hidden)').forEach(r => {
-      r.classList.add('hidden');
-      const otherRow = container.querySelector(`.tagset-row[data-tagset-name="${r.dataset.tagsetName}"]`);
-      otherRow?.querySelector('.btn-expand')?.classList.remove('expanded');
-    });
-    
-    // Expand this row
-    detailRow.classList.remove('hidden');
-    expandBtn.classList.add('expanded');
+  if (expandedTagsets.has(tagsetName)) {
+    expandedTagsets.delete(tagsetName);
   } else {
-    // Collapse this row
-    detailRow.classList.add('hidden');
-    expandBtn.classList.remove('expanded');
+    expandedTagsets.add(tagsetName);
   }
+  renderTagsetsTable();
 }
 
 // Initialize the new tagset button
@@ -11159,8 +11124,8 @@ function renderTVAssignments() {
           <th>TV</th>
           <th>Selected Tagset</th>
           <th>Override</th>
+          <th>Override Tagset</th>
           <th>Override Time</th>
-          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -11193,16 +11158,10 @@ function renderTVAssignments() {
               ${tagsetOptions}
             </select>
             <button class="btn-icon tagset-edit-btn" title="Edit tagset"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-            <button class="btn-icon tagset-save-btn hidden" title="Save"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></button>
             <button class="btn-icon tagset-cancel-btn hidden" title="Cancel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+            <button class="btn-icon tagset-save-btn hidden" title="Save"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></button>
           </td>
-          <td class="tv-col-override" data-label="Override">
-            <span class="${hasOverride ? 'override-text' : 'override-none'}">${escapeHtml(overrideTagset)}</span>
-          </td>
-          <td class="tv-col-override-time" data-label="Override Time">
-            <span class="${hasOverride ? 'override-text' : 'override-none'}">${overrideTime}</span>
-          </td>
-          <td class="tv-col-actions" data-label="Actions">
+          <td class="tv-col-actions" data-label="">
             ${hasOverride ? `
               <button class="btn btn-small btn-warning clear-override-btn" data-device-id="${escapeHtml(tv.device_id)}">
                 Clear
@@ -11212,6 +11171,12 @@ function renderTVAssignments() {
                 Override...
               </button>
             `}
+          </td>
+          <td class="tv-col-override" data-label="Override">
+            <span class="${hasOverride ? 'override-text' : 'override-none'}">${escapeHtml(overrideTagset)}</span>
+          </td>
+          <td class="tv-col-override-time" data-label="Override Time">
+            <span class="${hasOverride ? 'override-text' : 'override-none'}">${overrideTime}</span>
           </td>
         </tr>
     `;
@@ -11312,6 +11277,11 @@ function cancelTagsetEdit(row) {
   cancelBtn.classList.add('hidden');
 }
 
+// Tagset modal state
+let tagsetModalIncludeTags = [];
+let tagsetModalExcludeTags = [];
+let tagsetModalMode = 'include'; // 'include' or 'exclude'
+
 // Open the tagset edit/create modal
 // tagsetName: name of tagset to edit, or null to create new
 function openTagsetModal(tagsetName) {
@@ -11320,14 +11290,10 @@ function openTagsetModal(tagsetName) {
   const form = document.getElementById('tagset-form');
   const nameInput = document.getElementById('tagset-name-input');
   const deleteBtn = document.getElementById('delete-tagset-btn');
-  const includeContainer = document.getElementById('tagset-include-tags');
-  const excludeContainer = document.getElementById('tagset-exclude-tags');
   
   // Store original name for rename support
   form.dataset.originalName = tagsetName || '';
   
-  // Populate tag checkboxes
-  const allTagNames = allTags || [];
   let existingTagset = null;
   const tagsetCount = Object.keys(allGlobalTagsets || {}).length;
   
@@ -11356,33 +11322,135 @@ function openTagsetModal(tagsetName) {
     deleteBtn.style.display = 'none';
   }
   
-  // Build include tags checkboxes
-  const includeTags = existingTagset?.tags || [];
-  includeContainer.innerHTML = allTagNames.map(tag => `
-    <label class="tagset-tag-checkbox">
-      <input type="checkbox" name="include-tag" value="${escapeHtml(tag)}" ${includeTags.includes(tag) ? 'checked' : ''} />
-      <span>${escapeHtml(tag)}</span>
-    </label>
-  `).join('');
+  // Initialize state from existing tagset or empty
+  tagsetModalIncludeTags = [...(existingTagset?.tags || [])];
+  tagsetModalExcludeTags = [...(existingTagset?.exclude_tags || [])];
+  tagsetModalMode = 'include';
   
-  if (allTagNames.length === 0) {
-    includeContainer.innerHTML = '<p class="no-tags-hint">No tags available. Create tags in the Manage Tags section first.</p>';
-  }
-  
-  // Build exclude tags checkboxes
-  const excludeTags = existingTagset?.exclude_tags || [];
-  excludeContainer.innerHTML = allTagNames.map(tag => `
-    <label class="tagset-tag-checkbox">
-      <input type="checkbox" name="exclude-tag" value="${escapeHtml(tag)}" ${excludeTags.includes(tag) ? 'checked' : ''} />
-      <span>${escapeHtml(tag)}</span>
-    </label>
-  `).join('');
-  
-  if (allTagNames.length === 0) {
-    excludeContainer.innerHTML = '<p class="no-tags-hint">No tags available.</p>';
-  }
+  // Render the UI
+  renderTagsetModalUI();
+  initTagsetModalHandlers();
   
   modal.classList.add('active');
+}
+
+// Render all parts of the tagset modal UI
+function renderTagsetModalUI() {
+  renderTagsetModeToggle();
+  renderTagsetTagPool();
+  renderTagsetSelectedTags('include');
+  renderTagsetSelectedTags('exclude');
+}
+
+// Render the mode toggle buttons
+function renderTagsetModeToggle() {
+  const buttons = document.querySelectorAll('.tagset-mode-toggle .mode-btn');
+  buttons.forEach(btn => {
+    if (btn.dataset.mode === tagsetModalMode) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+// Render the available tags pool (excluding already selected tags)
+function renderTagsetTagPool() {
+  const container = document.getElementById('tagset-tag-pool');
+  if (!container) return;
+  
+  const allTagNames = allTags || [];
+  
+  // Filter out tags already in include or exclude
+  const availableTags = allTagNames.filter(tag => 
+    !tagsetModalIncludeTags.includes(tag) && !tagsetModalExcludeTags.includes(tag)
+  ).sort();
+  
+  if (allTagNames.length === 0) {
+    container.innerHTML = '<span class="no-tags-message">No tags available</span>';
+    return;
+  }
+  
+  if (availableTags.length === 0) {
+    container.innerHTML = '<span class="no-tags-message">All tags assigned</span>';
+    return;
+  }
+  
+  container.innerHTML = availableTags.map(tag => 
+    `<span class="tag-pill" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</span>`
+  ).join('');
+  
+  // Add click handlers
+  container.querySelectorAll('.tag-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const tag = pill.dataset.tag;
+      if (tagsetModalMode === 'include') {
+        tagsetModalIncludeTags.push(tag);
+        tagsetModalIncludeTags.sort();
+      } else {
+        tagsetModalExcludeTags.push(tag);
+        tagsetModalExcludeTags.sort();
+      }
+      renderTagsetTagPool();
+      renderTagsetSelectedTags(tagsetModalMode);
+    });
+  });
+}
+
+// Render selected tags for include or exclude section
+function renderTagsetSelectedTags(type) {
+  const containerId = type === 'include' ? 'tagset-include-tags' : 'tagset-exclude-tags';
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  
+  const tags = type === 'include' ? tagsetModalIncludeTags : tagsetModalExcludeTags;
+  
+  if (tags.length === 0) {
+    const hint = type === 'include' ? 'Click tags above to include' : 'Click tags above to exclude';
+    container.innerHTML = `<span class="empty-hint">${hint}</span>`;
+    return;
+  }
+  
+  container.innerHTML = tags.map(tag => 
+    `<span class="tag-pill" data-tag="${escapeHtml(tag)}">
+      ${escapeHtml(tag)}
+      <span class="tag-remove">×</span>
+    </span>`
+  ).join('');
+  
+  // Add click handlers to remove
+  container.querySelectorAll('.tag-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const tag = pill.dataset.tag;
+      if (type === 'include') {
+        tagsetModalIncludeTags = tagsetModalIncludeTags.filter(t => t !== tag);
+      } else {
+        tagsetModalExcludeTags = tagsetModalExcludeTags.filter(t => t !== tag);
+      }
+      renderTagsetTagPool();
+      renderTagsetSelectedTags(type);
+    });
+  });
+}
+
+// Initialize mode toggle handlers (only once per modal open)
+function initTagsetModalHandlers() {
+  const buttons = document.querySelectorAll('.tagset-mode-toggle .mode-btn');
+  
+  // Remove old handlers and add new ones
+  buttons.forEach(btn => {
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+  });
+  
+  // Re-select after cloning
+  document.querySelectorAll('.tagset-mode-toggle .mode-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      tagsetModalMode = btn.dataset.mode;
+      renderTagsetModeToggle();
+    });
+  });
 }
 
 // Close the tagset modal
@@ -11398,8 +11466,6 @@ async function saveTagset(e) {
   
   const form = document.getElementById('tagset-form');
   const nameInput = document.getElementById('tagset-name-input');
-  const includeContainer = document.getElementById('tagset-include-tags');
-  const excludeContainer = document.getElementById('tagset-exclude-tags');
   
   const name = nameInput.value.trim();
   const originalName = form.dataset.originalName || '';
@@ -11409,13 +11475,32 @@ async function saveTagset(e) {
     return;
   }
   
-  // Get selected include tags
-  const tags = Array.from(includeContainer.querySelectorAll('input[name="include-tag"]:checked'))
-    .map(cb => cb.value);
+  // Check for case-insensitive duplicate tagset names
+  const existingTagsets = window.tvData?.global_tagsets || {};
+  const nameLower = name.toLowerCase();
+  const originalNameLower = originalName.toLowerCase();
   
-  // Get selected exclude tags
-  const excludeTags = Array.from(excludeContainer.querySelectorAll('input[name="exclude-tag"]:checked'))
-    .map(cb => cb.value);
+  for (const existingName of Object.keys(existingTagsets)) {
+    // Skip if this is the same tagset we're editing (case-insensitive match)
+    if (originalName && existingName.toLowerCase() === originalNameLower) {
+      continue;
+    }
+    // Check for duplicate name
+    if (existingName.toLowerCase() === nameLower) {
+      alert(`A tagset named "${existingName}" already exists (names are case-insensitive)`);
+      return;
+    }
+  }
+  
+  // Get selected tags from modal state
+  const tags = tagsetModalIncludeTags;
+  const excludeTags = tagsetModalExcludeTags;
+  
+  // Validate at least one include tag
+  if (tags.length === 0) {
+    alert('At least one include tag is required');
+    return;
+  }
   
   try {
     const payload = {
