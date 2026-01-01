@@ -743,6 +743,80 @@ body {
   white-space: nowrap;
 }
 
+/* TV Status Dots */
+.control-tv-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.tv-status-dot {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.tv-status-dot.on {
+  background: #4caf50;
+  box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
+}
+
+.tv-status-dot.off {
+  background: #666;
+}
+
+.tv-status-dot:hover {
+  transform: scale(1.1);
+}
+
+/* Expanded pill on hover */
+.tv-status-pill {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  background: #333;
+  color: #fff;
+  padding: 6px 10px 6px 20px;
+  border-radius: 12px;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  z-index: 100;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.tv-status-dot:hover .tv-status-pill {
+  opacity: 1;
+  visibility: visible;
+}
+
+.tv-status-pill .pill-tv-name {
+  font-weight: 600;
+}
+
+.tv-status-pill .pill-tagset {
+  color: #aaa;
+}
+
+.tv-status-pill .pill-image {
+  color: #7cb3f5;
+}
+
+/* Hide mobile TV status container on desktop */
+.control-tv-status-mobile {
+  display: none;
+}
+
 .control-filter,
 .control-sort {
   flex: 0 1 auto;
@@ -3260,6 +3334,32 @@ body.dropdown-open .image-card:hover {
   .toolbar-right .controls .control-filter {
     order: 3;
     flex: 1 0 100%;
+  }
+
+  /* TV Status dots on mobile - show in toolbar-row-1, above sync */
+  .toolbar-right .controls .control-tv-status {
+    display: none !important;
+  }
+
+  .toolbar-row-1 .control-tv-status-mobile {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 4px;
+    order: 10;
+    margin-left: auto;
+  }
+
+  .toolbar-row-1 .control-tv-status-mobile .tv-status-dot {
+    width: 10px;
+    height: 10px;
+  }
+
+  /* Mobile: pill expands to the left */
+  .toolbar-row-1 .control-tv-status-mobile .tv-status-pill {
+    right: auto;
+    left: 0;
+    padding: 6px 20px 6px 10px;
   }
 
   .toolbar-row-1 .btn-add {

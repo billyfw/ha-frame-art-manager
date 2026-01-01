@@ -340,6 +340,8 @@ async function fetchRecentlyDisplayed() {
     if (!response.ok) throw new Error('Failed to fetch recently displayed');
     const data = await response.json();
     recentlyDisplayedData = data.images || {};
+    // Update TV status dots when recently displayed data changes
+    renderTVStatusDots();
     return recentlyDisplayedData;
   } catch (error) {
     console.error('Error fetching recently displayed:', error);
@@ -432,6 +434,90 @@ function getRecentlyDisplayedInfoForFile(filename) {
     }
     const timeAgo = formatRecentTimeAgo(entry.time);
     return { tvName, timeAgo };
+  });
+}
+
+/**
+ * Get TV status data by combining allTVs with recentlyDisplayedData
+ * Returns array of { tvId, tvName, activeTagset, currentImage, isOn }
+ */
+function getTVStatusData() {
+  if (!allTVs || allTVs.length === 0) return [];
+  
+  // Build a map of tv_id -> { filename, isOn } from recentlyDisplayedData
+  const tvCurrentImage = {};
+  for (const [filename, entries] of Object.entries(recentlyDisplayedData)) {
+    for (const entry of entries) {
+      const tvId = entry.tv_id;
+      const isNow = entry.time === 'now';
+      // If this TV already has a 'now' entry, skip older entries
+      if (tvCurrentImage[tvId]?.isOn && !isNow) continue;
+      // Prefer 'now' entries, or most recent timestamp
+      if (!tvCurrentImage[tvId] || isNow || entry.timestamp > tvCurrentImage[tvId].timestamp) {
+        tvCurrentImage[tvId] = { filename, isOn: isNow, timestamp: entry.timestamp };
+      }
+    }
+  }
+  
+  return allTVs.map(tv => {
+    const current = tvCurrentImage[tv.device_id];
+    return {
+      tvId: tv.device_id,
+      tvName: tv.name || 'Unknown TV',
+      activeTagset: tv.active_tagset || '-',
+      currentImage: current?.filename || null,
+      isOn: current?.isOn || false
+    };
+  });
+}
+
+/**
+ * Render TV status dots in both desktop and mobile containers
+ */
+function renderTVStatusDots() {
+  const desktopContainer = document.getElementById('tv-status-container');
+  const mobileContainer = document.getElementById('tv-status-container-mobile');
+  
+  const tvStatus = getTVStatusData();
+  
+  if (tvStatus.length === 0) {
+    if (desktopContainer) desktopContainer.innerHTML = '';
+    if (mobileContainer) mobileContainer.innerHTML = '';
+    return;
+  }
+  
+  const dotsHtml = tvStatus.map(tv => {
+    const displayName = tv.currentImage ? getDisplayName(tv.currentImage) : 'None';
+    const truncatedName = displayName.length > 20 ? displayName.substring(0, 19) + '…' : displayName;
+    const statusClass = tv.isOn ? 'on' : 'off';
+    
+    return `
+      <div class="tv-status-dot ${statusClass}" 
+           data-tv-id="${tv.tvId}" 
+           data-filename="${tv.currentImage || ''}"
+           title="${tv.tvName}">
+        <div class="tv-status-pill">
+          <span class="pill-tv-name">${escapeHtml(tv.tvName)}</span>: 
+          <span class="pill-tagset">${escapeHtml(tv.activeTagset)}</span> 
+          (<span class="pill-image">${escapeHtml(truncatedName)}</span>)
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  if (desktopContainer) desktopContainer.innerHTML = dotsHtml;
+  if (mobileContainer) mobileContainer.innerHTML = dotsHtml;
+  
+  // Add click listeners
+  document.querySelectorAll('.tv-status-dot').forEach(dot => {
+    dot.addEventListener('click', (e) => {
+      const filename = dot.dataset.filename;
+      if (filename && allImages[filename]) {
+        openImageModal(filename);
+      } else if (filename) {
+        showToast('Image not found in library');
+      }
+    });
   });
 }
 
@@ -4714,6 +4800,8 @@ async function loadTVs() {
       if (dropdownOptions && dropdownOptions.children.length > 0) {
         loadTagsForFilter();
       }
+      // Update TV status dots
+      renderTVStatusDots();
     }
   } catch (error) {
     console.error('Error loading TVs:', error);
