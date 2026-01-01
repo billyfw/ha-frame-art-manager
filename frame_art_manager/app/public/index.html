@@ -373,7 +373,7 @@
           </div>
 
           <!-- Tagsets Section -->
-          <div class="subsection tagsets-section">
+          <div class="subsection subsection-no-card tagsets-section">
             <div class="tagsets-header">
               <h3>Manage Tagsets</h3>
               <button type="button" id="new-tagset-btn" class="btn-primary btn-small">+ New</button>
@@ -1079,19 +1079,33 @@
             <small class="form-hint">Lowercase letters, numbers, and hyphens only</small>
           </div>
           
-          <div class="form-group">
-            <label>Include Tags:</label>
-            <p class="form-hint">Images must have at least one of these tags</p>
-            <div id="tagset-include-tags" class="tagset-tag-selector">
-              <!-- Tag checkboxes populated by JS -->
+          <!-- Available Tags Pool with Mode Toggle -->
+          <div class="form-group tagset-pool-group">
+            <label>Available Tags:</label>
+            <div id="tagset-tag-pool" class="tagset-tag-pool">
+              <!-- Tag pills populated by JS -->
+            </div>
+            <div class="tagset-mode-toggle">
+              <span class="mode-arrow">↓</span>
+              <button type="button" class="mode-btn active" data-mode="include">Include</button>
+              <button type="button" class="mode-btn" data-mode="exclude">Exclude</button>
+              <span class="mode-arrow">↓</span>
             </div>
           </div>
           
+          <!-- Selected Include Tags -->
           <div class="form-group">
-            <label>Exclude Tags:</label>
-            <p class="form-hint">Images with any of these tags will be excluded</p>
-            <div id="tagset-exclude-tags" class="tagset-tag-selector">
-              <!-- Tag checkboxes populated by JS -->
+            <label>Include Tags <span class="form-hint-inline">(at least 1 required)</span></label>
+            <div id="tagset-include-tags" class="tagset-selected-tags include-tags">
+              <!-- Selected include tag pills populated by JS -->
+            </div>
+          </div>
+          
+          <!-- Selected Exclude Tags -->
+          <div class="form-group">
+            <label>Exclude Tags <span class="form-hint-inline">(optional)</span></label>
+            <div id="tagset-exclude-tags" class="tagset-selected-tags exclude-tags">
+              <!-- Selected exclude tag pills populated by JS -->
             </div>
           </div>
           
@@ -1099,7 +1113,9 @@
           <input type="hidden" id="tagset-original-name" />
           
           <div class="tagset-modal-actions">
-            <button type="button" id="delete-tagset-btn" class="btn-danger" style="display: none;">Delete</button>
+            <div class="tagset-modal-actions-left">
+              <button type="button" id="delete-tagset-btn" class="btn-danger" style="display: none;">Delete</button>
+            </div>
             <div class="tagset-modal-actions-right">
               <button type="button" id="cancel-tagset-btn" class="btn-secondary">Cancel</button>
               <button type="submit" id="save-tagset-btn" class="btn-primary">Save Tagset</button>
