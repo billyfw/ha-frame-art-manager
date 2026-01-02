@@ -11186,8 +11186,8 @@ function renderTagsetsTable() {
     const isMobileExpanded = expandedTagsets.has(name);
 
     html += `
-        <tr class="tagset-row clickable-row${hasOverride ? ' has-override' : ''}" data-tagset-name="${escapeHtml(name)}">
-          <td class="td-name">
+        <tr class="tagset-row clickable-row${hasOverride ? ' has-override' : ''}" data-tagset-name="${escapeHtml(name)}"${hasOverride ? ' style="background: #fffaf0 !important;"' : ''}>
+          <td class="td-name"${hasOverride ? ' style="background: #fffaf0 !important;"' : ''}>
             <div class="tagset-name-row">
               <button class="btn-icon mobile-expand-btn" data-tagset-name="${escapeHtml(name)}" title="${isMobileExpanded ? 'Collapse' : 'Expand'}">
                 <span class="expand-arrow ${isMobileExpanded ? 'expanded' : ''}">▶</span>
@@ -11203,15 +11203,15 @@ function renderTagsetsTable() {
           <td class="td-include desktop-only">${includeSummary}</td>
           <td class="td-exclude desktop-only">${excludeSummary}</td>
           <td class="td-used-by desktop-only${hasOverride ? ' has-override' : ''}">${usedBySummary}</td>
-          <td class="td-actions">
+          <td class="td-actions"${hasOverride ? ' style="background: #fffaf0 !important;"' : ''}>
             <button class="btn-icon tagset-edit-btn" data-tagset-name="${escapeHtml(name)}" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
             <button class="btn-icon tagset-delete-btn" data-tagset-name="${escapeHtml(name)}" title="Delete"
               ${tagsetNames.length <= 1 ? 'disabled' : ''}>×</button>
           </td>
         </tr>
         ${isMobileExpanded ? `
-        <tr class="mobile-tagset-tags-row">
-          <td colspan="2">
+        <tr class="mobile-tagset-tags-row${hasOverride ? ' has-override' : ''}"${hasOverride ? ' style="background: #fffaf0 !important;"' : ''}>
+          <td colspan="2"${hasOverride ? ' style="background: #fffaf0 !important;"' : ''}>
             <div class="mobile-tags-detail">
               <div class="tag-group">
                 <span class="tag-label">Include:</span>
