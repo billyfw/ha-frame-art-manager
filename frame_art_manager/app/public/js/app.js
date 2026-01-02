@@ -11459,17 +11459,17 @@ function renderTVAssignments() {
     `;
     
     html += `
-        <tr class="tv-assignment-row${hasOverride ? ' has-override' : ''}" data-device-id="${escapeHtml(tv.device_id)}">
-          <td class="tv-col-name" data-label="TV">
+        <tr class="tv-assignment-row${hasOverride ? ' has-override' : ''}" data-device-id="${escapeHtml(tv.device_id)}"${hasOverride ? ' style="background: #fffaf0 !important;"' : ''}>
+          <td class="tv-col-name" data-label="TV"${hasOverride ? ' style="background: #fffaf0 !important;"' : ''}>
             <span class="tv-name">${escapeHtml(tv.name)}</span>
           </td>
-          <td class="tv-col-tagset" data-label="Selected Tagset">
+          <td class="tv-col-tagset" data-label="Selected Tagset"${hasOverride ? ' style="background: #fffaf0 !important;"' : ''}>
             <select class="tagset-select" data-device-id="${escapeHtml(tv.device_id)}" data-tv-name="${escapeHtml(tv.name)}">
               ${tagsetOptions}
             </select>
             <button class="tagset-undo-btn" title="Undo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a5 5 0 0 1 0 10H9"/><path d="M3 10l4-4M3 10l4 4"/></svg></button>
           </td>
-          <td class="tv-col-actions" data-label="">
+          <td class="tv-col-actions" data-label=""${hasOverride ? ' style="background: #fffaf0 !important;"' : ''}>
             ${hasOverride ? `
               <button class="btn btn-small btn-warning clear-override-btn" data-device-id="${escapeHtml(tv.device_id)}">
                 Clear
