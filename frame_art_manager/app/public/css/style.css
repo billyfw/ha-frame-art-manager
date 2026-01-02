@@ -9178,14 +9178,20 @@ body.dropdown-open .image-card:hover {
 
   /* Tagset modal on mobile - MUST fit and scroll */
   .tagset-modal {
-    width: 100%;
-    max-width: none;
-    margin: 0;
-    height: 100vh;
-    max-height: 100vh;
-    border-radius: 0;
-    display: flex;
-    flex-direction: column;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: #fff !important;
   }
   
   .tagset-modal .modal-details {
@@ -9193,7 +9199,8 @@ body.dropdown-open .image-card:hover {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding: 16px;
-    padding-bottom: 0;
+    padding-bottom: 8px;
+    background: #fff;
   }
   
   .tagset-modal .modal-details h3 {
@@ -9275,13 +9282,13 @@ body.dropdown-open .image-card:hover {
     margin-left: 4px;
   }
   
-  /* Actions - sticky at bottom */
+  /* Actions - fixed at bottom */
   .tagset-modal .tagset-modal-actions {
     flex-direction: row;
     gap: 8px;
-    padding: 8px 12px;
-    background: #f9f9f9;
-    border-top: 1px solid #eee;
+    padding: 10px 16px;
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
     flex-shrink: 0;
   }
   
