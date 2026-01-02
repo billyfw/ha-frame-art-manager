@@ -8072,7 +8072,8 @@ body.dropdown-open .image-card:hover {
 
 /* Mobile-only elements in tagsets table - hidden on desktop */
 .mobile-expand-btn,
-.mobile-tagset-meta {
+.mobile-tagset-meta,
+.mobile-only {
   display: none;
 }
 
@@ -8586,7 +8587,7 @@ body.dropdown-open .image-card:hover {
 /* Tagsets Header */
 .tagsets-header {
   display: flex;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
@@ -8956,8 +8957,14 @@ body.dropdown-open .image-card:hover {
 
   /* Hide desktop-only columns */
   .tagsets-table th.desktop-only,
-  .tagsets-table td.desktop-only {
+  .tagsets-table td.desktop-only,
+  .tagsets-table .desktop-only {
     display: none;
+  }
+  
+  /* Show mobile-only elements */
+  .tagsets-table .mobile-only {
+    display: inline-flex;
   }
 
   /* Tagsets Table mobile - keep as table but fit screen */
@@ -9017,6 +9024,9 @@ body.dropdown-open .image-card:hover {
     vertical-align: top;
     padding-top: 12px;
     white-space: nowrap;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
   }
   
   .tagsets-table .td-actions .btn-icon {
@@ -9082,6 +9092,7 @@ body.dropdown-open .image-card:hover {
   /* Mobile tags detail row (expanded) */
   .mobile-tagset-tags-row {
     display: table-row;
+    cursor: pointer;
   }
   
   .mobile-tagset-tags-row td {
