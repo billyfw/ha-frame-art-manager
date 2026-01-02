@@ -9220,9 +9220,9 @@ body.dropdown-open .image-card:hover {
   
   /* Tag pool - scrollable, compact */
   .tagset-modal .tagset-tag-pool {
-    max-height: 70px;
+    max-height: 50px;
     overflow-y: auto;
-    padding: 8px;
+    padding: 6px;
     gap: 4px;
   }
   
@@ -9252,8 +9252,10 @@ body.dropdown-open .image-card:hover {
   
   /* Selected tags sections - compact */
   .tagset-modal .tagset-selected-tags {
-    min-height: 40px;
-    padding: 6px;
+    min-height: 32px;
+    max-height: 50px;
+    overflow-y: auto;
+    padding: 4px;
     gap: 4px;
   }
   
