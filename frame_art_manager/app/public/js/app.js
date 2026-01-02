@@ -467,7 +467,7 @@ function getTVStatusData() {
       activeTagset: tv.active_tagset || '-',
       hasOverride: !!tv.override_tagset,
       currentImage: current?.filename || null,
-      isOn: current?.isOn || false
+      isOn: tv.screen_on === true  // Use actual screen state from HA binary_sensor
     };
   }).sort((a, b) => a.tvName.localeCompare(b.tvName));
 }
@@ -510,9 +510,6 @@ function renderTVStatusDots() {
   
   // Mobile: bars with text always visible
   const barsHtml = tvStatus.map(tv => {
-    const displayName = tv.currentImage ? getDisplayName(tv.currentImage) : 'None';
-    const truncatedImage = displayName.length > 12 ? displayName.substring(0, 11) + '…' : displayName;
-    const truncatedTagset = tv.activeTagset.length > 10 ? tv.activeTagset.substring(0, 9) + '…' : tv.activeTagset;
     const statusClass = tv.hasOverride ? 'override' : (tv.isOn ? 'on' : 'off');
     
     return `
@@ -520,8 +517,7 @@ function renderTVStatusDots() {
            data-tv-id="${tv.tvId}" 
            data-filename="${tv.currentImage || ''}">
         <span class="bar-tv-name">${escapeHtml(tv.tvName)}</span>
-        <span class="bar-tagset">${escapeHtml(truncatedTagset)}</span>
-        <span class="bar-image">${escapeHtml(truncatedImage)}</span>
+        <span class="bar-tagset">${escapeHtml(tv.activeTagset)}</span>
       </div>
     `;
   }).join('');

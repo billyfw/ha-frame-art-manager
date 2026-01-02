@@ -172,8 +172,18 @@ router.get('/tvs', requireHA, async (req, res) => {
           {% set ns.override_tagset = none %}
           {% set ns.override_expiry_time = none %}
           {% set ns.active_tagset = none %}
+          {% set ns.screen_on = none %}
           
           {% for entity in entities %}
+            {% if entity.endswith('_screen_on') %}
+              {# Get screen power state from binary_sensor #}
+              {% set screen_state = states(entity) %}
+              {% if screen_state == 'on' %}
+                {% set ns.screen_on = true %}
+              {% elif screen_state == 'off' %}
+                {% set ns.screen_on = false %}
+              {% endif %}
+            {% endif %}
             {% if entity.endswith('_current_artwork') %}
               {# Get global tagsets (full definitions - same on all TVs) #}
               {% set tagsets_attr = state_attr(entity, 'tagsets') %}
@@ -208,7 +218,8 @@ router.get('/tvs', requireHA, async (req, res) => {
             'selected_tagset': ns.selected_tagset,
             'override_tagset': ns.override_tagset,
             'override_expiry_time': ns.override_expiry_time,
-            'active_tagset': ns.active_tagset
+            'active_tagset': ns.active_tagset,
+            'screen_on': ns.screen_on
           }] %}
         {% endif %}
       {% endfor %}
