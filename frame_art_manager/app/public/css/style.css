@@ -9178,10 +9178,12 @@ body.dropdown-open .image-card:hover {
 
   /* Tagset modal on mobile - MUST fit and scroll */
   .tagset-modal {
-    width: 95%;
+    width: 100%;
     max-width: none;
-    margin: 10px;
-    max-height: calc(100vh - 20px);
+    margin: 0;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
     display: flex;
     flex-direction: column;
   }
@@ -9275,36 +9277,40 @@ body.dropdown-open .image-card:hover {
   
   /* Actions - sticky at bottom */
   .tagset-modal .tagset-modal-actions {
-    flex-direction: column;
+    flex-direction: row;
     gap: 8px;
-    padding: 12px 16px;
+    padding: 8px 12px;
     background: #f9f9f9;
     border-top: 1px solid #eee;
     flex-shrink: 0;
   }
   
   .tagset-modal .tagset-modal-actions-left {
-    width: 100%;
-    order: 2;
+    width: auto;
+    order: 1;
   }
   
   .tagset-modal .tagset-modal-actions-left .btn-danger {
-    width: 100%;
+    width: auto;
     text-align: center;
-    padding: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    min-height: auto !important;
   }
   
   .tagset-modal .tagset-modal-actions-right {
-    width: 100%;
-    order: 1;
+    width: auto;
+    order: 2;
     display: flex;
-    gap: 8px;
+    gap: 6px;
+    margin-left: auto;
   }
   
   .tagset-modal .tagset-modal-actions-right button {
-    flex: 1;
-    padding: 10px;
-    font-size: 14px;
+    flex: none;
+    padding: 6px 12px;
+    font-size: 12px;
+    min-height: auto !important;
   }
 }
 
