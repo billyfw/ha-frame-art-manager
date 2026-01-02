@@ -11228,7 +11228,7 @@ function renderTagsetsTable() {
         </tr>
         ` : ''}
         ${hasOverride ? `
-        <tr class="mobile-tagset-override-row" style="background: #fffaf0 !important;">
+        <tr class="mobile-tagset-override-row" data-tagset-name="${escapeHtml(name)}" style="background: #fffaf0 !important;">
           <td colspan="2" style="background: #fffaf0 !important;"><span class="mobile-tagset-override-info">${mobileOverrideText}</span></td>
         </tr>
         ` : ''}
@@ -11284,6 +11284,19 @@ function renderTagsetsTable() {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       expandedTagsets.add(el.dataset.tagsetName);
+      renderTagsetsTable();
+    });
+  });
+  
+  // Override row click also toggles expand/collapse
+  container.querySelectorAll('.mobile-tagset-override-row').forEach(row => {
+    row.addEventListener('click', (e) => {
+      const tagsetName = row.dataset.tagsetName;
+      if (expandedTagsets.has(tagsetName)) {
+        expandedTagsets.delete(tagsetName);
+      } else {
+        expandedTagsets.add(tagsetName);
+      }
       renderTagsetsTable();
     });
   });
