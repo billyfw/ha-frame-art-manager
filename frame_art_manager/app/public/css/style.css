@@ -8176,6 +8176,8 @@ body.dropdown-open .image-card:hover {
     padding: 4px 8px;
     font-size: 11px;
     border-radius: 4px;
+    width: 100%;
+    justify-content: center;
   }
   
   .tv-col-tagset .tagset-undo-btn.show {
@@ -8949,6 +8951,7 @@ body.dropdown-open .image-card:hover {
   .tagsets-header .btn-primary.btn-small {
     padding: 4px 14px !important;
     font-size: 12px;
+    min-height: auto !important;
   }
 
   /* Hide desktop-only columns */
@@ -9137,6 +9140,11 @@ body.dropdown-open .image-card:hover {
     border-bottom: none;
   }
   
+  /* Remove border from expanded tags row when followed by override row */
+  .tagsets-table .mobile-tagset-tags-row:has(+ .mobile-tagset-override-row) td {
+    border-bottom: none;
+  }
+  
   /* Mobile tagset override row - spanning all columns */
   .mobile-tagset-override-row {
     display: table-row;
@@ -9212,7 +9220,7 @@ body.dropdown-open .image-card:hover {
   
   /* Tag pool - scrollable, compact */
   .tagset-modal .tagset-tag-pool {
-    max-height: 100px;
+    max-height: 70px;
     overflow-y: auto;
     padding: 8px;
     gap: 4px;

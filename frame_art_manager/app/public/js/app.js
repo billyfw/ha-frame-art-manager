@@ -11530,10 +11530,10 @@ function renderTVAssignments() {
       // Clear any existing timeout
       if (undoTimeout) clearTimeout(undoTimeout);
       
-      // Hide undo after 10 seconds
+      // Hide undo after 6 seconds
       undoTimeout = setTimeout(() => {
         undoBtn.classList.remove('show');
-      }, 10000);
+      }, 6000);
       
       // Set up undo handler (replace any existing)
       undoBtn.onclick = async () => {
