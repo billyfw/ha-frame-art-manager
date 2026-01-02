@@ -9253,11 +9253,14 @@ body.dropdown-open .image-card:hover {
     overflow-y: auto;
     padding: 6px;
     gap: 4px;
+    align-content: flex-start;
   }
   
   .tagset-modal .tagset-tag-pool .tag-pill {
     padding: 3px 8px;
     font-size: 11px;
+    flex-shrink: 0;
+    align-self: flex-start;
   }
   
   .tagset-modal .tagset-tag-pool .tag-pill .tag-count {
@@ -9286,11 +9289,14 @@ body.dropdown-open .image-card:hover {
     overflow-y: auto;
     padding: 4px;
     gap: 4px;
+    align-content: flex-start;
   }
   
   .tagset-modal .tagset-selected-tags .tag-pill {
     padding: 3px 8px;
     font-size: 11px;
+    flex-shrink: 0;
+    align-self: flex-start;
   }
   
   .tagset-modal .tagset-selected-tags .tag-pill .tag-count {
