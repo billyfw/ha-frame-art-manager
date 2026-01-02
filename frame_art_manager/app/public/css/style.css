@@ -9196,9 +9196,9 @@ body.dropdown-open .image-card:hover {
     right: 0 !important;
     bottom: 0 !important;
     width: 100% !important;
-    height: 100% !important;
+    height: 100dvh !important;
     max-width: 100% !important;
-    max-height: 100% !important;
+    max-height: 100dvh !important;
     margin: 0 !important;
     border-radius: 0 !important;
     display: flex !important;
