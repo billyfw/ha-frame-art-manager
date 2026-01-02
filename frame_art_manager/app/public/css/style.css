@@ -3417,7 +3417,7 @@ body.dropdown-open .image-card:hover {
   }
 
   .tv-status-bar .bar-image {
-    font-weight: 500;
+    display: none;
   }
 
   .toolbar-row-1 .btn-add {
