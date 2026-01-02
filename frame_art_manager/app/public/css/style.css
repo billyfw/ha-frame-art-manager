@@ -9024,9 +9024,10 @@ body.dropdown-open .image-card:hover {
     vertical-align: top;
     padding-top: 12px;
     white-space: nowrap;
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
+  }
+  
+  .tagsets-table .td-actions .tagset-edit-btn {
+    margin-right: 8px;
   }
   
   .tagsets-table .td-actions .btn-icon {
