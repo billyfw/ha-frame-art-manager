@@ -9196,14 +9196,15 @@ body.dropdown-open .image-card:hover {
     right: 0 !important;
     bottom: 0 !important;
     width: 100% !important;
-    height: calc(100% - 60px) !important;
+    height: 100% !important;
     max-width: 100% !important;
-    max-height: calc(100% - 60px) !important;
+    max-height: 100% !important;
     margin: 0 !important;
     border-radius: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     background: #fff !important;
+    padding-bottom: env(safe-area-inset-bottom, 0) !important;
   }
   
   .tagset-modal .modal-details {
@@ -9215,6 +9216,7 @@ body.dropdown-open .image-card:hover {
     background: #fff;
     display: flex;
     flex-direction: column;
+    min-height: 0;
   }
   
   .tagset-modal .modal-details #tagset-form {
@@ -9325,6 +9327,7 @@ body.dropdown-open .image-card:hover {
     flex-direction: row;
     gap: 8px;
     padding: 10px 16px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0));
     background: #fff;
     border-top: 1px solid #e2e8f0;
     flex-shrink: 0;
