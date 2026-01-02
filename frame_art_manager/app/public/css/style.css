@@ -8947,7 +8947,7 @@ body.dropdown-open .image-card:hover {
   }
   
   .tagsets-header .btn-primary.btn-small {
-    padding: 4px 14px;
+    padding: 4px 14px !important;
     font-size: 12px;
   }
 
@@ -9145,6 +9145,7 @@ body.dropdown-open .image-card:hover {
   
   .mobile-tagset-override-row td {
     padding: 0 8px 8px 30px;
+    border-top: none;
     border-bottom: 1px solid #e8ecf0;
     background: #fffaf0 !important;
   }
