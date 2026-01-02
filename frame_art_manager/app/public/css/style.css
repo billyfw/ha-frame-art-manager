@@ -8745,7 +8745,6 @@ body.dropdown-open .image-card:hover {
   font-size: 18px;
   font-weight: 400;
   cursor: pointer;
-  background: magenta !important; /* DEBUG */
 }
 
 .tagsets-table .td-actions .tagset-delete-btn:hover:not(:disabled) {
@@ -8984,14 +8983,14 @@ body.dropdown-open .image-card:hover {
   /* Column widths for mobile: Name, Actions (only 2 visible) */
   .tagsets-table th:nth-child(1),
   .tagsets-table td:nth-child(1) {
-    width: 85%;
+    width: 70%;
   }
   
   .tagsets-table th:nth-child(5),
   .tagsets-table td:nth-child(5) {
-    width: 15%;
+    width: 30%;
     text-align: right;
-    padding-right: 10px;
+    padding-right: 8px;
   }
   
   .tagsets-table .td-name {
@@ -9008,11 +9007,13 @@ body.dropdown-open .image-card:hover {
   }
   
   .tagsets-table .td-actions {
-    width: auto;
-    padding-right: 10px;
+    width: 30%;
+    min-width: 70px;
+    padding-right: 8px;
     text-align: right;
     vertical-align: top;
     padding-top: 12px;
+    white-space: nowrap;
   }
   
   .tagsets-table .td-actions .btn-icon {
