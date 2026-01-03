@@ -131,6 +131,9 @@ router.get('/status', async (req, res) => {
     const git = new GitHelper(req.frameArtPath);
     let syncBusy = false;
     
+    // Check for and clear any stale Git lock files
+    await git.checkAndClearStaleLock();
+    
     // Check for conflicts first
     const conflictCheck = await git.checkForConflicts();
     
@@ -213,6 +216,12 @@ router.post('/full', async (req, res) => {
 
   try {
     git = new GitHelper(req.frameArtPath);
+    
+    // Check for and clear any stale Git lock files before starting
+    const lockCheck = await git.checkAndClearStaleLock();
+    if (lockCheck.cleared) {
+      console.log(`🔓 [${requestId}] Cleared stale ${lockCheck.lockFile} before sync`);
+    }
     resolveHeadCommit = async () => {
       if (!git) return null;
       try {
@@ -395,12 +404,26 @@ router.post('/full', async (req, res) => {
     
   } catch (error) {
     console.error(`💥 [${requestId}] Full sync error:`, error);
+    
+    // Check if this is a lock file error and try to recover
+    let errorMessage = error.message;
+    if (GitHelper.isLockFileError(error) && git) {
+      console.log(`🔒 [${requestId}] Lock file error detected, attempting recovery...`);
+      const lockResult = await git.checkAndClearStaleLock();
+      if (lockResult.cleared) {
+        errorMessage = `Sync failed due to a stale lock file (${lockResult.lockFile}). The lock has been cleared - please try again.`;
+      } else if (lockResult.lockFile) {
+        errorMessage = `Git lock file (${lockResult.lockFile}) is blocking the operation. ` +
+          `It's only ${Math.round(lockResult.age / 1000)}s old, which may indicate another operation is in progress. Please wait and try again.`;
+      }
+    }
+    
     try {
       await logSyncOperation(req.frameArtPath, {
         operation: 'full-sync',
         status: 'failure',
-        message: error.message,
-        error: error.message,
+        message: errorMessage,
+        error: errorMessage,
         branch: branchName,
         remoteCommit: await resolveHeadCommit(),
         lostChanges: []
@@ -410,7 +433,7 @@ router.post('/full', async (req, res) => {
     }
     res.status(500).json({ 
       success: false, 
-      error: error.message 
+      error: errorMessage 
     });
   } finally {
     // Always release the lock

@@ -5,6 +5,10 @@ const fs = require('fs').promises;
 // Global sync lock to prevent concurrent git operations
 let syncInProgress = false;
 
+// Minimum age (in ms) for a lock file to be considered stale
+// 2 minutes - most Git operations complete well within this time
+const STALE_LOCK_AGE_MS = 2 * 60 * 1000;
+
 /**
  * GitHelper - Manages Git LFS operations for the Frame Art repository
  * Handles verification, pull, commit, push, and status tracking
@@ -14,6 +18,59 @@ class GitHelper {
     this.frameArtPath = frameArtPath;
     this.git = simpleGit(frameArtPath);
     this.expectedRemote = 'billyfw/frame_art';
+  }
+
+  /**
+   * Check for and clear stale Git lock files
+   * Lock files can be left behind if Git crashes or the process is interrupted
+   * Only removes lock files older than STALE_LOCK_AGE_MS to avoid interfering
+   * with active Git operations
+   * @returns {Promise<{cleared: boolean, lockFile?: string, age?: number}>}
+   */
+  async checkAndClearStaleLock() {
+    const lockFiles = [
+      path.join(this.frameArtPath, '.git', 'index.lock'),
+      path.join(this.frameArtPath, '.git', 'HEAD.lock'),
+      path.join(this.frameArtPath, '.git', 'config.lock')
+    ];
+
+    for (const lockFile of lockFiles) {
+      try {
+        const stat = await fs.stat(lockFile);
+        const ageMs = Date.now() - stat.mtimeMs;
+        
+        if (ageMs > STALE_LOCK_AGE_MS) {
+          // Lock file is stale - safe to remove
+          await fs.unlink(lockFile);
+          console.log(`🔓 Cleared stale Git lock file: ${path.basename(lockFile)} (was ${Math.round(ageMs / 1000)}s old)`);
+          return { cleared: true, lockFile: path.basename(lockFile), age: ageMs };
+        } else {
+          // Lock file exists but is recent - might be an active operation
+          console.log(`⚠️  Git lock file exists but is recent (${Math.round(ageMs / 1000)}s old): ${path.basename(lockFile)}`);
+          return { cleared: false, lockFile: path.basename(lockFile), age: ageMs };
+        }
+      } catch (error) {
+        // ENOENT means file doesn't exist - that's fine
+        if (error.code !== 'ENOENT') {
+          console.warn(`⚠️  Error checking lock file ${lockFile}:`, error.message);
+        }
+      }
+    }
+
+    return { cleared: false };
+  }
+
+  /**
+   * Check if an error is a Git lock file error
+   * @param {Error} error - The error to check
+   * @returns {boolean}
+   */
+  static isLockFileError(error) {
+    const msg = error.message || '';
+    return msg.includes('Unable to create') && msg.includes('.lock') ||
+           msg.includes('Another git process seems to be running') ||
+           msg.includes('index.lock') ||
+           msg.includes('HEAD.lock');
   }
 
   static convertRemoteToSsh(remoteUrl) {
@@ -228,6 +285,43 @@ class GitHelper {
     
     // All retries exhausted
     throw new Error(`Failed after ${maxRetries} attempts: ${lastError.message}`);
+  }
+
+  /**
+   * Execute a git operation with automatic stale lock file recovery
+   * If a lock file error is detected and the lock is stale, it will be cleared
+   * and the operation retried once
+   * @param {Function} operation - Async function to execute
+   * @param {string} operationName - Name for logging
+   * @returns {Promise<any>} - Result from the operation
+   */
+  async withLockRecovery(operation, operationName = 'git operation') {
+    try {
+      return await operation();
+    } catch (error) {
+      // Check if this is a lock file error
+      if (GitHelper.isLockFileError(error)) {
+        console.log(`🔒 Lock file error detected during ${operationName}, attempting recovery...`);
+        
+        const lockResult = await this.checkAndClearStaleLock();
+        
+        if (lockResult.cleared) {
+          // Lock was stale and cleared, retry the operation once
+          console.log(`🔄 Retrying ${operationName} after clearing stale lock...`);
+          return await operation();
+        } else if (lockResult.lockFile) {
+          // Lock exists but isn't stale - might be an active operation
+          throw new Error(
+            `Git operation blocked by lock file (${lockResult.lockFile}). ` +
+            `The lock is only ${Math.round(lockResult.age / 1000)}s old, which suggests ` +
+            `another operation may be in progress. Please wait and try again.`
+          );
+        }
+      }
+      
+      // Not a lock error or couldn't recover - rethrow
+      throw error;
+    }
   }
 
   /**
