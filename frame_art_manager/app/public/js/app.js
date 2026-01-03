@@ -11246,6 +11246,8 @@ function renderTagsetsTable() {
     const tagset = allGlobalTagsets[name];
     const includeTags = [...(tagset.tags || [])].sort((a, b) => a.localeCompare(b));
     const excludeTags = [...(tagset.exclude_tags || [])].sort((a, b) => a.localeCompare(b));
+    const tagWeights = tagset.tag_weights || {};
+    const hasCustomWeights = Object.keys(tagWeights).length > 0;
     
     // Find TVs using this tagset
     const tvsUsing = allTVs.filter(tv => tv.selected_tagset === name);
@@ -11254,18 +11256,40 @@ function renderTagsetsTable() {
     const isExpanded = expandedTagsets.has(name);
     
     // Format tag list - text when collapsed, chips when expanded
-    const formatTagList = (tags, emptyText) => {
+    // showWeights: if true and hasCustomWeights, show percentages
+    const formatTagList = (tags, emptyText, showWeights = false) => {
       if (tags.length === 0) return `<span class="tag-summary-none">${emptyText}</span>`;
+      
+      // Calculate percentages if showing weights
+      let percentages = {};
+      if (showWeights && hasCustomWeights) {
+        const total = tags.reduce((sum, tag) => sum + (tagWeights[tag] || 1), 0);
+        tags.forEach(tag => {
+          const weight = tagWeights[tag] || 1;
+          percentages[tag] = ((weight / total) * 100).toFixed(1);
+        });
+      }
       
       const tagStr = tags.join(', ');
       const needsTruncation = tagStr.length > 120;
+      
+      // Helper to format a single tag with optional percentage
+      const formatTag = (t) => {
+        if (showWeights && hasCustomWeights && percentages[t]) {
+          return `${escapeHtml(t)} (${percentages[t]}%)`;
+        }
+        return escapeHtml(t);
+      };
       
       if (isExpanded || !needsTruncation) {
         // Show all tags
         if (needsTruncation) {
           // Expanded view - show as chips with collapse option
-          const chips = tags.map(t => `<span class="tag-chip-inline">${escapeHtml(t)}</span>`).join('');
+          const chips = tags.map(t => `<span class="tag-chip-inline">${formatTag(t)}</span>`).join('');
           return `<div class="tag-chips-inline">${chips}<span class="collapse-link" data-tagset-name="${escapeHtml(name)}">&lt;&lt;</span></div>`;
+        }
+        if (showWeights && hasCustomWeights) {
+          return `<span>${tags.map(t => formatTag(t)).join(', ')}</span>`;
         }
         return `<span>${escapeHtml(tagStr)}</span>`;
       }
@@ -11274,16 +11298,18 @@ function renderTagsetsTable() {
       let shown = [];
       let len = 0;
       for (const tag of tags) {
-        if (len + tag.length + 2 > 100 && shown.length > 0) break;
-        shown.push(tag);
-        len += tag.length + 2;
+        const displayTag = formatTag(tag);
+        if (len + displayTag.length + 2 > 100 && shown.length > 0) break;
+        shown.push(displayTag);
+        len += displayTag.length + 2;
       }
       const remaining = tags.length - shown.length;
-      return `<span class="tag-list-truncated" title="${escapeHtml(tags.join(', '))}">${escapeHtml(shown.join(', '))} <span class="more-count expandable" data-tagset-name="${escapeHtml(name)}">+${remaining}</span></span>`;
+      const fullTitle = tags.map(t => formatTag(t)).join(', ');
+      return `<span class="tag-list-truncated" title="${escapeHtml(fullTitle)}">${shown.join(', ')} <span class="more-count expandable" data-tagset-name="${escapeHtml(name)}">+${remaining}</span></span>`;
     };
     
-    const includeSummary = formatTagList(includeTags, 'All');
-    const excludeSummary = formatTagList(excludeTags, 'None');
+    const includeSummary = formatTagList(includeTags, 'All', true);
+    const excludeSummary = formatTagList(excludeTags, 'None', false);
     
     // Used by summary - overrides first, then regular assignments on new line
     let usedByParts = [];
@@ -11792,7 +11818,9 @@ function showToast(message, duration = 3000) {
 // Tagset modal state
 let tagsetModalIncludeTags = [];
 let tagsetModalExcludeTags = [];
+let tagsetModalTagWeights = {}; // { tag: weight } - weights for include tags
 let tagsetModalMode = 'include'; // 'include' or 'exclude'
+let tagsetModalActiveTab = 'tags'; // 'tags' or 'weights'
 
 // Open the tagset edit/create modal
 // tagsetName: name of tagset to edit, or null to create new
@@ -11837,21 +11865,94 @@ function openTagsetModal(tagsetName) {
   // Initialize state from existing tagset or empty
   tagsetModalIncludeTags = [...(existingTagset?.tags || [])];
   tagsetModalExcludeTags = [...(existingTagset?.exclude_tags || [])];
+  tagsetModalTagWeights = {...(existingTagset?.tag_weights || {})};
   tagsetModalMode = 'include';
+  tagsetModalActiveTab = 'tags';
   
   // Render the UI
   renderTagsetModalUI();
   initTagsetModalHandlers();
+  initTagsetTabHandlers();
   
   modal.classList.add('active');
 }
 
 // Render all parts of the tagset modal UI
 function renderTagsetModalUI() {
+  renderTagsetTabs();
   renderTagsetModeToggle();
   renderTagsetTagPool();
   renderTagsetSelectedTags('include');
   renderTagsetSelectedTags('exclude');
+  renderTagsetWeightsTab();
+}
+
+// Render tab navigation
+function renderTagsetTabs() {
+  const tabs = document.querySelectorAll('.tagset-tab');
+  const contents = document.querySelectorAll('.tagset-tab-content');
+  const resetBtn = document.getElementById('reset-weights-btn');
+  
+  tabs.forEach(tab => {
+    if (tab.dataset.tab === tagsetModalActiveTab) {
+      tab.classList.add('active');
+    } else {
+      tab.classList.remove('active');
+    }
+  });
+  
+  contents.forEach(content => {
+    const tabName = content.id.replace('tagset-tab-', '');
+    if (tabName === tagsetModalActiveTab) {
+      content.classList.add('active');
+    } else {
+      content.classList.remove('active');
+    }
+  });
+  
+  // Show/hide reset weights button based on active tab
+  if (resetBtn) {
+    resetBtn.style.display = tagsetModalActiveTab === 'weights' ? '' : 'none';
+  }
+}
+
+// Initialize tab click handlers
+function initTagsetTabHandlers() {
+  const tabs = document.querySelectorAll('.tagset-tab');
+  
+  tabs.forEach(tab => {
+    // Clone to remove old handlers
+    const newTab = tab.cloneNode(true);
+    tab.parentNode.replaceChild(newTab, tab);
+  });
+  
+  // Re-attach handlers
+  document.querySelectorAll('.tagset-tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      e.preventDefault();
+      tagsetModalActiveTab = tab.dataset.tab;
+      renderTagsetTabs();
+      if (tagsetModalActiveTab === 'weights') {
+        renderTagsetWeightsTab();
+      }
+    });
+  });
+  
+  // Reset weights button
+  const resetBtn = document.getElementById('reset-weights-btn');
+  if (resetBtn) {
+    const newResetBtn = resetBtn.cloneNode(true);
+    resetBtn.parentNode.replaceChild(newResetBtn, resetBtn);
+    
+    document.getElementById('reset-weights-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (confirm('Reset all tag weights to 1? This will give all tags equal selection probability.')) {
+        tagsetModalTagWeights = {};
+        renderTagsetWeightsTab();
+        renderTagsetSelectedTags('include'); // Update percentages on Tags tab
+      }
+    });
+  }
 }
 
 // Render the mode toggle buttons
@@ -11926,10 +12027,15 @@ function renderTagsetSelectedTags(type) {
     return;
   }
   
+  // For include tags, check if any weights are non-default and calculate percentages
+  const hasCustomWeights = type === 'include' && tags.some(t => (tagsetModalTagWeights[t] || 1) !== 1);
+  const percentages = type === 'include' ? calculateTagPercentages(tags, tagsetModalTagWeights) : {};
+  
   container.innerHTML = tags.map(tag => {
     const count = tagCounts[tag] || 0;
+    const percentStr = hasCustomWeights ? `<span class="tag-percent">${percentages[tag] || 0}%</span> ` : '';
     return `<span class="tag-pill" data-tag="${escapeHtml(tag)}">
-      ${escapeHtml(tag)} <span class="tag-count">(${count})</span>
+      ${escapeHtml(tag)} ${percentStr}<span class="tag-count">(${count})</span>
       <span class="tag-remove">×</span>
     </span>`;
   }).join('');
@@ -11940,11 +12046,229 @@ function renderTagsetSelectedTags(type) {
       const tag = pill.dataset.tag;
       if (type === 'include') {
         tagsetModalIncludeTags = tagsetModalIncludeTags.filter(t => t !== tag);
+        // Also remove from weights
+        delete tagsetModalTagWeights[tag];
       } else {
         tagsetModalExcludeTags = tagsetModalExcludeTags.filter(t => t !== tag);
       }
       renderTagsetTagPool();
       renderTagsetSelectedTags(type);
+      if (type === 'include') {
+        renderTagsetWeightsTab(); // Update weights tab when include tags change
+      }
+    });
+  });
+}
+
+// Calculate percentages for tags based on weights
+function calculateTagPercentages(tags, weights) {
+  if (!tags || tags.length === 0) return {};
+  
+  const total = tags.reduce((sum, tag) => sum + (weights[tag] || 1), 0);
+  if (total === 0) return {};
+  
+  const percentages = {};
+  tags.forEach(tag => {
+    const weight = weights[tag] || 1;
+    percentages[tag] = ((weight / total) * 100).toFixed(1);
+  });
+  return percentages;
+}
+
+// Generate a pie chart showing tag weight distribution
+function generateWeightsPieChart(tags, percentages) {
+  if (!tags || tags.length === 0) return '';
+  
+  // Color palette for pie segments
+  const colors = [
+    '#4a90d9', '#5cb85c', '#f0ad4e', '#d9534f', '#9b59b6',
+    '#1abc9c', '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
+    '#8e44ad', '#16a085', '#c0392b', '#2980b9', '#27ae60'
+  ];
+  
+  // Build conic-gradient stops
+  let cumulative = 0;
+  const gradientStops = [];
+  
+  tags.forEach((tag, i) => {
+    const pct = parseFloat(percentages[tag]) || 0;
+    const color = colors[i % colors.length];
+    gradientStops.push(`${color} ${cumulative}%`);
+    cumulative += pct;
+    gradientStops.push(`${color} ${cumulative}%`);
+  });
+  
+  const gradient = gradientStops.join(', ');
+  
+  // Build legend items
+  const legendItems = tags.map((tag, i) => {
+    const color = colors[i % colors.length];
+    const pct = percentages[tag] || '0.0';
+    return `<div class="pie-legend-item">
+      <span class="pie-legend-color" style="background: ${color}"></span>
+      <span class="pie-legend-text">${escapeHtml(tag)} <span class="pie-legend-pct">${pct}%</span></span>
+    </div>`;
+  }).join('');
+  
+  return `
+    <div class="weights-pie-container">
+      <div class="weights-pie-chart" style="background: conic-gradient(${gradient})"></div>
+      <div class="weights-pie-legend">${legendItems}</div>
+    </div>
+  `;
+}
+
+// Update pie chart in-place when weights change
+function updateWeightsPieChart(tags, percentages) {
+  const pieChart = document.querySelector('.weights-pie-chart');
+  const legend = document.querySelector('.weights-pie-legend');
+  if (!pieChart || !legend) return;
+  
+  const colors = [
+    '#4a90d9', '#5cb85c', '#f0ad4e', '#d9534f', '#9b59b6',
+    '#1abc9c', '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
+    '#8e44ad', '#16a085', '#c0392b', '#2980b9', '#27ae60'
+  ];
+  
+  // Update gradient
+  let cumulative = 0;
+  const gradientStops = [];
+  tags.forEach((tag, i) => {
+    const pct = parseFloat(percentages[tag]) || 0;
+    const color = colors[i % colors.length];
+    gradientStops.push(`${color} ${cumulative}%`);
+    cumulative += pct;
+    gradientStops.push(`${color} ${cumulative}%`);
+  });
+  pieChart.style.background = `conic-gradient(${gradientStops.join(', ')})`;
+  
+  // Update legend percentages
+  const legendItems = legend.querySelectorAll('.pie-legend-item');
+  legendItems.forEach((item, i) => {
+    const tag = tags[i];
+    const pctSpan = item.querySelector('.pie-legend-pct');
+    if (pctSpan) pctSpan.textContent = `${percentages[tag] || '0.0'}%`;
+  });
+}
+
+// Format weight for display: 0.5 for decimals, 4 for integers
+function formatWeightDisplay(weight) {
+  if (weight === Math.floor(weight)) {
+    return String(Math.floor(weight));
+  }
+  return weight.toFixed(1);
+}
+
+// Convert slider position (0-18) to weight value
+// Positions 0-8: 0.1 to 0.9 (step 0.1)
+// Position 9: 1 (center, exactly 50%)
+// Positions 10-18: 2 to 10 (step 1)
+function sliderPositionToWeight(position) {
+  if (position < 9) {
+    return 0.1 + (position * 0.1); // 0.1, 0.2, ... 0.9
+  } else if (position === 9) {
+    return 1;
+  } else {
+    return position - 8; // 2, 3, 4, ... 10
+  }
+}
+
+// Convert weight value to slider position (0-18)
+function weightToSliderPosition(weight) {
+  if (weight < 1) {
+    // 0.1 -> 0, 0.2 -> 1, ... 0.9 -> 8
+    return Math.round((weight - 0.1) / 0.1);
+  } else if (weight === 1) {
+    return 9;
+  } else {
+    // 2 -> 10, 3 -> 11, ... 10 -> 18
+    return Math.round(weight) + 8;
+  }
+}
+
+// Render the Weights tab content
+function renderTagsetWeightsTab() {
+  const container = document.getElementById('tagset-weights-container');
+  if (!container) return;
+  
+  const tags = tagsetModalIncludeTags;
+  const tagCounts = getImageCountPerTag();
+  
+  if (tags.length === 0) {
+    container.innerHTML = '<p class="empty-hint">Add include tags on the Tags tab first</p>';
+    return;
+  }
+  
+  const percentages = calculateTagPercentages(tags, tagsetModalTagWeights);
+  
+  // Generate pie chart
+  const pieChart = generateWeightsPieChart(tags, percentages);
+  
+  const sliders = tags.map(tag => {
+    const weight = tagsetModalTagWeights[tag] || 1;
+    const sliderPos = weightToSliderPosition(weight);
+    const count = tagCounts[tag] || 0;
+    const pct = percentages[tag] || 0;
+    
+    return `
+      <div class="weight-slider-row" data-tag="${escapeHtml(tag)}">
+        <div class="weight-slider-header">
+          <span class="weight-slider-tag">${escapeHtml(tag)} <span class="tag-count">(${count} images)</span></span>
+        </div>
+        <div class="weight-slider-body">
+          <span class="weight-slider-percent">${pct}%</span>
+          <div class="weight-slider-track-wrapper">
+            <span class="weight-slider-value">${formatWeightDisplay(weight)}</span>
+            <input type="range" 
+                   class="weight-slider" 
+                   min="0" 
+                   max="18" 
+                   step="1" 
+                   value="${sliderPos}"
+                   data-tag="${escapeHtml(tag)}" />
+            <div class="weight-slider-ticks">
+              <span class="tick tick-start" style="left: 0"><span class="tick-label">0.1</span></span>
+              <span class="tick tick-center" style="left: 50%"><span class="tick-label">1</span></span>
+              <span class="tick tick-end" style="right: 0"><span class="tick-label">10</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  container.innerHTML = pieChart + '<div class="weights-sliders">' + sliders + '</div>';
+  
+  // Add slider event handlers
+  container.querySelectorAll('.weight-slider').forEach(slider => {
+    slider.addEventListener('input', (e) => {
+      const tag = slider.dataset.tag;
+      const position = parseInt(e.target.value);
+      const weight = sliderPositionToWeight(position);
+      
+      // Update weight state
+      if (weight === 1) {
+        delete tagsetModalTagWeights[tag]; // Remove default weights
+      } else {
+        tagsetModalTagWeights[tag] = weight;
+      }
+      
+      // Update display
+      const row = slider.closest('.weight-slider-row');
+      row.querySelector('.weight-slider-value').textContent = formatWeightDisplay(weight);
+      
+      // Recalculate all percentages
+      const newPercentages = calculateTagPercentages(tagsetModalIncludeTags, tagsetModalTagWeights);
+      container.querySelectorAll('.weight-slider-row').forEach(r => {
+        const t = r.dataset.tag;
+        r.querySelector('.weight-slider-percent').textContent = `${newPercentages[t] || 0}%`;
+      });
+      
+      // Update pie chart
+      updateWeightsPieChart(tagsetModalIncludeTags, newPercentages);
+      
+      // Also update Tags tab include pills if visible
+      renderTagsetSelectedTags('include');
     });
   });
 }
@@ -11975,6 +12299,16 @@ function closeTagsetModal() {
   modal.classList.remove('active');
 }
 
+// Sanitize tagset name: lowercase, replace spaces with hyphens, remove invalid chars
+function sanitizeTagsetName(name) {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, '-')           // spaces to hyphens
+    .replace(/[^a-z0-9-]/g, '')     // remove invalid chars
+    .replace(/-+/g, '-')            // collapse multiple hyphens
+    .replace(/^-|-$/g, '');         // trim leading/trailing hyphens
+}
+
 // Save tagset (create or update) - GLOBAL tagsets, no device_id needed
 // Supports renaming via original_name parameter
 async function saveTagset(e) {
@@ -11983,7 +12317,10 @@ async function saveTagset(e) {
   const form = document.getElementById('tagset-form');
   const nameInput = document.getElementById('tagset-name-input');
   
-  const name = nameInput.value.trim();
+  // Sanitize the name
+  const name = sanitizeTagsetName(nameInput.value);
+  nameInput.value = name; // Update input to show sanitized value
+  
   const originalName = form.dataset.originalName || '';
   
   if (!name) {
@@ -12028,6 +12365,11 @@ async function saveTagset(e) {
     // Include original_name for rename support
     if (originalName && originalName !== name) {
       payload.original_name = originalName;
+    }
+    
+    // Include tag_weights if any non-default weights exist
+    if (Object.keys(tagsetModalTagWeights).length > 0) {
+      payload.tag_weights = tagsetModalTagWeights;
     }
     
     const response = await fetch(`${API_BASE}/ha/tagsets/upsert`, {

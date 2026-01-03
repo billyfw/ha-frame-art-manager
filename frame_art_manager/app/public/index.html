@@ -1080,39 +1080,59 @@
         <h3 id="tagset-modal-title">New Tagset</h3>
         
         <form id="tagset-form">
+          <!-- Tagset Name (always visible) -->
           <div class="form-group">
             <label for="tagset-name-input">Tagset Name:</label>
             <input type="text" id="tagset-name-input" placeholder="e.g., everyday, holidays, billybirthday" required />
-            <small class="form-hint">Lowercase letters, numbers, and hyphens only</small>
-          </div>
-          
-          <!-- Available Tags Pool with Mode Toggle -->
-          <div class="form-group tagset-pool-group">
-            <label>Available Tags:</label>
-            <div id="tagset-tag-pool" class="tagset-tag-pool">
-              <!-- Tag pills populated by JS -->
-            </div>
-            <div class="tagset-mode-toggle">
-              <span class="mode-arrow">↓</span>
-              <button type="button" class="mode-btn active" data-mode="include">Include</button>
-              <button type="button" class="mode-btn" data-mode="exclude">Exclude</button>
-              <span class="mode-arrow">↓</span>
+            <div class="tagset-name-hint-row">
+              <!-- Tab Navigation -->
+              <div class="tagset-tabs">
+                <button type="button" class="tagset-tab active" data-tab="tags">Set Tags</button>
+                <button type="button" class="tagset-tab" data-tab="weights">Set Weights</button>
+              </div>
             </div>
           </div>
           
-          <!-- Selected Include Tags -->
-          <div class="form-group">
-            <label>Include Tags <span class="form-hint-inline">(at least 1 required)</span></label>
-            <div id="tagset-include-tags" class="tagset-selected-tags include-tags">
-              <!-- Selected include tag pills populated by JS -->
+          <!-- Switchable Tab Content -->
+          <div class="tagset-tab-container">
+            <!-- Tags Tab Content -->
+            <div id="tagset-tab-tags" class="tagset-tab-content active">
+              <!-- Available Tags Pool with Mode Toggle -->
+              <div class="form-group tagset-pool-group">
+                <label>Available Tags:</label>
+                <div id="tagset-tag-pool" class="tagset-tag-pool">
+                  <!-- Tag pills populated by JS -->
+                </div>
+                <div class="tagset-mode-toggle">
+                  <span class="mode-arrow">↓</span>
+                  <button type="button" class="mode-btn active" data-mode="include">Include</button>
+                  <button type="button" class="mode-btn" data-mode="exclude">Exclude</button>
+                  <span class="mode-arrow">↓</span>
+                </div>
+              </div>
+              
+              <!-- Selected Include Tags -->
+              <div class="form-group">
+                <label>Include Tags <span class="form-hint-inline">(at least 1 required)</span></label>
+                <div id="tagset-include-tags" class="tagset-selected-tags include-tags">
+                  <!-- Selected include tag pills populated by JS -->
+                </div>
+              </div>
+              
+              <!-- Selected Exclude Tags -->
+              <div class="form-group">
+                <label>Exclude Tags <span class="form-hint-inline">(optional)</span></label>
+                <div id="tagset-exclude-tags" class="tagset-selected-tags exclude-tags">
+                  <!-- Selected exclude tag pills populated by JS -->
+                </div>
+              </div>
             </div>
-          </div>
-          
-          <!-- Selected Exclude Tags -->
-          <div class="form-group">
-            <label>Exclude Tags <span class="form-hint-inline">(optional)</span></label>
-            <div id="tagset-exclude-tags" class="tagset-selected-tags exclude-tags">
-              <!-- Selected exclude tag pills populated by JS -->
+            
+            <!-- Weights Tab Content -->
+            <div id="tagset-tab-weights" class="tagset-tab-content">
+              <div id="tagset-weights-container" class="weights-container">
+                <!-- Weight sliders populated by JS -->
+              </div>
             </div>
           </div>
           
@@ -1123,6 +1143,7 @@
       <div class="tagset-modal-actions">
         <div class="tagset-modal-actions-left">
           <button type="button" id="delete-tagset-btn" class="btn-danger" style="display: none;">Delete</button>
+          <button type="button" id="reset-weights-btn" class="btn-reset-weights" style="display: none;">Reset Weights</button>
         </div>
         <div class="tagset-modal-actions-right">
           <button type="button" id="cancel-tagset-btn" class="btn-secondary">Cancel</button>
