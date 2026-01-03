@@ -3651,21 +3651,17 @@ body.dropdown-open .image-card:hover {
     margin: 10px;
   }
 
-  /* Mobile Modal Tabs for Image Modal */
-  /* Use absolute positioning to guarantee modal fills viewport in iframe */
+  /* Mobile Modal - fills viewport, flex column layout */
   #image-modal.modal.active {
-    display: block; /* Not flex - we'll position content absolutely */
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
   }
 
   #image-modal .modal-content {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
     width: 100%;
     height: 100%;
-    max-height: none;
+    max-height: 100%;
     margin: 0;
     border-radius: 0;
     display: flex;
