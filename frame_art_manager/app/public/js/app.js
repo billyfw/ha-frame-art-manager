@@ -11374,10 +11374,10 @@ function renderTagsetsTable() {
                 <span class="expand-arrow ${isMobileExpanded ? 'expanded' : ''}">▶</span>
               </button>
               <span class="tagset-name-text">${escapeHtml(name)}</span>
-              <span class="tagset-match-count">(${matchCount})</span>
+              <span class="tagset-tag-counts mobile-only">(+${includeCount}/-${excludeCount})</span>
             </div>
             <div class="mobile-tagset-meta">
-              <span class="tag-counts">${includeCount}incl${excludeCount > 0 ? ` / ${excludeCount}excl` : ''}</span>
+              <span class="tag-counts">${matchCount} image${matchCount !== 1 ? 's' : ''}</span>
               ${mobileUsedByText ? `<span class="used-by-info">· ${escapeHtml(mobileUsedByText)}</span>` : ''}
             </div>
           </td>
