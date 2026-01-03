@@ -9769,6 +9769,15 @@ body.dropdown-open .image-card:hover {
     white-space: nowrap;
   }
   
+  /* When TV is in use: separate rows for TVs and stats */
+  .mobile-tagset-meta.mobile-tagset-tvs {
+    margin-top: 3px;
+  }
+  
+  .mobile-tagset-meta.mobile-tagset-stats {
+    margin-top: 2px;
+  }
+  
   .mobile-tagset-meta .tag-counts {
     color: #4a5568;
     font-weight: 500;
