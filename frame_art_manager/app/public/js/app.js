@@ -11869,6 +11869,11 @@ function openTagsetModal(tagsetName) {
   tagsetModalMode = 'include';
   tagsetModalActiveTab = 'tags';
   
+  console.log('[WEIGHTS] Opening tagset:', tagsetName);
+  console.log('[WEIGHTS] existingTagset:', existingTagset);
+  console.log('[WEIGHTS] Loaded tag_weights:', JSON.stringify(existingTagset?.tag_weights));
+  console.log('[WEIGHTS] tagsetModalTagWeights initialized to:', JSON.stringify(tagsetModalTagWeights));
+  
   // Render the UI
   renderTagsetModalUI();
   initTagsetModalHandlers();
@@ -12070,7 +12075,7 @@ function calculateTagPercentages(tags, weights) {
   const percentages = {};
   tags.forEach(tag => {
     const weight = weights[tag] || 1;
-    percentages[tag] = ((weight / total) * 100).toFixed(1);
+    percentages[tag] = Math.round((weight / total) * 100);
   });
   return percentages;
 }
@@ -12103,7 +12108,7 @@ function generateWeightsPieChart(tags, percentages) {
   // Build legend items
   const legendItems = tags.map((tag, i) => {
     const color = colors[i % colors.length];
-    const pct = percentages[tag] || '0.0';
+    const pct = percentages[tag] || 0;
     return `<div class="pie-legend-item">
       <span class="pie-legend-color" style="background: ${color}"></span>
       <span class="pie-legend-text">${escapeHtml(tag)} <span class="pie-legend-pct">${pct}%</span></span>
@@ -12147,7 +12152,7 @@ function updateWeightsPieChart(tags, percentages) {
   legendItems.forEach((item, i) => {
     const tag = tags[i];
     const pctSpan = item.querySelector('.pie-legend-pct');
-    if (pctSpan) pctSpan.textContent = `${percentages[tag] || '0.0'}%`;
+    if (pctSpan) pctSpan.textContent = `${percentages[tag] || 0}%`;
   });
 }
 
@@ -12252,6 +12257,8 @@ function renderTagsetWeightsTab() {
       } else {
         tagsetModalTagWeights[tag] = weight;
       }
+      console.log('[WEIGHTS] Slider changed:', tag, '-> weight:', weight);
+      console.log('[WEIGHTS] Current tagsetModalTagWeights:', JSON.stringify(tagsetModalTagWeights));
       
       // Update display
       const row = slider.closest('.weight-slider-row');
@@ -12368,9 +12375,13 @@ async function saveTagset(e) {
     }
     
     // Include tag_weights if any non-default weights exist
+    console.log('[WEIGHTS] Saving - tagsetModalTagWeights:', JSON.stringify(tagsetModalTagWeights));
+    console.log('[WEIGHTS] Saving - keys count:', Object.keys(tagsetModalTagWeights).length);
     if (Object.keys(tagsetModalTagWeights).length > 0) {
       payload.tag_weights = tagsetModalTagWeights;
     }
+    
+    console.log('[WEIGHTS] Final payload:', JSON.stringify(payload));
     
     const response = await fetch(`${API_BASE}/ha/tagsets/upsert`, {
       method: 'POST',
@@ -12381,9 +12392,11 @@ async function saveTagset(e) {
     const result = await response.json();
     
     if (result.success) {
+      console.log('[WEIGHTS] Save successful');
       closeTagsetModal();
       // Refresh TV data and re-render
       await loadTVs();
+      console.log('[WEIGHTS] After loadTVs, allGlobalTagsets:', JSON.stringify(allGlobalTagsets));
       loadTagsTab();
     } else {
       alert(result.error || 'Failed to save tagset');
