@@ -12276,14 +12276,14 @@ function renderImageWeightedContent() {
     // Check if image has any exclude tag
     const excludeTag = excludeTags.find(t => imageTags.includes(t));
     if (excludeTag) {
-      excludedImages.push({ filename, tags: imageTags, reason: `has tag: ${excludeTag}` });
+      excludedImages.push({ filename, tags: imageTags, reason: excludeTag });
     } else {
       includedImages.push({ filename, tags: imageTags });
     }
   }
   
   // Calculate percentage (all equal)
-  const pct = includedImages.length > 0 ? Math.round(100 / includedImages.length) : 0;
+  const pct = includedImages.length > 0 ? (100 / includedImages.length).toFixed(1) : '0.0';
   
   // Build included table
   let includedHtml = `
