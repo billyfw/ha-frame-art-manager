@@ -465,8 +465,9 @@ function startTVStatusPolling() {
 }
 
 /**
- * Shuffle Countdown Timer - updates countdown display every second
+ * Shuffle Countdown Timer - updates countdown display every 30 seconds
  * Uses already-fetched next_shuffle_time data, just recalculates the display
+ * Since we only show minutes (not seconds), 30s interval is plenty frequent
  */
 let shuffleCountdownInterval = null;
 
@@ -476,7 +477,7 @@ function startShuffleCountdownTimer() {
     clearInterval(shuffleCountdownInterval);
   }
   
-  // Update countdown every second
+  // Update countdown every 30 seconds (we only show minutes, not seconds)
   shuffleCountdownInterval = setInterval(() => {
     // Only update if tab is visible
     if (document.visibilityState !== 'visible') return;
@@ -537,7 +538,7 @@ function startShuffleCountdownTimer() {
         timeEl.remove();
       }
     });
-  }, 1000);
+  }, 30000);
 }
 
 /**
@@ -641,7 +642,7 @@ function renderTVStatusDots() {
            title="${tv.tvName}">
         <div class="tv-status-pill">
           <span class="pill-tv-name">${escapeHtml(tv.tvName)}</span>: 
-          <span class="pill-tagset">${escapeHtml(tv.activeTagset)}</span> 
+          <span class="pill-tagset">${escapeHtml(tv.activeTagset)}</span>
           (<span class="pill-image">${escapeHtml(truncatedName)}</span>${shuffleTimeHtml})
         </div>
       </div>
@@ -662,7 +663,7 @@ function renderTVStatusDots() {
            data-tv-id="${tv.tvId}" 
            data-filename="${tv.currentImage || ''}">
         <span class="bar-tv-name">${escapeHtml(tv.tvName)}</span>: 
-        <span class="bar-tagset">${escapeHtml(tv.activeTagset)}</span> 
+        <span class="bar-tagset">${escapeHtml(tv.activeTagset)}</span>
         (<span class="bar-image">${escapeHtml(truncatedName)}</span>${shuffleTimeHtml})
       </div>
     `;
@@ -8888,7 +8889,9 @@ window.displayOnTv = async function(id, type) {
       if (btn) btn.textContent = 'Sent!';
       
       // Refresh TV status to update bubbles with new image
+      // Need both: loadTVs() for screen state, fetchRecentlyDisplayed() for current image
       loadTVs();
+      fetchRecentlyDisplayed();
       
       // Close modal after short delay
       setTimeout(() => {
