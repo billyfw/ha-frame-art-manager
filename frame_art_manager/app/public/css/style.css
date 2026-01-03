@@ -3698,6 +3698,14 @@ body.dropdown-open .image-card:hover {
     line-height: 0;
   }
 
+  #image-modal .modal-image-clip {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
   #image-modal .modal-image-stage {
     display: flex;
     justify-content: center;
@@ -3723,6 +3731,10 @@ body.dropdown-open .image-card:hover {
   }
 
   /* For crop to work properly when editing */
+  body.editing-active #image-modal .modal-image-clip {
+    display: inline-block;
+  }
+
   body.editing-active #image-modal .modal-image-stage {
     display: inline-block;
     line-height: 0;
