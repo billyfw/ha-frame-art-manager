@@ -8755,14 +8755,12 @@ body.dropdown-open .image-card:hover {
 .image-weighted-table .reason-cell {
   color: #999;
   font-style: italic;
-  text-align: left;
-  background: #ffccff;
+  text-align: center;
 }
 
-/* Ensure Reason header is also left-aligned */
+/* Ensure Reason header is also center-aligned */
 .excluded-section .image-weighted-table th:nth-child(2) {
-  text-align: left;
-  background: #ccffcc;
+  text-align: center;
 }
 
 .image-weighted-table .empty-row {
@@ -10226,12 +10224,12 @@ body.dropdown-open .image-card:hover {
   /* Excluded table: 2 columns - filename, reason */
   .excluded-section .image-weighted-table th:nth-child(1),
   .excluded-section .image-weighted-table td:nth-child(1) {
-    width: 60%;
+    width: 52%;
   }
   
   .excluded-section .image-weighted-table th:nth-child(2),
   .excluded-section .image-weighted-table td:nth-child(2) {
-    width: 40%;
+    width: 48%;
   }
   
   .image-weighted-table .filename-cell {
