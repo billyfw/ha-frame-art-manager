@@ -3439,6 +3439,13 @@ body.dropdown-open .image-card:hover {
     opacity: 0.7;
     font-size: 0.85em;
     font-style: italic;
+    margin-left: 0.3em; /* Explicit spacing instead of HTML space */
+  }
+
+  /* Ensure no extra whitespace in bar text */
+  .tv-status-bar {
+    word-spacing: normal;
+    letter-spacing: normal;
   }
 
   .toolbar-row-1 .btn-add {
