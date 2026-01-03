@@ -7,6 +7,7 @@ let syncInProgress = false;
 
 // Minimum age (in ms) for a lock file to be considered stale
 // 5 minutes - conservative threshold to avoid interfering with active operations
+// Feature: Auto-recovery from stale Git lock files (v1.22.2 + dfc7d24)
 const STALE_LOCK_AGE_MS = 5 * 60 * 1000;
 
 /**
