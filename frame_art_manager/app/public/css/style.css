@@ -8752,7 +8752,8 @@ body.dropdown-open .image-card:hover {
   white-space: nowrap;
 }
 
-.image-weighted-table th:last-child {
+/* Only center the Chance header in included table (3rd column) */
+.included-section .image-weighted-table th:nth-child(3) {
   text-align: center;
 }
 
