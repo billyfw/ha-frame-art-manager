@@ -8284,10 +8284,13 @@ body.dropdown-open .image-card:hover {
   color: #fff;
 }
 
-/* Tab content container - fixed height to prevent modal resizing */
+/* Tab content container - fills available space */
 .tagset-tab-container {
-  height: 420px;
-  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .tagset-tab-content {
@@ -8598,6 +8601,22 @@ body.dropdown-open .image-card:hover {
 /* Tagset Modal */
 .tagset-modal-body {
   padding: 20px;
+}
+
+/* Tagset modal content area - fills available space */
+.tagset-modal .modal-details {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tagset-modal .modal-details #tagset-form {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .tagset-form-group {
