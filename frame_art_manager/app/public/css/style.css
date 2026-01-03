@@ -8295,7 +8295,10 @@ body.dropdown-open .image-card:hover {
 }
 
 .tagset-tab-content.active {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Weights Tab */
@@ -8341,7 +8344,8 @@ body.dropdown-open .image-card:hover {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 400px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 4px;
   padding-right: 8px;

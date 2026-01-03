@@ -218,6 +218,7 @@ router.post('/full', async (req, res) => {
     git = new GitHelper(req.frameArtPath);
     
     // Check for and clear any stale Git lock files before starting
+    // Feature: Auto-recovery from stale Git lock files (v1.22.2 + dfc7d24)
     const lockCheck = await git.checkAndClearStaleLock();
     if (lockCheck.cleared) {
       console.log(`🔓 [${requestId}] Cleared stale ${lockCheck.lockFile} before sync`);
