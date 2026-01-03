@@ -405,6 +405,38 @@ function formatRecentTimeAgo(time) {
 }
 
 /**
+ * Format time until next shuffle
+ * @param {string|null} isoDateString - ISO date string of next shuffle time, or null
+ * @returns {string|null} - Formatted time like '5m left', '2h 15m left', or null if no shuffle scheduled or time passed
+ */
+function formatTimeUntilShuffle(isoDateString) {
+  if (!isoDateString) return null;
+  
+  const nextTime = new Date(isoDateString);
+  if (isNaN(nextTime.getTime())) return null; // Invalid date
+  
+  const now = Date.now();
+  const diffMs = nextTime.getTime() - now;
+  
+  // If time has already passed, don't show
+  if (diffMs <= 0) return null;
+  
+  const diffMinutes = Math.round(diffMs / (1000 * 60));
+  
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m left`;
+  }
+  
+  const diffHours = Math.floor(diffMinutes / 60);
+  const remainingMins = diffMinutes % 60;
+  
+  if (remainingMins > 0) {
+    return `${diffHours}h ${remainingMins}m left`;
+  }
+  return `${diffHours}h left`;
+}
+
+/**
  * Clear the recently displayed filter
  */
 function clearRecentlyDisplayedFilter() {
@@ -467,7 +499,8 @@ function getTVStatusData() {
       activeTagset: tv.active_tagset || '-',
       hasOverride: !!tv.override_tagset,
       currentImage: current?.filename || null,
-      isOn: tv.screen_on === true  // Use actual screen state from HA binary_sensor
+      isOn: tv.screen_on === true,  // Use actual screen state from HA binary_sensor
+      nextShuffleTime: tv.next_shuffle_time || null  // ISO datetime of next auto-shuffle
     };
   }).sort((a, b) => a.tvName.localeCompare(b.tvName));
 }
@@ -493,6 +526,9 @@ function renderTVStatusDots() {
     const truncatedName = displayName.length > 20 ? displayName.substring(0, 19) + '…' : displayName;
     // Status: override (orange) > on (green) > off (gray)
     const statusClass = tv.hasOverride ? 'override' : (tv.isOn ? 'on' : 'off');
+    // Format time until next shuffle (null if none scheduled or passed)
+    const shuffleTimeLeft = formatTimeUntilShuffle(tv.nextShuffleTime);
+    const shuffleTimeHtml = shuffleTimeLeft ? ` <span class="pill-shuffle-time">${escapeHtml(shuffleTimeLeft)}</span>` : '';
     
     return `
       <div class="tv-status-dot ${statusClass}" 
@@ -502,7 +538,7 @@ function renderTVStatusDots() {
         <div class="tv-status-pill">
           <span class="pill-tv-name">${escapeHtml(tv.tvName)}</span>: 
           <span class="pill-tagset">${escapeHtml(tv.activeTagset)}</span> 
-          (<span class="pill-image">${escapeHtml(truncatedName)}</span>)
+          (<span class="pill-image">${escapeHtml(truncatedName)}</span>${shuffleTimeHtml})
         </div>
       </div>
     `;
@@ -511,6 +547,9 @@ function renderTVStatusDots() {
   // Mobile: bars with text always visible
   const barsHtml = tvStatus.map(tv => {
     const statusClass = tv.hasOverride ? 'override' : (tv.isOn ? 'on' : 'off');
+    // Format time until next shuffle (null if none scheduled or passed)
+    const shuffleTimeLeft = formatTimeUntilShuffle(tv.nextShuffleTime);
+    const shuffleTimeHtml = shuffleTimeLeft ? `<span class="bar-shuffle-time">(${escapeHtml(shuffleTimeLeft)})</span>` : '';
     
     return `
       <div class="tv-status-bar ${statusClass}" 
@@ -518,6 +557,7 @@ function renderTVStatusDots() {
            data-filename="${tv.currentImage || ''}">
         <span class="bar-tv-name">${escapeHtml(tv.tvName)}</span>
         <span class="bar-tagset">${escapeHtml(tv.activeTagset)}</span>
+        ${shuffleTimeHtml}
       </div>
     `;
   }).join('');
