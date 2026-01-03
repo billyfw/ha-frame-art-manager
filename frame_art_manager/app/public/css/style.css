@@ -9297,6 +9297,31 @@ body.dropdown-open .image-card:hover {
   font-size: 11px;
 }
 
+.tagsets-table .th-weighting,
+.tagsets-table .td-weighting {
+  width: 80px;
+  text-align: center;
+}
+
+.weighting-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.weighting-badge.weighting-image {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.weighting-badge.weighting-tag {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
 .tagsets-table .th-include,
 .tagsets-table .td-include,
 .tagsets-table .th-exclude,
