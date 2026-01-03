@@ -12229,11 +12229,6 @@ function renderTagsetWeightsTab() {
         </button>
       </div>
     </div>
-    <p class="weighting-type-description">
-      ${tagsetModalWeightingType === 'image' 
-        ? 'All images have equal chance of being selected during shuffle.' 
-        : 'Tags are selected first (by weight), then a random image from that tag. Adjust weights below.'}
-    </p>
   `;
   
   let content = '';

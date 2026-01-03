@@ -8599,9 +8599,9 @@ body.dropdown-open .image-card:hover {
 /* Weighting Type Toggle */
 .weighting-type-toggle {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .weighting-type-label {
@@ -8615,10 +8615,12 @@ body.dropdown-open .image-card:hover {
   border: 1px solid #ccc;
   border-radius: 6px;
   overflow: hidden;
+  width: 100%;
 }
 
 .weighting-type-btn {
-  padding: 6px 14px;
+  flex: 1;
+  padding: 8px 14px;
   font-size: 13px;
   border: none;
   background: #f5f5f5;
@@ -8638,13 +8640,6 @@ body.dropdown-open .image-card:hover {
 .weighting-type-btn.active {
   background: #2c82c9;
   color: white;
-}
-
-.weighting-type-description {
-  font-size: 12px;
-  color: #666;
-  margin: 0 0 16px 0;
-  line-height: 1.4;
 }
 
 /* Image-Weighted Mode Tables */
