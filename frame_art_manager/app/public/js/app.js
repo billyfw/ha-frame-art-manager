@@ -437,6 +437,110 @@ function formatTimeUntilShuffle(isoDateString) {
 }
 
 /**
+ * TV Status Polling - refreshes TV data every 10 seconds
+ * Keeps bubbles current with screen state, current image, shuffle times, etc.
+ */
+let tvStatusPollInterval = null;
+
+function startTVStatusPolling() {
+  // Clear any existing interval
+  if (tvStatusPollInterval) {
+    clearInterval(tvStatusPollInterval);
+  }
+  
+  // Poll every 10 seconds
+  tvStatusPollInterval = setInterval(() => {
+    // Only poll if tab is visible to save resources
+    if (document.visibilityState === 'visible') {
+      loadTVs();
+    }
+  }, 10000);
+  
+  // Also refresh when tab becomes visible again
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      loadTVs();
+    }
+  });
+}
+
+/**
+ * Shuffle Countdown Timer - updates countdown display every second
+ * Uses already-fetched next_shuffle_time data, just recalculates the display
+ */
+let shuffleCountdownInterval = null;
+
+function startShuffleCountdownTimer() {
+  // Clear any existing interval
+  if (shuffleCountdownInterval) {
+    clearInterval(shuffleCountdownInterval);
+  }
+  
+  // Update countdown every second
+  shuffleCountdownInterval = setInterval(() => {
+    // Only update if tab is visible
+    if (document.visibilityState !== 'visible') return;
+    
+    // Update desktop pill countdown times
+    document.querySelectorAll('.tv-status-dot').forEach(dot => {
+      const tvId = dot.dataset.tvId;
+      const tv = allTVs.find(t => t.device_id === tvId);
+      const timeEl = dot.querySelector('.pill-shuffle-time');
+      
+      if (tv?.next_shuffle_time) {
+        const newTime = formatTimeUntilShuffle(tv.next_shuffle_time);
+        if (newTime) {
+          if (timeEl) {
+            timeEl.textContent = newTime;
+          } else {
+            // Add time element if it doesn't exist
+            const imageEl = dot.querySelector('.pill-image');
+            if (imageEl) {
+              const span = document.createElement('span');
+              span.className = 'pill-shuffle-time';
+              span.textContent = newTime;
+              imageEl.insertAdjacentHTML('afterend', ` <span class="pill-shuffle-time">${escapeHtml(newTime)}</span>`);
+            }
+          }
+        } else if (timeEl) {
+          // Time passed, remove the element
+          timeEl.remove();
+        }
+      } else if (timeEl) {
+        timeEl.remove();
+      }
+    });
+    
+    // Update mobile bar countdown times
+    document.querySelectorAll('.tv-status-bar').forEach(bar => {
+      const tvId = bar.dataset.tvId;
+      const tv = allTVs.find(t => t.device_id === tvId);
+      const timeEl = bar.querySelector('.bar-shuffle-time');
+      
+      if (tv?.next_shuffle_time) {
+        const newTime = formatTimeUntilShuffle(tv.next_shuffle_time);
+        if (newTime) {
+          if (timeEl) {
+            timeEl.textContent = newTime;
+          } else {
+            // Add time element if it doesn't exist
+            const imageEl = bar.querySelector('.bar-image');
+            if (imageEl) {
+              imageEl.insertAdjacentHTML('afterend', ` <span class="bar-shuffle-time">${escapeHtml(newTime)}</span>`);
+            }
+          }
+        } else if (timeEl) {
+          // Time passed, remove the element
+          timeEl.remove();
+        }
+      } else if (timeEl) {
+        timeEl.remove();
+      }
+    });
+  }, 1000);
+}
+
+/**
  * Clear the recently displayed filter
  */
 function clearRecentlyDisplayedFilter() {
@@ -1230,6 +1334,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Load analytics data in background for gallery "last display" info
   loadAnalyticsDataForGallery();
+  
+  // Start polling for TV status updates (every 10 seconds)
+  // This keeps the TV bubbles current with screen state, shuffle times, etc.
+  startTVStatusPolling();
+  
+  // Start countdown timer for shuffle time display (every second)
+  startShuffleCountdownTimer();
 });
 
 // Check for sync updates on page load
@@ -8775,6 +8886,9 @@ window.displayOnTv = async function(id, type) {
 
     if (result.success) {
       if (btn) btn.textContent = 'Sent!';
+      
+      // Refresh TV status to update bubbles with new image
+      loadTVs();
       
       // Close modal after short delay
       setTimeout(() => {
