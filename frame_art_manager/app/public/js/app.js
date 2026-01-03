@@ -11371,7 +11371,6 @@ function renderTagsetsTable() {
         <tr class="tagset-row clickable-row${hasOverride ? ' has-override' : ''}" data-tagset-name="${escapeHtml(name)}"${hasOverride ? ' style="background: #fffaf0 !important;"' : ''}>
           <td class="td-name"${hasOverride ? ' style="background: #fffaf0 !important;"' : ''}>
             <div class="tagset-name-row">
-              <button class="btn-icon tagset-edit-btn desktop-only" data-tagset-name="${escapeHtml(name)}" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
               <button class="btn-icon mobile-expand-btn" data-tagset-name="${escapeHtml(name)}" title="${isMobileExpanded ? 'Collapse' : 'Expand'}">
                 <span class="expand-arrow ${isMobileExpanded ? 'expanded' : ''}">▶</span>
               </button>
@@ -11442,18 +11441,24 @@ function renderTagsetsTable() {
   
   container.innerHTML = html;
   
-  // Attach event listeners - row click toggles expand/collapse
+  // Attach event listeners - row click: edit on desktop, expand/collapse on mobile
   container.querySelectorAll('.tagset-row').forEach(row => {
     row.addEventListener('click', (e) => {
-      // Don't toggle if clicking action buttons
-      if (e.target.closest('.tagset-edit-btn') || e.target.closest('.tagset-delete-btn') || e.target.closest('.more-count') || e.target.closest('.collapse-link')) return;
+      // Don't handle if clicking action buttons
+      if (e.target.closest('.tagset-edit-btn') || e.target.closest('.tagset-delete-btn') || e.target.closest('.more-count') || e.target.closest('.collapse-link') || e.target.closest('.mobile-expand-btn')) return;
       const tagsetName = row.dataset.tagsetName;
-      if (expandedTagsets.has(tagsetName)) {
-        expandedTagsets.delete(tagsetName);
+      
+      // On desktop (>768px), open edit modal; on mobile, toggle expand
+      if (window.innerWidth > 768) {
+        openTagsetModal(tagsetName);
       } else {
-        expandedTagsets.add(tagsetName);
+        if (expandedTagsets.has(tagsetName)) {
+          expandedTagsets.delete(tagsetName);
+        } else {
+          expandedTagsets.add(tagsetName);
+        }
+        renderTagsetsTable();
       }
-      renderTagsetsTable();
     });
   });
   
