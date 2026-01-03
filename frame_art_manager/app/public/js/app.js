@@ -10504,45 +10504,36 @@ function imageMatchesTagset(imageData, tagset) {
 }
 
 // Helper: get tagsets that have activity in the selected time range
+// Only includes tagsets that have events where tagset_name strictly matches
 function getTagsetsWithActivityInRange() {
   const now = Date.now();
   const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
   const rangeStart = now - rangeMs;
   
   const images = analyticsData?.images || {};
-  const tagsetsWithActivity = [];
+  const activeSets = new Set();
   
-  for (const [tagsetName, tagset] of Object.entries(allGlobalTagsets || {})) {
-    let hasActivity = false;
-    
-    for (const [filename, imageData] of Object.entries(images)) {
-      if (!imageMatchesTagset(imageData, tagset)) continue;
-      
-      // Check if this image has any display periods in range
-      for (const periods of Object.values(imageData.display_periods || {})) {
-        for (const period of periods) {
-          if (period.end > rangeStart) {
-            hasActivity = true;
-            break;
+  // Find all tagset_names recorded in events within the time range
+  for (const [filename, imageData] of Object.entries(images)) {
+    for (const [tvId, periods] of Object.entries(imageData.display_periods || {})) {
+      for (const period of periods) {
+        if (period.end > rangeStart && period.tagset_name) {
+          // Only add if this tagset still exists in our config
+          if (allGlobalTagsets?.[period.tagset_name]) {
+            activeSets.add(period.tagset_name);
           }
         }
-        if (hasActivity) break;
       }
-      if (hasActivity) break;
-    }
-    
-    if (hasActivity) {
-      tagsetsWithActivity.push(tagsetName);
     }
   }
   
-  return tagsetsWithActivity;
+  return Array.from(activeSets).sort((a, b) => a.localeCompare(b));
 }
 
 // Helper: calculate tagset stats for the selected time range
+// Filters by tagset_name recorded in events, not current tag matching
 function calculateTagsetStatsForRange(tagsetName) {
-  const tagset = allGlobalTagsets?.[tagsetName];
-  if (!tagset) return { totalSeconds: 0, eventCount: 0 };
+  if (!tagsetName) return { totalSeconds: 0, eventCount: 0 };
   
   const now = Date.now();
   const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
@@ -10553,11 +10544,10 @@ function calculateTagsetStatsForRange(tagsetName) {
   let eventCount = 0;
   
   for (const [filename, imageData] of Object.entries(images)) {
-    if (!imageMatchesTagset(imageData, tagset)) continue;
-    
     for (const [tvId, periods] of Object.entries(imageData.display_periods || {})) {
       for (const period of periods) {
-        if (period.end > rangeStart) {
+        // Only count events where tagset_name matches
+        if (period.end > rangeStart && period.tagset_name === tagsetName) {
           const start = Math.max(period.start, rangeStart);
           const end = Math.min(period.end, now);
           totalSeconds += (end - start) / 1000;
@@ -10571,9 +10561,9 @@ function calculateTagsetStatsForRange(tagsetName) {
 }
 
 // Helper: get per-TV stats for a tagset within the selected time range
+// Filters by tagset_name recorded in events, not current tag matching
 function getPerTVStatsForTagsetInRange(tagsetName) {
-  const tagset = allGlobalTagsets?.[tagsetName];
-  if (!tagset) return [];
+  if (!tagsetName) return [];
   
   const now = Date.now();
   const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
@@ -10584,11 +10574,10 @@ function getPerTVStatsForTagsetInRange(tagsetName) {
   let totalSeconds = 0;
   
   for (const [filename, imageData] of Object.entries(images)) {
-    if (!imageMatchesTagset(imageData, tagset)) continue;
-    
     for (const [tvId, periods] of Object.entries(imageData.display_periods || {})) {
       for (const period of periods) {
-        if (period.end > rangeStart) {
+        // Only count events where tagset_name matches
+        if (period.end > rangeStart && period.tagset_name === tagsetName) {
           const start = Math.max(period.start, rangeStart);
           const end = Math.min(period.end, now);
           const seconds = (end - start) / 1000;
@@ -10608,10 +10597,9 @@ function getPerTVStatsForTagsetInRange(tagsetName) {
     .sort((a, b) => b.seconds - a.seconds);
 }
 
-// Render event log for a tagset (all events for images matching the tagset filter)
+// Render event log for a tagset (events where tagset_name matches)
 function renderTagsetEventLog(tagsetName, showSeparator = true, tvColorMap = {}) {
-  const tagset = allGlobalTagsets?.[tagsetName];
-  if (!tagset) return '<div class="event-log"><div class="event-log-empty">Tagset not found</div></div>';
+  if (!tagsetName) return '<div class="event-log"><div class="event-log-empty">Tagset not found</div></div>';
   
   const images = analyticsData?.images || {};
   const tvs = analyticsData?.tvs || {};
@@ -10620,16 +10608,15 @@ function renderTagsetEventLog(tagsetName, showSeparator = true, tvColorMap = {})
   const rangeMs = TIME_RANGES[selectedTimeRange] || TIME_RANGES['1w'];
   const rangeStart = now - rangeMs;
   
-  // Collect all events for images matching this tagset
+  // Collect all events where tagset_name matches
   const allEvents = [];
   
   for (const [filename, imageData] of Object.entries(images)) {
-    if (!imageMatchesTagset(imageData, tagset)) continue;
-    
     for (const [tvId, periods] of Object.entries(imageData.display_periods || {})) {
       const tvName = tvs[tvId]?.name || 'Unknown TV';
       for (const period of periods) {
-        if (period.end > rangeStart) {
+        // Only include events where tagset_name matches
+        if (period.end > rangeStart && period.tagset_name === tagsetName) {
           allEvents.push({
             filename,
             tvId,
