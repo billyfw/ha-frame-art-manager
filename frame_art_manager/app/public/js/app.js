@@ -544,20 +544,22 @@ function renderTVStatusDots() {
     `;
   }).join('');
   
-  // Mobile: bars with text always visible
+  // Mobile: bars with text always visible (same format as desktop pill)
   const barsHtml = tvStatus.map(tv => {
+    const displayName = tv.currentImage ? getDisplayName(tv.currentImage) : 'None';
+    const truncatedName = displayName.length > 20 ? displayName.substring(0, 19) + '…' : displayName;
     const statusClass = tv.hasOverride ? 'override' : (tv.isOn ? 'on' : 'off');
     // Format time until next shuffle (null if none scheduled or passed)
     const shuffleTimeLeft = formatTimeUntilShuffle(tv.nextShuffleTime);
-    const shuffleTimeHtml = shuffleTimeLeft ? `<span class="bar-shuffle-time">(${escapeHtml(shuffleTimeLeft)})</span>` : '';
+    const shuffleTimeHtml = shuffleTimeLeft ? ` <span class="bar-shuffle-time">${escapeHtml(shuffleTimeLeft)}</span>` : '';
     
     return `
       <div class="tv-status-bar ${statusClass}" 
            data-tv-id="${tv.tvId}" 
            data-filename="${tv.currentImage || ''}">
-        <span class="bar-tv-name">${escapeHtml(tv.tvName)}</span>
-        <span class="bar-tagset">${escapeHtml(tv.activeTagset)}</span>
-        ${shuffleTimeHtml}
+        <span class="bar-tv-name">${escapeHtml(tv.tvName)}</span>: 
+        <span class="bar-tagset">${escapeHtml(tv.activeTagset)}</span> 
+        (<span class="bar-image">${escapeHtml(truncatedName)}</span>${shuffleTimeHtml})
       </div>
     `;
   }).join('');
