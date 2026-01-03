@@ -10195,13 +10195,6 @@ body.dropdown-open .image-card:hover {
 
 /* Mobile styles for image-weighted tables in tagset modal */
 @media (max-width: 768px) {
-  /* Separator below tabs */
-  .tagset-tabs {
-    padding-bottom: 12px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid #e0e0e0;
-  }
-  
   .image-weighted-table {
     table-layout: fixed;
     width: 100%;
