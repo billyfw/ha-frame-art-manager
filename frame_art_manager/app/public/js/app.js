@@ -11396,7 +11396,13 @@ function renderTagsetsTable() {
             <div class="mobile-tags-detail">
               <div class="tag-group">
                 <span class="tag-label">Include:</span>
-                <span class="tag-list">${includeTags.length > 0 ? includeTags.map(t => `<span class="tag-chip-small">${escapeHtml(t)}</span>`).join('') : '<em>All</em>'}</span>
+                <span class="tag-list">${includeTags.length > 0 ? (() => {
+                  const pcts = hasCustomWeights ? calculateTagPercentages(includeTags, tagWeights) : {};
+                  return includeTags.map(t => {
+                    const pctStr = hasCustomWeights ? `<span class="tag-percent">${pcts[t] || 0}%</span> ` : '';
+                    return `<span class="tag-chip-small">${escapeHtml(t)} ${pctStr}</span>`;
+                  }).join('');
+                })() : '<em>All</em>'}</span>
               </div>
               ${excludeTags.length > 0 ? `
               <div class="tag-group">
