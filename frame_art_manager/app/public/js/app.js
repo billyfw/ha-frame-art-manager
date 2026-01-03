@@ -11378,11 +11378,20 @@ function renderTagsetsTable() {
               <span class="tagset-name-text">${escapeHtml(name)}</span>
               <span class="tagset-tag-counts mobile-only">(+${includeCount}/-${excludeCount})</span>
             </div>
+            ${mobileUsedByText ? `
+            <div class="mobile-tagset-meta mobile-tagset-tvs">
+              <span class="used-by-info">${escapeHtml(mobileUsedByText)}</span>
+            </div>
+            <div class="mobile-tagset-meta mobile-tagset-stats">
+              <span class="tag-counts">${matchCount} image${matchCount !== 1 ? 's' : ''}</span>
+              <span class="weighting-info">· ${weightingType}-weighted</span>
+            </div>
+            ` : `
             <div class="mobile-tagset-meta">
               <span class="tag-counts">${matchCount} image${matchCount !== 1 ? 's' : ''}</span>
-              ${mobileUsedByText ? `<span class="used-by-info">· ${escapeHtml(mobileUsedByText)}</span>` : ''}
-              <span class="weighting-info mobile-only">· ${weightingType}-weighted</span>
+              <span class="weighting-info">· ${weightingType}-weighted</span>
             </div>
+            `}
           </td>
           <td class="td-weighting desktop-only"><span class="weighting-badge weighting-${weightingType}">${weightingType === 'image' ? 'Image' : 'Tag'}</span></td>
           <td class="td-include desktop-only">${includeSummary}</td>
