@@ -510,7 +510,7 @@ router.get('/recently-displayed', requireHA, async (req, res) => {
 
 // POST /api/ha/tagsets/upsert - Create or update a GLOBAL tagset
 router.post('/tagsets/upsert', requireHA, async (req, res) => {
-  const { name, original_name, tags, exclude_tags } = req.body;
+  const { name, original_name, tags, exclude_tags, tag_weights } = req.body;
 
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: 'Tagset name is required' });
@@ -529,6 +529,21 @@ router.post('/tagsets/upsert', requireHA, async (req, res) => {
     // Include original_name for rename support
     if (original_name && original_name.trim() && original_name.trim() !== name.trim()) {
       payload.original_name = original_name.trim();
+    }
+    
+    // Include tag_weights if provided
+    if (tag_weights && typeof tag_weights === 'object') {
+      // Validate and filter weights
+      const validatedWeights = {};
+      for (const [tag, weight] of Object.entries(tag_weights)) {
+        const w = parseFloat(weight);
+        if (!isNaN(w) && w >= 0.1 && w <= 10) {
+          validatedWeights[tag] = w;
+        }
+      }
+      if (Object.keys(validatedWeights).length > 0) {
+        payload.tag_weights = validatedWeights;
+      }
     }
 
     await haRequest('POST', '/services/frame_art_shuffler/upsert_tagset', payload);
