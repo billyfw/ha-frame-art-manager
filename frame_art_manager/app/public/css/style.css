@@ -8747,7 +8747,7 @@ body.dropdown-open .image-card:hover {
 
 .image-weighted-table .chance-cell {
   text-align: center;
-  color: #2c82c9;
+  color: #333;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -8760,6 +8760,12 @@ body.dropdown-open .image-card:hover {
 .image-weighted-table .reason-cell {
   color: #999;
   font-style: italic;
+  text-align: left;
+}
+
+/* Ensure Reason header is also left-aligned */
+.excluded-section .image-weighted-table th:nth-child(2) {
+  text-align: left;
 }
 
 .image-weighted-table .empty-row {
@@ -10202,12 +10208,12 @@ body.dropdown-open .image-card:hover {
   /* Included table: 3 columns - filename, tags, chance */
   .included-section .image-weighted-table th:nth-child(1),
   .included-section .image-weighted-table td:nth-child(1) {
-    width: 35%;
+    width: 45%;
   }
   
   .included-section .image-weighted-table th:nth-child(2),
   .included-section .image-weighted-table td:nth-child(2) {
-    width: 45%;
+    width: 35%;
   }
   
   .included-section .image-weighted-table th:nth-child(3),
@@ -10218,12 +10224,12 @@ body.dropdown-open .image-card:hover {
   /* Excluded table: 2 columns - filename, reason */
   .excluded-section .image-weighted-table th:nth-child(1),
   .excluded-section .image-weighted-table td:nth-child(1) {
-    width: 50%;
+    width: 60%;
   }
   
   .excluded-section .image-weighted-table th:nth-child(2),
   .excluded-section .image-weighted-table td:nth-child(2) {
-    width: 50%;
+    width: 40%;
   }
   
   .image-weighted-table .filename-cell {
