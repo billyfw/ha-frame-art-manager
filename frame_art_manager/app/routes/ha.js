@@ -510,7 +510,7 @@ router.get('/recently-displayed', requireHA, async (req, res) => {
 
 // POST /api/ha/tagsets/upsert - Create or update a GLOBAL tagset
 router.post('/tagsets/upsert', requireHA, async (req, res) => {
-  const { name, original_name, tags, exclude_tags, tag_weights } = req.body;
+  const { name, original_name, tags, exclude_tags, tag_weights, weighting_type } = req.body;
 
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: 'Tagset name is required' });
@@ -523,7 +523,8 @@ router.post('/tagsets/upsert', requireHA, async (req, res) => {
     const payload = {
       name: name.trim(),
       tags,
-      exclude_tags: exclude_tags || []
+      exclude_tags: exclude_tags || [],
+      weighting_type: weighting_type || 'image'
     };
     
     // Include original_name for rename support
@@ -531,7 +532,7 @@ router.post('/tagsets/upsert', requireHA, async (req, res) => {
       payload.original_name = original_name.trim();
     }
     
-    // Include tag_weights if provided
+    // Include tag_weights if provided (only relevant for tag-weighted mode)
     if (tag_weights && typeof tag_weights === 'object') {
       // Validate and filter weights
       const validatedWeights = {};
