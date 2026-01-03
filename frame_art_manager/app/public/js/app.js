@@ -11869,11 +11869,6 @@ function openTagsetModal(tagsetName) {
   tagsetModalMode = 'include';
   tagsetModalActiveTab = 'tags';
   
-  console.log('[WEIGHTS] Opening tagset:', tagsetName);
-  console.log('[WEIGHTS] existingTagset:', existingTagset);
-  console.log('[WEIGHTS] Loaded tag_weights:', JSON.stringify(existingTagset?.tag_weights));
-  console.log('[WEIGHTS] tagsetModalTagWeights initialized to:', JSON.stringify(tagsetModalTagWeights));
-  
   // Render the UI
   renderTagsetModalUI();
   initTagsetModalHandlers();
@@ -11915,9 +11910,11 @@ function renderTagsetTabs() {
     }
   });
   
-  // Show/hide reset weights button based on active tab
+  // Update reset weights button state - always visible, disabled if no custom weights
   if (resetBtn) {
-    resetBtn.style.display = tagsetModalActiveTab === 'weights' ? '' : 'none';
+    const hasCustomWeights = Object.keys(tagsetModalTagWeights).length > 0;
+    resetBtn.disabled = !hasCustomWeights;
+    resetBtn.title = hasCustomWeights ? '' : 'All weights are already at default';
   }
 }
 
@@ -12257,8 +12254,6 @@ function renderTagsetWeightsTab() {
       } else {
         tagsetModalTagWeights[tag] = weight;
       }
-      console.log('[WEIGHTS] Slider changed:', tag, '-> weight:', weight);
-      console.log('[WEIGHTS] Current tagsetModalTagWeights:', JSON.stringify(tagsetModalTagWeights));
       
       // Update display
       const row = slider.closest('.weight-slider-row');
@@ -12273,6 +12268,14 @@ function renderTagsetWeightsTab() {
       
       // Update pie chart
       updateWeightsPieChart(tagsetModalIncludeTags, newPercentages);
+      
+      // Update reset button state
+      const resetBtn = document.getElementById('reset-weights-btn');
+      if (resetBtn) {
+        const hasCustomWeights = Object.keys(tagsetModalTagWeights).length > 0;
+        resetBtn.disabled = !hasCustomWeights;
+        resetBtn.title = hasCustomWeights ? '' : 'All weights are already at default';
+      }
       
       // Also update Tags tab include pills if visible
       renderTagsetSelectedTags('include');
@@ -12375,13 +12378,9 @@ async function saveTagset(e) {
     }
     
     // Include tag_weights if any non-default weights exist
-    console.log('[WEIGHTS] Saving - tagsetModalTagWeights:', JSON.stringify(tagsetModalTagWeights));
-    console.log('[WEIGHTS] Saving - keys count:', Object.keys(tagsetModalTagWeights).length);
     if (Object.keys(tagsetModalTagWeights).length > 0) {
       payload.tag_weights = tagsetModalTagWeights;
     }
-    
-    console.log('[WEIGHTS] Final payload:', JSON.stringify(payload));
     
     const response = await fetch(`${API_BASE}/ha/tagsets/upsert`, {
       method: 'POST',
@@ -12392,11 +12391,9 @@ async function saveTagset(e) {
     const result = await response.json();
     
     if (result.success) {
-      console.log('[WEIGHTS] Save successful');
       closeTagsetModal();
       // Refresh TV data and re-render
       await loadTVs();
-      console.log('[WEIGHTS] After loadTVs, allGlobalTagsets:', JSON.stringify(allGlobalTagsets));
       loadTagsTab();
     } else {
       alert(result.error || 'Failed to save tagset');
