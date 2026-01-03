@@ -3383,7 +3383,7 @@ body.dropdown-open .image-card:hover {
     gap: 6px;
     width: 100%;
     margin-bottom: 6px;
-    padding-bottom: 2px;
+    padding-bottom: 4px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
