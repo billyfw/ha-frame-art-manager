@@ -637,11 +637,17 @@ function renderTVStatusDots() {
     // Only show image/time info when TV is on
     let imageTimeHtml = '';
     if (tv.isOn) {
-      const shuffleTimeHtml = shuffleTimeLeft ? ` <span class="pill-shuffle-time">${escapeHtml(shuffleTimeLeft)}</span>` : '';
-      imageTimeHtml = ` (<span class="pill-image">${escapeHtml(truncatedName)}</span>${shuffleTimeHtml})`;
+      // Build parts without any extra whitespace
+      const imagePart = '<span class="pill-image">' + escapeHtml(truncatedName) + '</span>';
+      const timePart = shuffleTimeLeft ? ' <span class="pill-shuffle-time">' + escapeHtml(shuffleTimeLeft) + '</span>' : '';
+      imageTimeHtml = ' (' + imagePart + timePart + ')';
     }
     
-    return `<div class="tv-status-dot ${statusClass}" data-tv-id="${tv.tvId}" data-filename="${tv.currentImage || ''}" title="${tv.tvName}"><div class="tv-status-pill"><span class="pill-tv-name">${escapeHtml(tv.tvName)}</span>: <span class="pill-tagset">${escapeHtml(tv.activeTagset)}</span>${imageTimeHtml}</div></div>`;
+    const tvNamePart = '<span class="pill-tv-name">' + escapeHtml(tv.tvName) + '</span>';
+    const tagsetPart = '<span class="pill-tagset">' + escapeHtml(tv.activeTagset) + '</span>';
+    const pillContent = tvNamePart + ': ' + tagsetPart + imageTimeHtml;
+    
+    return '<div class="tv-status-dot ' + statusClass + '" data-tv-id="' + tv.tvId + '" data-filename="' + (tv.currentImage || '') + '" title="' + tv.tvName + '"><div class="tv-status-pill">' + pillContent + '</div></div>';
   }).join('');
   
   // Mobile: bars with text always visible (same format as desktop pill)
@@ -655,11 +661,17 @@ function renderTVStatusDots() {
     // Only show image/time info when TV is on
     let imageTimeHtml = '';
     if (tv.isOn) {
-      const shuffleTimeHtml = shuffleTimeLeft ? ` <span class="bar-shuffle-time">${escapeHtml(shuffleTimeLeft)}</span>` : '';
-      imageTimeHtml = ` (<span class="bar-image">${escapeHtml(truncatedName)}</span>${shuffleTimeHtml})`;
+      // Build parts without any extra whitespace
+      const imagePart = '<span class="bar-image">' + escapeHtml(truncatedName) + '</span>';
+      const timePart = shuffleTimeLeft ? ' <span class="bar-shuffle-time">' + escapeHtml(shuffleTimeLeft) + '</span>' : '';
+      imageTimeHtml = ' (' + imagePart + timePart + ')';
     }
     
-    return `<div class="tv-status-bar ${statusClass}" data-tv-id="${tv.tvId}" data-filename="${tv.currentImage || ''}"><span class="bar-tv-name">${escapeHtml(tv.tvName)}</span>: <span class="bar-tagset">${escapeHtml(tv.activeTagset)}</span>${imageTimeHtml}</div>`;
+    const tvNamePart = '<span class="bar-tv-name">' + escapeHtml(tv.tvName) + '</span>';
+    const tagsetPart = '<span class="bar-tagset">' + escapeHtml(tv.activeTagset) + '</span>';
+    const barContent = tvNamePart + ': ' + tagsetPart + imageTimeHtml;
+    
+    return '<div class="tv-status-bar ' + statusClass + '" data-tv-id="' + tv.tvId + '" data-filename="' + (tv.currentImage || '') + '">' + barContent + '</div>';
   }).join('');
   
   if (desktopContainer) desktopContainer.innerHTML = dotsHtml;
