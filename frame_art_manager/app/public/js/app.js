@@ -11233,6 +11233,7 @@ function renderTagsetsTable() {
       <thead>
         <tr>
           <th>Name</th>
+          <th class="desktop-only th-weighting">Weighting</th>
           <th class="desktop-only">Include Tags</th>
           <th class="desktop-only">Exclude Tags</th>
           <th class="desktop-only">Used By</th>
@@ -11247,6 +11248,7 @@ function renderTagsetsTable() {
     const includeTags = [...(tagset.tags || [])].sort((a, b) => a.localeCompare(b));
     const excludeTags = [...(tagset.exclude_tags || [])].sort((a, b) => a.localeCompare(b));
     const tagWeights = tagset.tag_weights || {};
+    const weightingType = tagset.weighting_type || 'image';
     const hasCustomWeights = Object.keys(tagWeights).length > 0;
     
     // Find TVs using this tagset
@@ -11381,6 +11383,7 @@ function renderTagsetsTable() {
               ${mobileUsedByText ? `<span class="used-by-info">· ${escapeHtml(mobileUsedByText)}</span>` : ''}
             </div>
           </td>
+          <td class="td-weighting desktop-only"><span class="weighting-badge weighting-${weightingType}">${weightingType === 'image' ? 'Image' : 'Tag'}</span></td>
           <td class="td-include desktop-only">${includeSummary}</td>
           <td class="td-exclude desktop-only">${excludeSummary}</td>
           <td class="td-used-by desktop-only${hasOverride ? ' has-override' : ''}">${usedBySummary}</td>
@@ -12256,14 +12259,14 @@ function renderImageWeightedContent() {
   const includeTags = tagsetModalIncludeTags;
   const excludeTags = tagsetModalExcludeTags;
   
-  // Get all images from metadata
-  const allImages = window.metadataImages || {};
+  // Get all images from global allImages (populated on app load)
+  const images = allImages || {};
   
   // Categorize images
   const includedImages = [];
   const excludedImages = [];
   
-  for (const [filename, imageData] of Object.entries(allImages)) {
+  for (const [filename, imageData] of Object.entries(images)) {
     const imageTags = imageData.tags || [];
     
     // Check if image has any include tag
