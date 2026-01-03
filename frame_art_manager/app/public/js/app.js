@@ -662,7 +662,7 @@ function renderTVStatusDots() {
     let imageTimeHtml = '';
     if (tv.isOn) {
       // Build parts without any extra whitespace
-      const imagePart = '<span class="bar-image">x' + escapeHtml(truncatedName) + '</span>';
+      const imagePart = '<span class="bar-image">' + escapeHtml(truncatedName) + '</span>';
       const timePart = shuffleTimeLeft ? ' <span class="bar-shuffle-time">' + escapeHtml(shuffleTimeLeft) + '</span>' : '';
       imageTimeHtml = ' (' + imagePart + timePart + ')';
     }

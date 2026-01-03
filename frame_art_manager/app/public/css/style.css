@@ -3404,7 +3404,6 @@ body.dropdown-open .image-card:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
     padding: 0 12px;
     font-size: 10px;
     color: #fff;
