@@ -11233,7 +11233,7 @@ function renderTagsetsTable() {
       <thead>
         <tr>
           <th>Name</th>
-          <th class="desktop-only th-weighting">Weighting</th>
+          <th class="desktop-only th-weighting">Weighting Basis</th>
           <th class="desktop-only">Include Tags</th>
           <th class="desktop-only">Exclude Tags</th>
           <th class="desktop-only">Used By</th>
@@ -12283,7 +12283,7 @@ function renderImageWeightedContent() {
   }
   
   // Calculate percentage (all equal)
-  const pct = includedImages.length > 0 ? (100 / includedImages.length).toFixed(2) : 0;
+  const pct = includedImages.length > 0 ? Math.round(100 / includedImages.length) : 0;
   
   // Build included table
   let includedHtml = `
