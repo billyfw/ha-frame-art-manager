@@ -8752,6 +8752,10 @@ body.dropdown-open .image-card:hover {
   white-space: nowrap;
 }
 
+.image-weighted-table th:last-child {
+  text-align: center;
+}
+
 .image-weighted-table .reason-cell {
   color: #999;
   font-style: italic;
@@ -8762,6 +8766,14 @@ body.dropdown-open .image-card:hover {
   color: #999;
   font-style: italic;
   padding: 20px;
+}
+
+.included-section .image-weighted-header {
+  background: #f1f8e9;
+}
+
+.included-section .image-weighted-title {
+  color: #33691e;
 }
 
 .excluded-section .image-weighted-header {
@@ -9313,8 +9325,9 @@ body.dropdown-open .image-card:hover {
   font-size: 11px;
   font-weight: 500;
   text-transform: capitalize;
-  min-width: 42px;
+  min-width: 50px;
   text-align: center;
+  box-sizing: border-box;
 }
 
 .weighting-badge.weighting-image {
