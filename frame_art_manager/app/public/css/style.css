@@ -9396,6 +9396,11 @@ body.dropdown-open .image-card:hover {
   justify-content: center;
 }
 
+/* Hide mobile-only edit button on desktop */
+.tagsets-table .td-actions .btn-icon.mobile-only {
+  display: none;
+}
+
 .tagsets-table .td-actions .btn-icon svg {
   display: block;
 }
