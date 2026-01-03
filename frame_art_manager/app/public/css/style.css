@@ -832,6 +832,13 @@ body {
   font-weight: 500;
 }
 
+.tv-status-pill .pill-shuffle-time {
+  color: rgba(255,255,255,0.7);
+  font-size: 0.9em;
+  font-style: italic;
+  margin-left: 4px;
+}
+
 /* Hide mobile TV status bar on desktop */
 .tv-status-bar-mobile {
   display: none;
@@ -3414,6 +3421,13 @@ body.dropdown-open .image-card:hover {
 
   .tv-status-bar .bar-tagset {
     opacity: 0.85;
+  }
+
+  .tv-status-bar .bar-shuffle-time {
+    opacity: 0.7;
+    font-size: 0.85em;
+    font-style: italic;
+    margin-left: 4px;
   }
 
   .tv-status-bar .bar-image {

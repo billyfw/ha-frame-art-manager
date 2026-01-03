@@ -54,22 +54,26 @@ const MOCK_TV_TAGSET_ASSIGNMENTS = {
   'mock_device_1': {
     selected_tagset: 'everyday',
     override_tagset: null,
-    override_expiry_time: null
+    override_expiry_time: null,
+    next_shuffle_time: new Date(Date.now() + 23 * 60 * 1000).toISOString() // 23 minutes from now
   },
   'mock_device_2': {
     selected_tagset: 'billybirthday',  // Assigned permanently to this TV
     override_tagset: null,
-    override_expiry_time: null
+    override_expiry_time: null,
+    next_shuffle_time: new Date(Date.now() + 2 * 60 * 60 * 1000 + 15 * 60 * 1000).toISOString() // 2h 15m from now
   },
   'mock_device_3': {
     selected_tagset: 'work',
     override_tagset: 'billybirthday',  // Same tagset overrides this TV temporarily
-    override_expiry_time: new Date(Date.now() + 45 * 60 * 1000).toISOString() // 45 minutes from now
+    override_expiry_time: new Date(Date.now() + 45 * 60 * 1000).toISOString(), // 45 minutes from now
+    next_shuffle_time: new Date(Date.now() + 8 * 60 * 1000).toISOString() // 8 minutes from now
   },
   'mock_device_4': {
     selected_tagset: 'primary',
     override_tagset: null,
-    override_expiry_time: null
+    override_expiry_time: null,
+    next_shuffle_time: null // Auto-shuffle disabled
   }
 };
 
@@ -173,8 +177,16 @@ router.get('/tvs', requireHA, async (req, res) => {
           {% set ns.override_expiry_time = none %}
           {% set ns.active_tagset = none %}
           {% set ns.screen_on = none %}
+          {% set ns.next_shuffle_time = none %}
           
           {% for entity in entities %}
+            {% if entity.endswith('_auto_shuffle_next') %}
+              {# Get next auto-shuffle time from sensor #}
+              {% set next_shuffle = states(entity) %}
+              {% if next_shuffle and next_shuffle not in ['unknown', 'unavailable', 'None'] %}
+                {% set ns.next_shuffle_time = next_shuffle %}
+              {% endif %}
+            {% endif %}
             {% if entity.endswith('_screen_on') %}
               {# Get screen power state from binary_sensor #}
               {% set screen_state = states(entity) %}
@@ -219,7 +231,8 @@ router.get('/tvs', requireHA, async (req, res) => {
             'override_tagset': ns.override_tagset,
             'override_expiry_time': ns.override_expiry_time,
             'active_tagset': ns.active_tagset,
-            'screen_on': ns.screen_on
+            'screen_on': ns.screen_on,
+            'next_shuffle_time': ns.next_shuffle_time
           }] %}
         {% endif %}
       {% endfor %}
