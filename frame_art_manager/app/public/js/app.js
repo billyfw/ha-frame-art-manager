@@ -11825,6 +11825,7 @@ function showToast(message, duration = 3000) {
 let tagsetModalIncludeTags = [];
 let tagsetModalExcludeTags = [];
 let tagsetModalTagWeights = {}; // { tag: weight } - weights for include tags
+let tagsetModalWeightingType = 'image'; // 'image' or 'tag'
 let tagsetModalMode = 'include'; // 'include' or 'exclude'
 let tagsetModalActiveTab = 'tags'; // 'tags' or 'weights'
 
@@ -11872,6 +11873,7 @@ function openTagsetModal(tagsetName) {
   tagsetModalIncludeTags = [...(existingTagset?.tags || [])];
   tagsetModalExcludeTags = [...(existingTagset?.exclude_tags || [])];
   tagsetModalTagWeights = {...(existingTagset?.tag_weights || {})};
+  tagsetModalWeightingType = existingTagset?.weighting_type || 'image';
   tagsetModalMode = 'include';
   tagsetModalActiveTab = 'tags';
   
@@ -11897,7 +11899,6 @@ function renderTagsetModalUI() {
 function renderTagsetTabs() {
   const tabs = document.querySelectorAll('.tagset-tab');
   const contents = document.querySelectorAll('.tagset-tab-content');
-  const resetBtn = document.getElementById('reset-weights-btn');
   
   tabs.forEach(tab => {
     if (tab.dataset.tab === tagsetModalActiveTab) {
@@ -11916,12 +11917,8 @@ function renderTagsetTabs() {
     }
   });
   
-  // Update reset weights button state - always visible, disabled if no custom weights
-  if (resetBtn) {
-    const hasCustomWeights = Object.keys(tagsetModalTagWeights).length > 0;
-    resetBtn.disabled = !hasCustomWeights;
-    resetBtn.title = hasCustomWeights ? '' : 'All weights are already at default';
-  }
+  // Update reset weights button state
+  updateResetWeightsButton();
 }
 
 // Initialize tab click handlers
@@ -12200,13 +12197,175 @@ function renderTagsetWeightsTab() {
   if (!container) return;
   
   const tags = tagsetModalIncludeTags;
-  const tagCounts = getImageCountPerTag();
   
   if (tags.length === 0) {
     container.innerHTML = '<p class="empty-hint">Add include tags on the Tags tab first</p>';
     return;
   }
   
+  // Build weighting type toggle
+  const weightingToggle = `
+    <div class="weighting-type-toggle">
+      <span class="weighting-type-label">Weighting Mode:</span>
+      <div class="weighting-type-buttons">
+        <button type="button" class="weighting-type-btn ${tagsetModalWeightingType === 'image' ? 'active' : ''}" data-type="image">
+          Image Weighted
+        </button>
+        <button type="button" class="weighting-type-btn ${tagsetModalWeightingType === 'tag' ? 'active' : ''}" data-type="tag">
+          Tag Weighted
+        </button>
+      </div>
+    </div>
+    <p class="weighting-type-description">
+      ${tagsetModalWeightingType === 'image' 
+        ? 'All images have equal chance of being selected during shuffle.' 
+        : 'Tags are selected first (by weight), then a random image from that tag. Adjust weights below.'}
+    </p>
+  `;
+  
+  let content = '';
+  
+  if (tagsetModalWeightingType === 'image') {
+    // Image-weighted mode: show tables of included/excluded images
+    content = renderImageWeightedContent();
+  } else {
+    // Tag-weighted mode: show sliders
+    content = renderTagWeightedContent();
+  }
+  
+  container.innerHTML = weightingToggle + content;
+  
+  // Add weighting type toggle handlers
+  container.querySelectorAll('.weighting-type-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      tagsetModalWeightingType = btn.dataset.type;
+      renderTagsetWeightsTab();
+      updateResetWeightsButton();
+    });
+  });
+  
+  // Add slider handlers if in tag-weighted mode
+  if (tagsetModalWeightingType === 'tag') {
+    initTagWeightSliders(container);
+  }
+}
+
+// Render content for image-weighted mode
+function renderImageWeightedContent() {
+  const includeTags = tagsetModalIncludeTags;
+  const excludeTags = tagsetModalExcludeTags;
+  
+  // Get all images from metadata
+  const allImages = window.metadataImages || {};
+  
+  // Categorize images
+  const includedImages = [];
+  const excludedImages = [];
+  
+  for (const [filename, imageData] of Object.entries(allImages)) {
+    const imageTags = imageData.tags || [];
+    
+    // Check if image has any include tag
+    const hasIncludeTag = includeTags.some(t => imageTags.includes(t));
+    if (!hasIncludeTag) continue; // Not relevant to this tagset
+    
+    // Check if image has any exclude tag
+    const excludeTag = excludeTags.find(t => imageTags.includes(t));
+    if (excludeTag) {
+      excludedImages.push({ filename, tags: imageTags, reason: `has tag: ${excludeTag}` });
+    } else {
+      includedImages.push({ filename, tags: imageTags });
+    }
+  }
+  
+  // Calculate percentage (all equal)
+  const pct = includedImages.length > 0 ? (100 / includedImages.length).toFixed(2) : 0;
+  
+  // Build included table
+  let includedHtml = `
+    <div class="image-weighted-section included-section">
+      <div class="image-weighted-header">
+        <span class="image-weighted-title">Included</span>
+        <span class="image-weighted-summary">${includedImages.length} images · ${pct}% each</span>
+      </div>
+      <div class="image-weighted-table-wrapper">
+        <table class="image-weighted-table">
+          <thead>
+            <tr>
+              <th>Filename</th>
+              <th>Tags</th>
+              <th>Chance</th>
+            </tr>
+          </thead>
+          <tbody>
+  `;
+  
+  if (includedImages.length === 0) {
+    includedHtml += `<tr><td colspan="3" class="empty-row">No matching images</td></tr>`;
+  } else {
+    for (const img of includedImages) {
+      includedHtml += `
+        <tr>
+          <td class="filename-cell">${escapeHtml(img.filename)}</td>
+          <td class="tags-cell">${img.tags.map(t => escapeHtml(t)).join(', ')}</td>
+          <td class="chance-cell">${pct}%</td>
+        </tr>
+      `;
+    }
+  }
+  
+  includedHtml += `
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  
+  // Build excluded table (only if there are excluded images)
+  let excludedHtml = '';
+  if (excludedImages.length > 0) {
+    excludedHtml = `
+      <div class="image-weighted-section excluded-section">
+        <div class="image-weighted-header">
+          <span class="image-weighted-title">Excluded</span>
+          <span class="image-weighted-summary">${excludedImages.length} images</span>
+        </div>
+        <div class="image-weighted-table-wrapper">
+          <table class="image-weighted-table">
+            <thead>
+              <tr>
+                <th>Filename</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    for (const img of excludedImages) {
+      excludedHtml += `
+        <tr>
+          <td class="filename-cell">${escapeHtml(img.filename)}</td>
+          <td class="reason-cell">${escapeHtml(img.reason)}</td>
+        </tr>
+      `;
+    }
+    
+    excludedHtml += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+  
+  return includedHtml + excludedHtml;
+}
+
+// Render content for tag-weighted mode (sliders)
+function renderTagWeightedContent() {
+  const tags = tagsetModalIncludeTags;
+  const tagCounts = getImageCountPerTag();
   const percentages = calculateTagPercentages(tags, tagsetModalTagWeights);
   
   // Generate pie chart
@@ -12245,9 +12404,11 @@ function renderTagsetWeightsTab() {
     `;
   }).join('');
   
-  container.innerHTML = pieChart + '<div class="weights-sliders">' + sliders + '</div>';
-  
-  // Add slider event handlers
+  return pieChart + '<div class="weights-sliders">' + sliders + '</div>';
+}
+
+// Initialize slider event handlers for tag-weighted mode
+function initTagWeightSliders(container) {
   container.querySelectorAll('.weight-slider').forEach(slider => {
     slider.addEventListener('input', (e) => {
       const tag = slider.dataset.tag;
@@ -12276,17 +12437,30 @@ function renderTagsetWeightsTab() {
       updateWeightsPieChart(tagsetModalIncludeTags, newPercentages);
       
       // Update reset button state
-      const resetBtn = document.getElementById('reset-weights-btn');
-      if (resetBtn) {
-        const hasCustomWeights = Object.keys(tagsetModalTagWeights).length > 0;
-        resetBtn.disabled = !hasCustomWeights;
-        resetBtn.title = hasCustomWeights ? '' : 'All weights are already at default';
-      }
+      updateResetWeightsButton();
       
       // Also update Tags tab include pills if visible
       renderTagsetSelectedTags('include');
     });
   });
+}
+
+// Update reset weights button state
+function updateResetWeightsButton() {
+  const resetBtn = document.getElementById('reset-weights-btn');
+  if (resetBtn) {
+    // Only enable reset if in tag mode AND has custom weights
+    const hasCustomWeights = Object.keys(tagsetModalTagWeights).length > 0;
+    const canReset = tagsetModalWeightingType === 'tag' && hasCustomWeights;
+    resetBtn.disabled = !canReset;
+    if (tagsetModalWeightingType === 'image') {
+      resetBtn.title = 'Not applicable in image-weighted mode';
+    } else if (!hasCustomWeights) {
+      resetBtn.title = 'All weights are already at default';
+    } else {
+      resetBtn.title = '';
+    }
+  }
 }
 
 // Initialize mode toggle handlers (only once per modal open)
@@ -12375,7 +12549,8 @@ async function saveTagset(e) {
     const payload = {
       name: name,
       tags: tags,
-      exclude_tags: excludeTags
+      exclude_tags: excludeTags,
+      weighting_type: tagsetModalWeightingType
     };
     
     // Include original_name for rename support
@@ -12383,7 +12558,7 @@ async function saveTagset(e) {
       payload.original_name = originalName;
     }
     
-    // Include tag_weights if any non-default weights exist
+    // Include tag_weights if any non-default weights exist (only relevant for tag-weighted mode)
     if (Object.keys(tagsetModalTagWeights).length > 0) {
       payload.tag_weights = tagsetModalTagWeights;
     }
