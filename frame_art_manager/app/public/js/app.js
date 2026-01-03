@@ -11381,6 +11381,7 @@ function renderTagsetsTable() {
             <div class="mobile-tagset-meta">
               <span class="tag-counts">${matchCount} image${matchCount !== 1 ? 's' : ''}</span>
               ${mobileUsedByText ? `<span class="used-by-info">· ${escapeHtml(mobileUsedByText)}</span>` : ''}
+              <span class="weighting-info mobile-only">· ${weightingType}-weighted</span>
             </div>
           </td>
           <td class="td-weighting desktop-only"><span class="weighting-badge weighting-${weightingType}">${weightingType === 'image' ? 'Image' : 'Tag'}</span></td>
