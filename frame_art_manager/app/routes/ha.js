@@ -309,7 +309,15 @@ router.post('/display', requireHA, async (req, res) => {
 
     res.json({ success: true, message: 'Command sent to TV' });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to send command to TV' });
+    // Extract meaningful error message from HA response
+    let errorMessage = 'Failed to send command to TV';
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    console.error('Display error:', errorMessage);
+    res.status(500).json({ error: errorMessage });
   }
 });
 
