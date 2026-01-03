@@ -8890,8 +8890,11 @@ window.displayOnTv = async function(id, type) {
       
       // Refresh TV status to update bubbles with new image
       // Need both: loadTVs() for screen state, fetchRecentlyDisplayed() for current image
-      loadTVs();
-      fetchRecentlyDisplayed();
+      // Delay slightly to allow HA sensors to update after the service call completes
+      setTimeout(() => {
+        loadTVs();
+        fetchRecentlyDisplayed();
+      }, 1500);
       
       // Close modal after short delay
       setTimeout(() => {
