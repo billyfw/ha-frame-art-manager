@@ -9757,21 +9757,34 @@ body.dropdown-open .image-card:hover {
   /* Mobile tagset meta line (tag counts + used by) */
   .mobile-tagset-meta {
     display: flex;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     margin-top: 4px;
     margin-left: 22px;
     font-size: 11px;
     color: #718096;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   
   .mobile-tagset-meta .tag-counts {
     color: #4a5568;
     font-weight: 500;
+    flex-shrink: 0;
   }
   
   .mobile-tagset-meta .used-by-info {
     color: #718096;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .mobile-tagset-meta .weighting-info {
+    color: #718096;
+    flex-shrink: 0;
   }
   
   /* Mobile tags detail row (expanded) */
