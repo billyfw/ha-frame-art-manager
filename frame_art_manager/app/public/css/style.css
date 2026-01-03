@@ -3231,12 +3231,20 @@ body.dropdown-open .image-card:hover {
 
 /* Responsive */
 @media (max-width: 768px) {
+  /* Prevent horizontal scrolling on the page */
+  html, body {
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+  }
+
   body {
     padding: 10px;
   }
 
   .container {
     padding: 15px;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   header {
