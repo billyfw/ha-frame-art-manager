@@ -12325,26 +12325,27 @@ function renderImageWeightedContent() {
     </div>
   `;
   
-  // Build excluded table (only if there are excluded images)
-  let excludedHtml = '';
-  if (excludedImages.length > 0) {
-    excludedHtml = `
-      <div class="image-weighted-section excluded-section">
-        <div class="image-weighted-header">
-          <span class="image-weighted-title">Excluded</span>
-          <span class="image-weighted-summary">${excludedImages.length} images</span>
-        </div>
-        <div class="image-weighted-table-wrapper">
-          <table class="image-weighted-table">
-            <thead>
-              <tr>
-                <th>Filename</th>
-                <th>Reason</th>
-              </tr>
-            </thead>
-            <tbody>
-    `;
-    
+  // Build excluded table (always show, even if empty)
+  let excludedHtml = `
+    <div class="image-weighted-section excluded-section">
+      <div class="image-weighted-header">
+        <span class="image-weighted-title">Excluded</span>
+        <span class="image-weighted-summary">${excludedImages.length} image${excludedImages.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="image-weighted-table-wrapper">
+        <table class="image-weighted-table">
+          <thead>
+            <tr>
+              <th>Filename</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+  `;
+  
+  if (excludedImages.length === 0) {
+    excludedHtml += `<tr><td colspan="2" class="empty-row">No excluded images</td></tr>`;
+  } else {
     for (const img of excludedImages) {
       excludedHtml += `
         <tr>
@@ -12353,14 +12354,14 @@ function renderImageWeightedContent() {
         </tr>
       `;
     }
-    
-    excludedHtml += `
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
   }
+  
+  excludedHtml += `
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
   
   return includedHtml + excludedHtml;
 }
