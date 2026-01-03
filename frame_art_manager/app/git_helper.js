@@ -6,8 +6,8 @@ const fs = require('fs').promises;
 let syncInProgress = false;
 
 // Minimum age (in ms) for a lock file to be considered stale
-// 2 minutes - most Git operations complete well within this time
-const STALE_LOCK_AGE_MS = 2 * 60 * 1000;
+// 5 minutes - conservative threshold to avoid interfering with active operations
+const STALE_LOCK_AGE_MS = 5 * 60 * 1000;
 
 /**
  * GitHelper - Manages Git LFS operations for the Frame Art repository

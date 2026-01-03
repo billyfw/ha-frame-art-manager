@@ -405,25 +405,120 @@ router.post('/full', async (req, res) => {
   } catch (error) {
     console.error(`💥 [${requestId}] Full sync error:`, error);
     
-    // Check if this is a lock file error and try to recover
-    let errorMessage = error.message;
+    // Check if this is a lock file error and try to recover with auto-retry
     if (GitHelper.isLockFileError(error) && git) {
       console.log(`🔒 [${requestId}] Lock file error detected, attempting recovery...`);
       const lockResult = await git.checkAndClearStaleLock();
       if (lockResult.cleared) {
-        errorMessage = `Sync failed due to a stale lock file (${lockResult.lockFile}). The lock has been cleared - please try again.`;
+        console.log(`🔄 [${requestId}] Stale lock cleared, auto-retrying sync...`);
+        try {
+          await logSyncOperation(req.frameArtPath, {
+            operation: 'full-sync',
+            status: 'recovery',
+            message: `Cleared stale ${lockResult.lockFile} (was ${Math.round(lockResult.age / 1000)}s old), retrying...`,
+            branch: branchName,
+            remoteCommit: await resolveHeadCommit(),
+            lostChanges: []
+          });
+        } catch (logError) {
+          console.warn(`⚠️  [${requestId}] Failed to log recovery:`, logError.message);
+        }
+        
+        // Release the current lock and re-acquire for retry
+        GitHelper.releaseSyncLock();
+        
+        // Auto-retry the sync
+        try {
+          if (!await GitHelper.acquireSyncLock()) {
+            return res.status(409).json({
+              success: false,
+              error: 'Could not re-acquire sync lock after recovery. Please try again.',
+              syncInProgress: true
+            });
+          }
+          
+          const retryGit = new GitHelper(req.frameArtPath);
+          const retryStatus = await retryGit.getStatus();
+          const retryHasChanges = retryStatus.files.length > 0;
+          
+          if (retryHasChanges) {
+            await retryGit.commitChanges();
+          }
+          
+          const retryPull = await retryGit.pullLatest();
+          if (!retryPull.success) {
+            throw new Error(retryPull.error);
+          }
+          
+          const retryPush = await retryGit.pushChanges();
+          if (!retryPush.success) {
+            throw new Error(retryPush.error);
+          }
+          
+          console.log(`✅ [${requestId}] Auto-retry successful after lock recovery`);
+          return res.json({
+            success: true,
+            message: 'Sync completed successfully (recovered from stale lock)',
+            recoveredFromLock: true,
+            committed: retryHasChanges,
+            autoResolvedConflict: retryPull.autoResolvedConflict || false,
+            lostChangesSummary: retryPull.lostChangesSummary || [],
+            remoteChangesSummary: retryPull.remoteChangesSummary || []
+          });
+        } catch (retryError) {
+          console.error(`💥 [${requestId}] Auto-retry failed:`, retryError.message);
+          try {
+            await logSyncOperation(req.frameArtPath, {
+              operation: 'full-sync',
+              status: 'failure',
+              message: `Auto-retry after lock recovery failed: ${retryError.message}`,
+              error: retryError.message,
+              branch: branchName,
+              remoteCommit: await resolveHeadCommit(),
+              lostChanges: []
+            });
+          } catch (logError) {
+            console.warn(`⚠️  [${requestId}] Failed to log retry error:`, logError.message);
+          }
+          return res.status(500).json({
+            success: false,
+            error: `Sync failed after lock recovery: ${retryError.message}`,
+            recoveredFromLock: true
+          });
+        } finally {
+          GitHelper.releaseSyncLock();
+        }
       } else if (lockResult.lockFile) {
-        errorMessage = `Git lock file (${lockResult.lockFile}) is blocking the operation. ` +
+        // Lock exists but isn't stale enough
+        const errorMessage = `Git lock file (${lockResult.lockFile}) is blocking the operation. ` +
           `It's only ${Math.round(lockResult.age / 1000)}s old, which may indicate another operation is in progress. Please wait and try again.`;
+        try {
+          await logSyncOperation(req.frameArtPath, {
+            operation: 'full-sync',
+            status: 'failure',
+            message: errorMessage,
+            error: errorMessage,
+            branch: branchName,
+            remoteCommit: await resolveHeadCommit(),
+            lostChanges: []
+          });
+        } catch (logError) {
+          console.warn(`⚠️  [${requestId}] Failed to log sync error:`, logError.message);
+        }
+        return res.status(500).json({
+          success: false,
+          error: errorMessage
+        });
       }
     }
     
+    // Non-lock error or no lock file found
     try {
       await logSyncOperation(req.frameArtPath, {
         operation: 'full-sync',
         status: 'failure',
-        message: errorMessage,
-        error: errorMessage,
+        message: error.message,
+        error: error.message,
         branch: branchName,
         remoteCommit: await resolveHeadCommit(),
         lostChanges: []
@@ -433,7 +528,7 @@ router.post('/full', async (req, res) => {
     }
     res.status(500).json({ 
       success: false, 
-      error: errorMessage 
+      error: error.message 
     });
   } finally {
     // Always release the lock
