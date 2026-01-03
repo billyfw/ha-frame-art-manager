@@ -8911,7 +8911,13 @@ window.displayOnTv = async function(id, type) {
         }
       }, 2000); // Increased delay so user can see final logs
     } else {
-      // Failure - logs are already displayed
+      // Failure - show error message in log container
+      if (logContainer && result.error) {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('en-GB', { hour12: false });
+        logContainer.textContent = `[${timeStr}] Error: ${result.error}`;
+        logContainer.style.color = '#d32f2f';
+      }
       if (btn) {
         btn.textContent = originalText;
         btn.disabled = false;
