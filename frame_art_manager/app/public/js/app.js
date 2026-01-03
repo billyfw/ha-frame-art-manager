@@ -633,20 +633,15 @@ function renderTVStatusDots() {
     const statusClass = tv.hasOverride ? 'override' : (tv.isOn ? 'on' : 'off');
     // Format time until next shuffle (null if none scheduled or passed)
     const shuffleTimeLeft = formatTimeUntilShuffle(tv.nextShuffleTime);
-    const shuffleTimeHtml = shuffleTimeLeft ? ` <span class="pill-shuffle-time">${escapeHtml(shuffleTimeLeft)}</span>` : '';
     
-    return `
-      <div class="tv-status-dot ${statusClass}" 
-           data-tv-id="${tv.tvId}" 
-           data-filename="${tv.currentImage || ''}"
-           title="${tv.tvName}">
-        <div class="tv-status-pill">
-          <span class="pill-tv-name">${escapeHtml(tv.tvName)}</span>: 
-          <span class="pill-tagset">${escapeHtml(tv.activeTagset)}</span>
-          (<span class="pill-image">${escapeHtml(truncatedName)}</span>${shuffleTimeHtml})
-        </div>
-      </div>
-    `;
+    // Only show image/time info when TV is on
+    let imageTimeHtml = '';
+    if (tv.isOn) {
+      const shuffleTimeHtml = shuffleTimeLeft ? ` <span class="pill-shuffle-time">${escapeHtml(shuffleTimeLeft)}</span>` : '';
+      imageTimeHtml = ` (<span class="pill-image">${escapeHtml(truncatedName)}</span>${shuffleTimeHtml})`;
+    }
+    
+    return `<div class="tv-status-dot ${statusClass}" data-tv-id="${tv.tvId}" data-filename="${tv.currentImage || ''}" title="${tv.tvName}"><div class="tv-status-pill"><span class="pill-tv-name">${escapeHtml(tv.tvName)}</span>: <span class="pill-tagset">${escapeHtml(tv.activeTagset)}</span>${imageTimeHtml}</div></div>`;
   }).join('');
   
   // Mobile: bars with text always visible (same format as desktop pill)
@@ -656,17 +651,15 @@ function renderTVStatusDots() {
     const statusClass = tv.hasOverride ? 'override' : (tv.isOn ? 'on' : 'off');
     // Format time until next shuffle (null if none scheduled or passed)
     const shuffleTimeLeft = formatTimeUntilShuffle(tv.nextShuffleTime);
-    const shuffleTimeHtml = shuffleTimeLeft ? ` <span class="bar-shuffle-time">${escapeHtml(shuffleTimeLeft)}</span>` : '';
     
-    return `
-      <div class="tv-status-bar ${statusClass}" 
-           data-tv-id="${tv.tvId}" 
-           data-filename="${tv.currentImage || ''}">
-        <span class="bar-tv-name">${escapeHtml(tv.tvName)}</span>: 
-        <span class="bar-tagset">${escapeHtml(tv.activeTagset)}</span>
-        (<span class="bar-image">${escapeHtml(truncatedName)}</span>${shuffleTimeHtml})
-      </div>
-    `;
+    // Only show image/time info when TV is on
+    let imageTimeHtml = '';
+    if (tv.isOn) {
+      const shuffleTimeHtml = shuffleTimeLeft ? ` <span class="bar-shuffle-time">${escapeHtml(shuffleTimeLeft)}</span>` : '';
+      imageTimeHtml = ` (<span class="bar-image">${escapeHtml(truncatedName)}</span>${shuffleTimeHtml})`;
+    }
+    
+    return `<div class="tv-status-bar ${statusClass}" data-tv-id="${tv.tvId}" data-filename="${tv.currentImage || ''}"><span class="bar-tv-name">${escapeHtml(tv.tvName)}</span>: <span class="bar-tagset">${escapeHtml(tv.activeTagset)}</span>${imageTimeHtml}</div>`;
   }).join('');
   
   if (desktopContainer) desktopContainer.innerHTML = dotsHtml;
