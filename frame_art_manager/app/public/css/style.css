@@ -10168,3 +10168,62 @@ body.dropdown-open .image-card:hover {
   background: #e2e8f0;
   color: #4a5568;
 }
+
+/* Mobile styles for image-weighted tables in tagset modal */
+@media (max-width: 768px) {
+  .image-weighted-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+  
+  /* Included table: 3 columns - filename, tags, chance */
+  .included-section .image-weighted-table th:nth-child(1),
+  .included-section .image-weighted-table td:nth-child(1) {
+    width: 35%;
+  }
+  
+  .included-section .image-weighted-table th:nth-child(2),
+  .included-section .image-weighted-table td:nth-child(2) {
+    width: 45%;
+  }
+  
+  .included-section .image-weighted-table th:nth-child(3),
+  .included-section .image-weighted-table td:nth-child(3) {
+    width: 20%;
+  }
+  
+  /* Excluded table: 2 columns - filename, reason */
+  .excluded-section .image-weighted-table th:nth-child(1),
+  .excluded-section .image-weighted-table td:nth-child(1) {
+    width: 50%;
+  }
+  
+  .excluded-section .image-weighted-table th:nth-child(2),
+  .excluded-section .image-weighted-table td:nth-child(2) {
+    width: 50%;
+  }
+  
+  .image-weighted-table .filename-cell {
+    max-width: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .image-weighted-table .tags-cell {
+    max-width: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .image-weighted-table .reason-cell {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .image-weighted-table .chance-cell {
+    font-size: 11px;
+  }
+}
