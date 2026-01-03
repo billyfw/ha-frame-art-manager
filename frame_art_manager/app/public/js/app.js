@@ -8938,6 +8938,7 @@ let selectedTag = null;
 let selectedImage = null;
 let selectedTv = null;
 let selectedTimeRange = '1w'; // default to 1 week
+let globalTvColorMap = {}; // Consistent TV colors across all views
 
 // Time range options in milliseconds
 const TIME_RANGES = {
@@ -9014,6 +9015,15 @@ async function loadAnalytics(selectedImage = null) {
     }
     
     analyticsData = result.data;
+    
+    // Build global TV color map for consistent colors across all views
+    // Sort TVs by total display time descending for consistent ordering
+    const tvIds = Object.keys(analyticsData.tvs || {});
+    tvIds.sort((a, b) => (analyticsData.tvs[b].total_display_seconds || 0) - (analyticsData.tvs[a].total_display_seconds || 0));
+    globalTvColorMap = {};
+    tvIds.forEach((tvId, index) => {
+      globalTvColorMap[tvId] = CHART_COLORS[index % CHART_COLORS.length];
+    });
     
     // Check if logging is disabled
     if (analyticsData.logging_enabled === false) {
@@ -9937,11 +9947,8 @@ function renderSingleTagDetail(tagName, container, statsContainer) {
   const totalTvCount = Object.keys(analyticsData.tvs || {}).length;
   const showStackedBar = perTv.length > 0 && totalTvCount > 1;
   
-  // Build TV color map for consistent colors between chart and event log
-  const tvColorMap = {};
-  perTv.forEach((tv, index) => {
-    tvColorMap[tv.tv_id] = CHART_COLORS[index % CHART_COLORS.length];
-  });
+  // Use global TV color map for consistent colors across all views
+  const tvColorMap = globalTvColorMap;
   
   if (showStackedBar) {
     const segments = perTv.map((tv, index) => {
@@ -10004,11 +10011,8 @@ function renderTagsetDetail(tagsetName, container, statsContainer) {
   const totalTvCount = Object.keys(analyticsData.tvs || {}).length;
   const showStackedBar = perTv.length > 0 && totalTvCount > 1;
   
-  // Build TV color map for consistent colors between chart and event log
-  const tvColorMap = {};
-  perTv.forEach((tv, index) => {
-    tvColorMap[tv.tv_id] = CHART_COLORS[index % CHART_COLORS.length];
-  });
+  // Use global TV color map for consistent colors across all views
+  const tvColorMap = globalTvColorMap;
   
   if (showStackedBar) {
     const segments = perTv.map((tv, index) => {
@@ -10127,11 +10131,8 @@ function renderImageDetail(filename) {
     </div>
   `;
   
-  // Build TV color map for consistent colors between chart and event log
-  const tvColorMap = {};
-  perTv.forEach((tv, index) => {
-    tvColorMap[tv.tv_id] = CHART_COLORS[index % CHART_COLORS.length];
-  });
+  // Use global TV color map for consistent colors across all views
+  const tvColorMap = globalTvColorMap;
   
   // TV breakdown - stacked horizontal bar (only if multiple TVs)
   const totalTvCount = Object.keys(analyticsData?.tvs || {}).length;
