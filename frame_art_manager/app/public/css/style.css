@@ -8756,11 +8756,13 @@ body.dropdown-open .image-card:hover {
   color: #999;
   font-style: italic;
   text-align: left;
+  background: #ffccff;
 }
 
 /* Ensure Reason header is also left-aligned */
 .excluded-section .image-weighted-table th:nth-child(2) {
   text-align: left;
+  background: #ccffcc;
 }
 
 .image-weighted-table .empty-row {
