@@ -9668,6 +9668,11 @@ body.dropdown-open .image-card:hover {
   .tagsets-table .mobile-only {
     display: inline-flex;
   }
+  
+  /* Show mobile-only edit button (override desktop hide rule) */
+  .tagsets-table .td-actions .btn-icon.mobile-only {
+    display: inline-flex;
+  }
 
   /* Tagsets Table mobile - keep as table but fit screen */
   .tagsets-table {
