@@ -1869,7 +1869,13 @@ function switchToTab(tabName) {
 
   // Reload data similar to initTabs click behavior
   if (tabName === 'gallery') {
-    loadGallery();
+    // Only load gallery if not already loaded - prevents wiping filter state
+    if (!galleryHasLoadedAtLeastOnce) {
+      loadGallery();
+    } else {
+      // Just re-render with existing data (preserves filter state)
+      renderGallery();
+    }
   }
   if (tabName === 'advanced') {
     loadLibraryPath();
@@ -4983,10 +4989,11 @@ async function loadTVs() {
       if (data.tagsets && typeof data.tagsets === 'object') {
         allGlobalTagsets = data.tagsets;
       }
-      // Refresh filter dropdown if it's already rendered
+      // Refresh filter dropdown if it's already rendered (to update counts)
+      // Pass skipRender: true to prevent gallery re-render during periodic updates
       const dropdownOptions = document.querySelector('.multiselect-options');
       if (dropdownOptions && dropdownOptions.children.length > 0) {
-        loadTagsForFilter();
+        loadTagsForFilter({ skipRender: true });
       }
       // Update TV status dots
       renderTVStatusDots();
@@ -5074,8 +5081,28 @@ function countImagesForNone() {
   return count;
 }
 
-async function loadTagsForFilter() {
+/**
+ * Load tags for the filter dropdown and rebuild the UI.
+ * @param {Object} options - Options for the load
+ * @param {boolean} options.skipRender - If true, don't re-render gallery (used for count updates)
+ */
+async function loadTagsForFilter(options = {}) {
+  const { skipRender = false } = options;
+  
   try {
+    // *** SAVE CURRENT FILTER STATE BEFORE REBUILDING ***
+    // This preserves user selections when the dropdown is rebuilt (e.g., after tag count updates)
+    const savedState = {
+      includedTags: new Set(getIncludedTags().map(t => t.toLowerCase())),
+      excludedTags: new Set(getExcludedTags().map(t => t.toLowerCase())),
+      checkedTVs: new Set(Array.from(document.querySelectorAll('.tv-checkbox:checked')).map(cb => cb.value)),
+      checkedTagsets: new Set(Array.from(document.querySelectorAll('.tagset-checkbox:checked')).map(cb => cb.value)),
+      noneChecked: document.querySelector('.tv-none-checkbox')?.checked || false,
+      // Special filters are stored in global variables, no need to save/restore
+    };
+    const hadSelections = savedState.includedTags.size > 0 || savedState.excludedTags.size > 0 || 
+                          savedState.checkedTVs.size > 0 || savedState.checkedTagsets.size > 0 || savedState.noneChecked;
+    
     const response = await fetch(`${API_BASE}/tags`);
     allTags = await response.json();
 
@@ -5507,7 +5534,42 @@ async function loadTagsForFilter() {
       });
     }
 
-    updateTagFilterDisplay();
+    // *** RESTORE SAVED FILTER STATE ***
+    if (hadSelections) {
+      console.log('[TagFilter] Restoring filter state after rebuild');
+      
+      // Restore tag states
+      document.querySelectorAll('.tag-checkbox').forEach(cb => {
+        const tagLower = cb.value.toLowerCase();
+        if (savedState.includedTags.has(tagLower)) {
+          setTagState(cb, 'included');
+        } else if (savedState.excludedTags.has(tagLower)) {
+          setTagState(cb, 'excluded');
+        }
+      });
+      
+      // Restore TV checkbox states
+      document.querySelectorAll('.tv-checkbox').forEach(cb => {
+        cb.checked = savedState.checkedTVs.has(cb.value);
+      });
+      
+      // Restore tagset checkbox states
+      document.querySelectorAll('.tagset-checkbox').forEach(cb => {
+        cb.checked = savedState.checkedTagsets.has(cb.value);
+      });
+      
+      // Restore "None" checkbox state
+      const noneCheckbox = document.querySelector('.tv-none-checkbox');
+      if (noneCheckbox) {
+        noneCheckbox.checked = savedState.noneChecked;
+      }
+    }
+
+    // Skip render if:
+    // 1. Caller explicitly requested skipRender (e.g., periodic count updates)
+    // 2. We're restoring saved state (filter hasn't actually changed)
+    const shouldSkipRender = skipRender || hadSelections;
+    updateTagFilterDisplay(shouldSkipRender);
     updateTVShortcutStates();
   } catch (error) {
     console.error('Error loading tags for filter:', error);
@@ -5844,7 +5906,7 @@ function updateTVShortcutStates() {
   });
 }
 
-function updateTagFilterDisplay() {
+function updateTagFilterDisplay(skipRender = false) {
   const includedTags = getIncludedTags();
   const excludedTags = getExcludedTags();
   const noneCheckbox = document.querySelector('.tv-none-checkbox');
@@ -5887,7 +5949,10 @@ function updateTagFilterDisplay() {
     clearBtn.style.display = showClear ? 'block' : 'none';
   }
   
-  renderGallery();
+  // Only re-render gallery if explicitly requested (not during periodic count updates)
+  if (!skipRender) {
+    renderGallery();
+  }
 }
 
 // Wrapper to filter and render gallery (used for async filter changes)
