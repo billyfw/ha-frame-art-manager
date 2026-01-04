@@ -12093,7 +12093,7 @@ function calculateTagPercentages(tags, weights) {
   const percentages = {};
   tags.forEach(tag => {
     const weight = weights[tag] || 1;
-    percentages[tag] = Math.round((weight / total) * 100);
+    percentages[tag] = ((weight / total) * 100).toFixed(1);
   });
   return percentages;
 }
