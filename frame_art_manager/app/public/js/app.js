@@ -43,6 +43,7 @@ function loadSortPreference() {
     }
 
     const parsed = JSON.parse(raw);
+    // SYNC: Must match <option value="..."> in index.html #sort-order dropdown
     const validOrders = ['name', 'date', 'displayed', 'modified'];
     if (!parsed || !validOrders.includes(parsed.order)) {
       return null;
