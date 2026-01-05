@@ -32,18 +32,20 @@ const isInitialTabLoad = navigationContext.isFirstLoadInTab;
 const SORT_PREFERENCE_STORAGE_KEY = 'frameArt.sortPreference';
 
 function loadSortPreference() {
-  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+  if (typeof window === 'undefined' || typeof window.sessionStorage === 'undefined') {
     return null;
   }
 
   try {
-    const raw = window.localStorage.getItem(SORT_PREFERENCE_STORAGE_KEY);
+    const raw = window.sessionStorage.getItem(SORT_PREFERENCE_STORAGE_KEY);
     if (!raw) {
       return null;
     }
 
     const parsed = JSON.parse(raw);
-    if (!parsed || (parsed.order !== 'name' && parsed.order !== 'date')) {
+    // SYNC: Must match <option value="..."> in index.html #sort-order dropdown
+    const validOrders = ['name', 'date', 'displayed', 'modified'];
+    if (!parsed || !validOrders.includes(parsed.order)) {
       return null;
     }
 
@@ -58,12 +60,12 @@ function loadSortPreference() {
 }
 
 function saveSortPreference(order, ascending) {
-  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+  if (typeof window === 'undefined' || typeof window.sessionStorage === 'undefined') {
     return;
   }
 
   try {
-    window.localStorage.setItem(
+    window.sessionStorage.setItem(
       SORT_PREFERENCE_STORAGE_KEY,
       JSON.stringify({
         order,
@@ -76,7 +78,7 @@ function saveSortPreference(order, ascending) {
 }
 
 const storedSortPreference = loadSortPreference();
-const initialSortOrderPreference = storedSortPreference?.order || 'name';
+const initialSortOrderPreference = storedSortPreference?.order || 'date';
 let sortAscending = typeof storedSortPreference?.ascending === 'boolean' ? storedSortPreference.ascending : false;
 
 
