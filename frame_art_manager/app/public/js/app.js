@@ -4359,7 +4359,10 @@ function initUploadForm() {
             
             // Close upload modal and return to gallery
             navigateTo('/');
-            
+
+            // Fetch fresh image data so the new image appears in gallery
+            await loadGallery();
+
             // Re-render gallery if special filter is active
             if (similarFilterActive) {
               renderGallery();
