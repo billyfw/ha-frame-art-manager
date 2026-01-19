@@ -2298,15 +2298,15 @@ function renderBulkTvTagsHelper(allAppliedTags) {
   const container = document.getElementById('bulk-tv-tags-helper');
   const wrapper = document.getElementById('bulk-tv-tags-wrapper');
   if (!container) return;
-  
+
   const appliedTagsSet = new Set(allAppliedTags);
-  
+
   // Collect all TV tags - aggregate by tag
   const tvTagsMap = new Map();
-  
+
   for (const tv of allTVs) {
     const tvName = tv.name || 'Unknown TV';
-    
+
     // Include tags
     for (const tag of (tv.tags || [])) {
       // Show tag if not applied to ALL selected images
@@ -2317,7 +2317,7 @@ function renderBulkTvTagsHelper(allAppliedTags) {
         tvTagsMap.get(tag).includeTvNames.push(tvName);
       }
     }
-    
+
     // Exclude tags
     for (const tag of (tv.exclude_tags || [])) {
       if (!appliedTagsSet.has(tag)) {
@@ -2328,13 +2328,13 @@ function renderBulkTvTagsHelper(allAppliedTags) {
       }
     }
   }
-  
+
   // Convert to array and sort
-  const availableTags = [];
+  const tvTags = [];
   for (const [tag, data] of tvTagsMap) {
     const totalTvs = data.includeTvNames.length + data.excludeTvNames.length;
     const allExclude = data.includeTvNames.length === 0;
-    availableTags.push({
+    tvTags.push({
       tag,
       includeTvNames: data.includeTvNames,
       excludeTvNames: data.excludeTvNames,
@@ -2342,25 +2342,34 @@ function renderBulkTvTagsHelper(allAppliedTags) {
       allExclude
     });
   }
-  
-  availableTags.sort((a, b) => {
+
+  tvTags.sort((a, b) => {
     if (a.allExclude !== b.allExclude) return a.allExclude ? 1 : -1;
     return a.tag.localeCompare(b.tag);
   });
-  
-  if (availableTags.length === 0) {
+
+  // Get all TV tag names for filtering
+  const tvTagNames = new Set(tvTags.map(t => t.tag));
+
+  // Get non-TV tags: all tags minus TV tags minus applied tags
+  const otherTags = (allTags || [])
+    .filter(tag => !tvTagNames.has(tag) && !appliedTagsSet.has(tag))
+    .sort();
+
+  if (tvTags.length === 0 && otherTags.length === 0) {
     container.innerHTML = '';
     if (wrapper) wrapper.style.display = 'none';
     return;
   }
-  
+
   if (wrapper) wrapper.style.display = 'block';
-  
-  const pillsHtml = availableTags.map(item => {
+
+  // Render TV tags with badges
+  const tvPillsHtml = tvTags.map(item => {
     const excludeClass = item.allExclude ? ' exclude' : '';
     const excludeCount = item.excludeTvNames.length;
     const hasExcludes = excludeCount > 0;
-    
+
     const tooltipParts = [];
     if (item.includeTvNames.length > 0) {
       tooltipParts.push(item.includeTvNames.join(', '));
@@ -2369,7 +2378,7 @@ function renderBulkTvTagsHelper(allAppliedTags) {
       tooltipParts.push(item.excludeTvNames.map(n => `${n} (exclude)`).join(', '));
     }
     const tooltip = tooltipParts.join(', ');
-    
+
     let tvLabelHtml;
     if (item.totalTvs === 1) {
       const tvName = item.includeTvNames[0] || item.excludeTvNames[0];
@@ -2382,22 +2391,29 @@ function renderBulkTvTagsHelper(allAppliedTags) {
     } else {
       tvLabelHtml = `<span class="tv-name">${item.totalTvs} TVs</span>`;
     }
-    
+
     return `<button class="tv-tag-pill${excludeClass}" data-tag="${escapeHtml(item.tag)}" title="${escapeHtml(tooltip)}" tabindex="-1">
       <span class="tag-label">${escapeHtml(item.tag)}</span>
       ${tvLabelHtml}
     </button>`;
   }).join('');
-  
-  container.innerHTML = pillsHtml;
-  
+
+  // Render non-TV tags without badges
+  const otherPillsHtml = otherTags.map(tag => {
+    return `<button class="tv-tag-pill" data-tag="${escapeHtml(tag)}" tabindex="-1">
+      <span class="tag-label">${escapeHtml(tag)}</span>
+    </button>`;
+  }).join('');
+
+  container.innerHTML = tvPillsHtml + otherPillsHtml;
+
   // Add click handlers for bulk suggested tags
   container.querySelectorAll('.tv-tag-pill').forEach(pill => {
     pill.addEventListener('click', async (e) => {
       pill.blur();
       e.target.blur();
       if (document.activeElement) document.activeElement.blur();
-      
+
       const tag = pill.dataset.tag;
       await addBulkTagFromHelper(tag);
     });
@@ -2797,22 +2813,33 @@ function renderTvTagsHelper() {
   const container = document.getElementById('tv-tags-helper');
   const wrapper = document.getElementById('tv-tags-wrapper');
   if (!container) return;
-  
-  const availableTags = getAvailableTvTags();
-  
-  if (availableTags.length === 0) {
+
+  const tvTags = getAvailableTvTags();
+  const tvTagNames = new Set(tvTags.map(t => t.tag));
+
+  // Get applied tags for current image
+  const imageData = currentImage ? allImages[currentImage] : null;
+  const appliedTags = new Set(imageData?.tags || []);
+
+  // Get non-TV tags: all tags minus TV tags minus applied tags
+  const otherTags = (allTags || [])
+    .filter(tag => !tvTagNames.has(tag) && !appliedTags.has(tag))
+    .sort();
+
+  if (tvTags.length === 0 && otherTags.length === 0) {
     container.innerHTML = '';
     if (wrapper) wrapper.style.display = 'none';
     return;
   }
-  
+
   if (wrapper) wrapper.style.display = 'block';
-  
-  const pillsHtml = availableTags.map(item => {
+
+  // Render TV tags with badges
+  const tvPillsHtml = tvTags.map(item => {
     const excludeClass = item.allExclude ? ' exclude' : '';
     const excludeCount = item.excludeTvNames.length;
     const hasExcludes = excludeCount > 0;
-    
+
     // Build tooltip showing all TV names
     const tooltipParts = [];
     if (item.includeTvNames.length > 0) {
@@ -2822,7 +2849,7 @@ function renderTvTagsHelper() {
       tooltipParts.push(item.excludeTvNames.map(n => `${n} (exclude)`).join(', '));
     }
     const tooltip = tooltipParts.join(', ');
-    
+
     // Build TV label - similar to applied tags format
     let tvLabelHtml;
     if (item.totalTvs === 1) {
@@ -2840,15 +2867,22 @@ function renderTvTagsHelper() {
       // All include
       tvLabelHtml = `<span class="tv-name">${item.totalTvs} TVs</span>`;
     }
-    
+
     return `<button class="tv-tag-pill${excludeClass}" data-tag="${escapeHtml(item.tag)}" title="${escapeHtml(tooltip)}" tabindex="-1">
       <span class="tag-label">${escapeHtml(item.tag)}</span>
       ${tvLabelHtml}
     </button>`;
   }).join('');
-  
-  container.innerHTML = pillsHtml;
-  
+
+  // Render non-TV tags without badges
+  const otherPillsHtml = otherTags.map(tag => {
+    return `<button class="tv-tag-pill" data-tag="${escapeHtml(tag)}" tabindex="-1">
+      <span class="tag-label">${escapeHtml(tag)}</span>
+    </button>`;
+  }).join('');
+
+  container.innerHTML = tvPillsHtml + otherPillsHtml;
+
   // Add click handlers
   container.querySelectorAll('.tv-tag-pill').forEach(pill => {
     pill.addEventListener('click', async (e) => {
@@ -2856,7 +2890,7 @@ function renderTvTagsHelper() {
       pill.blur();
       e.target.blur();
       if (document.activeElement) document.activeElement.blur();
-      
+
       const tag = pill.dataset.tag;
       await addTagFromHelper(tag);
     });
@@ -4514,26 +4548,35 @@ function renderUploadTvTagsHelper() {
   const container = document.getElementById('upload-tv-tags-helper');
   const wrapper = document.getElementById('upload-tv-tags-wrapper');
   if (!container) return;
-  
+
   // Get all TV tags (not dependent on currentImage)
-  const availableTags = getAllTvTags();
-  
+  const tvTags = getAllTvTags();
+
   // Filter out tags that are already applied
-  const suggestedTags = availableTags.filter(item => !uploadAppliedTags.includes(item.tag));
-  
-  if (suggestedTags.length === 0) {
+  const suggestedTvTags = tvTags.filter(item => !uploadAppliedTags.includes(item.tag));
+
+  // Get all TV tag names for filtering
+  const tvTagNames = new Set(tvTags.map(t => t.tag));
+
+  // Get non-TV tags: all tags minus TV tags minus applied tags
+  const otherTags = (allTags || [])
+    .filter(tag => !tvTagNames.has(tag) && !uploadAppliedTags.includes(tag))
+    .sort();
+
+  if (suggestedTvTags.length === 0 && otherTags.length === 0) {
     container.innerHTML = '';
     if (wrapper) wrapper.style.display = 'none';
     return;
   }
-  
+
   if (wrapper) wrapper.style.display = 'block';
-  
-  const pillsHtml = suggestedTags.map(item => {
+
+  // Render TV tags with badges
+  const tvPillsHtml = suggestedTvTags.map(item => {
     const excludeClass = item.allExclude ? ' exclude' : '';
     const excludeCount = item.excludeTvNames.length;
     const hasExcludes = excludeCount > 0;
-    
+
     // Build tooltip showing all TV names
     const tooltipParts = [];
     if (item.includeTvNames.length > 0) {
@@ -4543,7 +4586,7 @@ function renderUploadTvTagsHelper() {
       tooltipParts.push(item.excludeTvNames.map(n => `${n} (exclude)`).join(', '));
     }
     const tooltip = tooltipParts.join(', ');
-    
+
     // Build TV label
     let tvLabelHtml;
     if (item.totalTvs === 1) {
@@ -4557,15 +4600,22 @@ function renderUploadTvTagsHelper() {
     } else {
       tvLabelHtml = `<span class="tv-name">${item.totalTvs} TVs</span>`;
     }
-    
+
     return `<button type="button" class="tv-tag-pill${excludeClass}" data-tag="${escapeHtml(item.tag)}" title="${escapeHtml(tooltip)}" tabindex="-1">
       <span class="tag-label">${escapeHtml(item.tag)}</span>
       ${tvLabelHtml}
     </button>`;
   }).join('');
-  
-  container.innerHTML = pillsHtml;
-  
+
+  // Render non-TV tags without badges
+  const otherPillsHtml = otherTags.map(tag => {
+    return `<button type="button" class="tv-tag-pill" data-tag="${escapeHtml(tag)}" tabindex="-1">
+      <span class="tag-label">${escapeHtml(tag)}</span>
+    </button>`;
+  }).join('');
+
+  container.innerHTML = tvPillsHtml + otherPillsHtml;
+
   // Add click handlers
   container.querySelectorAll('.tv-tag-pill').forEach(pill => {
     pill.addEventListener('click', (e) => {
