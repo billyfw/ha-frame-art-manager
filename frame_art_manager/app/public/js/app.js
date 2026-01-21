@@ -78,7 +78,7 @@ function saveSortPreference(order, ascending) {
 }
 
 const storedSortPreference = loadSortPreference();
-const initialSortOrderPreference = storedSortPreference?.order || 'date';
+const initialSortOrderPreference = storedSortPreference?.order || 'displayed';
 let sortAscending = typeof storedSortPreference?.ascending === 'boolean' ? storedSortPreference.ascending : false;
 
 
