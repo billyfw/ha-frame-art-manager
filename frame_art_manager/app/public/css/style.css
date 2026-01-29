@@ -2147,6 +2147,18 @@ body.dropdown-open .image-card:hover {
   background: #c0392b;
 }
 
+.btn-primary:disabled,
+.btn-danger:disabled {
+  background: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.btn-primary:disabled:hover,
+.btn-danger:disabled:hover {
+  background: #d1d5db;
+}
+
 /* Lists */
 .list {
   margin-top: 20px;
