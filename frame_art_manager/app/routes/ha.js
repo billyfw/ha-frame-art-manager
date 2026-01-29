@@ -788,7 +788,7 @@ router.get('/pool-health', requireHA, async (req, res) => {
     if (req.query.same_tv_hours) params.append('same_tv_hours', req.query.same_tv_hours);
     if (req.query.cross_tv_hours) params.append('cross_tv_hours', req.query.cross_tv_hours);
     const queryString = params.toString();
-    const url = '/api/frame_art_shuffler/pool_health' + (queryString ? `?${queryString}` : '');
+    const url = '/frame_art_shuffler/pool_health' + (queryString ? `?${queryString}` : '');
 
     const result = await haRequest('GET', url);
     res.json({ success: true, data: result });
@@ -816,7 +816,7 @@ router.post('/set-recency-windows', requireHA, async (req, res) => {
     if (same_tv_hours !== undefined) serviceData.same_tv_hours = parseInt(same_tv_hours, 10);
     if (cross_tv_hours !== undefined) serviceData.cross_tv_hours = parseInt(cross_tv_hours, 10);
 
-    await haRequest('POST', '/api/services/frame_art_shuffler/set_recency_windows', serviceData);
+    await haRequest('POST', '/services/frame_art_shuffler/set_recency_windows', serviceData);
     res.json({ success: true });
   } catch (error) {
     console.error('Error setting recency windows:', error.message);
