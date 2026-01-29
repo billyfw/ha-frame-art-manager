@@ -881,7 +881,7 @@ function getSimilarBreakpointCounts() {
 }
 
 const ADVANCED_TAB_DEFAULT = 'tags';
-const VALID_ADVANCED_TABS = new Set(['tags', 'settings', 'metadata', 'sync']);
+const VALID_ADVANCED_TABS = new Set(['tags', 'recency', 'settings', 'metadata', 'sync']);
 
 function normalizeEditingFilterName(name) {
   if (!name) return 'none';
@@ -993,6 +993,8 @@ function switchToAdvancedSubTab(tabName) {
     loadMetadata();
   } else if (targetTab === 'tags') {
     loadTagsTab();
+  } else if (targetTab === 'recency') {
+    loadRecencyTab();
   }
 }
 
@@ -11308,9 +11310,14 @@ async function loadTagsTab() {
 
   renderTagsetsTable();
   renderTVAssignments();
+}
 
-  // Load pool health data and initialize refresh button
+// Load and render the Recency tab content
+async function loadRecencyTab() {
+  // Initialize controls if not already done
   initPoolHealthRefreshButton();
+  initRecencySliders();
+  // Load pool health data
   loadPoolHealth();
 }
 
@@ -12034,6 +12041,7 @@ async function loadPoolHealth() {
     if (result.success && result.data) {
       poolHealthData = result.data;
       renderPoolHealthTable();
+      updateRecencySlidersFromData();
     } else {
       container.innerHTML = `<p class="empty-state">Failed to load pool health: ${result.error || 'Unknown error'}</p>`;
     }
@@ -12072,11 +12080,14 @@ function renderPoolHealthTable() {
           <th class="desktop-only" title="Images shown on other TVs within ${crossTvHours}h (excludes same-TV)">Cross-TV Recent</th>
           <th class="desktop-only" title="Total images deprioritized (same-TV + cross-TV)">Total Recent</th>
           <th title="Images not recently shown, preferred for selection">Available</th>
+          <th class="desktop-only">
+            Trend (7d)
+            <span class="info-icon" data-tooltip="Available count over the last 7 days. Shows how your pool availability has changed over time.">ⓘ</span>
+          </th>
           <th>
             Variety
             <span class="info-icon" data-tooltip="Hours of unique shuffles before the sequence may start repeating. Green (>10h) = healthy variety. Yellow (5-10h) = moderate. Red (<5h) = low variety, consider adding images or reducing windows.">ⓘ</span>
           </th>
-          <th class="desktop-only" title="Available images over the last 48 hours">Trend (48h)</th>
         </tr>
       </thead>
       <tbody>
@@ -12114,8 +12125,8 @@ function renderPoolHealthTable() {
         <td class="pool-health-cross-tv desktop-only">${crossTvRecent}</td>
         <td class="pool-health-total desktop-only">${totalRecent}</td>
         <td class="pool-health-available">${available} (${availablePct}%)</td>
-        <td class="pool-health-variety ${varietyClass}">${varietyDisplay}h</td>
         <td class="pool-health-trend desktop-only">${sparkline}</td>
+        <td class="pool-health-variety ${varietyClass}">${varietyDisplay}h</td>
       </tr>
     `;
   }
@@ -12143,6 +12154,261 @@ function initPoolHealthRefreshButton() {
     btn.disabled = false;
     btn.textContent = 'Refresh';
   });
+}
+
+// Recency windows configuration state
+let configuredSameTvHours = 120;
+let configuredCrossTvHours = 72;
+let currentPoolHealthData = null; // Store current data separately from preview
+let previewTimeout = null;
+let recencySlidersInitialized = false;
+
+// Initialize recency window sliders
+function initRecencySliders() {
+  if (recencySlidersInitialized) return;
+
+  const sameTvSlider = document.getElementById('same-tv-slider');
+  const crossTvSlider = document.getElementById('cross-tv-slider');
+  const sameTvValue = document.getElementById('same-tv-value');
+  const crossTvValue = document.getElementById('cross-tv-value');
+  const sameTvMarker = document.getElementById('same-tv-marker');
+  const crossTvMarker = document.getElementById('cross-tv-marker');
+  const applyBtn = document.getElementById('apply-recency-btn');
+
+  if (!sameTvSlider || !crossTvSlider) return;
+
+  recencySlidersInitialized = true;
+
+  // Update value display on slider input
+  sameTvSlider.addEventListener('input', () => {
+    sameTvValue.textContent = `${sameTvSlider.value}h`;
+    onSliderChange();
+  });
+
+  crossTvSlider.addEventListener('input', () => {
+    crossTvValue.textContent = `${crossTvSlider.value}h`;
+    onSliderChange();
+  });
+
+  // Marker click handlers - reset to saved value
+  if (sameTvMarker) {
+    sameTvMarker.addEventListener('click', () => {
+      sameTvSlider.value = configuredSameTvHours;
+      sameTvValue.textContent = `${configuredSameTvHours}h`;
+      onSliderChange();
+    });
+  }
+
+  if (crossTvMarker) {
+    crossTvMarker.addEventListener('click', () => {
+      crossTvSlider.value = configuredCrossTvHours;
+      crossTvValue.textContent = `${configuredCrossTvHours}h`;
+      onSliderChange();
+    });
+  }
+
+  // Debounced preview fetch
+  function onSliderChange() {
+    const sameTv = parseInt(sameTvSlider.value, 10);
+    const crossTv = parseInt(crossTvSlider.value, 10);
+
+    // Enable apply button if values differ from configured
+    const hasChanges = sameTv !== configuredSameTvHours || crossTv !== configuredCrossTvHours;
+    applyBtn.disabled = !hasChanges;
+
+    clearTimeout(previewTimeout);
+    if (hasChanges) {
+      previewTimeout = setTimeout(() => fetchVarietyPreview(sameTv, crossTv), 300);
+    } else {
+      // Reset preview to show current values (no change)
+      renderVarietyTable(null);
+    }
+  }
+
+  // Apply button handler
+  applyBtn.addEventListener('click', async () => {
+    const sameTv = parseInt(sameTvSlider.value, 10);
+    const crossTv = parseInt(crossTvSlider.value, 10);
+
+    applyBtn.disabled = true;
+    applyBtn.textContent = 'Applying...';
+
+    try {
+      const response = await fetch(`${API_BASE}/ha/set-recency-windows`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ same_tv_hours: sameTv, cross_tv_hours: crossTv }),
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        // Update configured values
+        configuredSameTvHours = sameTv;
+        configuredCrossTvHours = crossTv;
+        // Refresh table with new actual values
+        await loadPoolHealth();
+        // Update marker positions
+        updateMarkerPositions();
+      } else {
+        console.error('Error applying recency windows:', result.error);
+      }
+    } catch (error) {
+      console.error('Error applying recency windows:', error);
+    }
+
+    applyBtn.disabled = false;
+    applyBtn.textContent = 'Apply Changes';
+  });
+}
+
+// Position the saved-value markers on the sliders and update their labels
+function updateMarkerPositions() {
+  const sameTvMarker = document.getElementById('same-tv-marker');
+  const crossTvMarker = document.getElementById('cross-tv-marker');
+
+  if (sameTvMarker) {
+    const pct = ((configuredSameTvHours - 6) / (168 - 6)) * 100;
+    sameTvMarker.style.left = `${pct}%`;
+    const label = sameTvMarker.querySelector('.marker-label');
+    if (label) label.textContent = `${configuredSameTvHours}h`;
+  }
+
+  if (crossTvMarker) {
+    const pct = ((configuredCrossTvHours - 6) / (168 - 6)) * 100;
+    crossTvMarker.style.left = `${pct}%`;
+    const label = crossTvMarker.querySelector('.marker-label');
+    if (label) label.textContent = `${configuredCrossTvHours}h`;
+  }
+}
+
+// Fetch preview data and show variety changes
+async function fetchVarietyPreview(sameTvHours, crossTvHours) {
+  try {
+    const params = new URLSearchParams();
+    params.append('same_tv_hours', sameTvHours);
+    params.append('cross_tv_hours', crossTvHours);
+
+    const response = await fetch(`${API_BASE}/ha/pool-health?${params.toString()}`);
+    const result = await response.json();
+
+    if (result.success && result.data && currentPoolHealthData) {
+      renderVarietyTable(result.data);
+    }
+  } catch (error) {
+    console.error('Error fetching variety preview:', error);
+  }
+}
+
+// Render the side-by-side variety table (always visible)
+function renderVarietyTable(previewData) {
+  const previewContainer = document.getElementById('recency-variety-preview');
+  if (!previewContainer || !currentPoolHealthData) return;
+
+  const currentTvs = currentPoolHealthData.tvs || {};
+  const previewTvs = previewData ? (previewData.tvs || {}) : null;
+
+  // Sort TVs alphabetically
+  const sortedTvIds = Object.keys(currentTvs).sort((a, b) =>
+    (currentTvs[a].name || '').localeCompare(currentTvs[b].name || '')
+  );
+
+  let html = `
+    <table class="recency-variety-table">
+      <thead>
+        <tr>
+          <th>TV</th>
+          <th style="text-align:center;">Available</th>
+          <th style="text-align:center;">
+            Variety
+            <span class="info-icon" data-tooltip="Hours of unique shuffles before repeating. Green (>10h) = healthy. Yellow (5-10h) = moderate. Red (<5h) = low variety.">ⓘ</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  for (const tvId of sortedTvIds) {
+    const currentData = currentTvs[tvId];
+    const currentAvailable = currentData.available || 0;
+    const poolSize = currentData.pool_size || 0;
+    const shuffleFreq = currentData.shuffle_frequency_minutes || 60;
+    const currentVariety = Math.round((currentAvailable * shuffleFreq) / 60);
+
+    let previewAvailableVal = currentAvailable;
+    let previewVariety = currentVariety;
+    let availableClass = 'no-change';
+    let varietyClass = 'no-change';
+    let availableDisplay = `${currentAvailable}`;
+    let varietyDisplay = `${currentVariety}h`;
+
+    if (previewTvs && previewTvs[tvId]) {
+      previewAvailableVal = previewTvs[tvId].available || 0;
+      previewVariety = Math.round((previewAvailableVal * shuffleFreq) / 60);
+
+      if (previewAvailableVal > currentAvailable) {
+        availableClass = 'increase';
+        availableDisplay = `${currentAvailable} → ${previewAvailableVal}`;
+      } else if (previewAvailableVal < currentAvailable) {
+        availableClass = 'decrease';
+        availableDisplay = `${currentAvailable} → ${previewAvailableVal}`;
+      }
+
+      if (previewVariety > currentVariety) {
+        varietyClass = 'increase';
+        varietyDisplay = `${currentVariety}h → ${previewVariety}h`;
+      } else if (previewVariety < currentVariety) {
+        varietyClass = 'decrease';
+        varietyDisplay = `${currentVariety}h → ${previewVariety}h`;
+      }
+    }
+
+    html += `
+      <tr>
+        <td class="tv-name">${escapeHtml(currentData.name || tvId)}</td>
+        <td class="preview-value ${availableClass}">${availableDisplay}${poolSize ? ` / ${poolSize}` : ''}</td>
+        <td class="preview-value ${varietyClass}">${varietyDisplay}</td>
+      </tr>
+    `;
+  }
+
+  html += `
+      </tbody>
+    </table>
+  `;
+
+  previewContainer.innerHTML = html;
+}
+
+// Update slider values from loaded pool health data
+function updateRecencySlidersFromData() {
+  if (!poolHealthData || !poolHealthData.windows) return;
+
+  // Store current data for preview comparisons
+  currentPoolHealthData = poolHealthData;
+
+  const windows = poolHealthData.windows;
+  configuredSameTvHours = windows.configured_same_tv_hours || windows.same_tv_hours || 120;
+  configuredCrossTvHours = windows.configured_cross_tv_hours || windows.cross_tv_hours || 72;
+
+  const sameTvSlider = document.getElementById('same-tv-slider');
+  const crossTvSlider = document.getElementById('cross-tv-slider');
+  const sameTvValue = document.getElementById('same-tv-value');
+  const crossTvValue = document.getElementById('cross-tv-value');
+  const applyBtn = document.getElementById('apply-recency-btn');
+
+  if (sameTvSlider && crossTvSlider) {
+    sameTvSlider.value = configuredSameTvHours;
+    crossTvSlider.value = configuredCrossTvHours;
+    sameTvValue.textContent = `${configuredSameTvHours}h`;
+    crossTvValue.textContent = `${configuredCrossTvHours}h`;
+    applyBtn.disabled = true;
+  }
+
+  // Position the saved-value markers
+  updateMarkerPositions();
+
+  // Render the variety table showing current values
+  renderVarietyTable(null);
 }
 
 // Tagset modal state

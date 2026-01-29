@@ -702,15 +702,23 @@ router.post('/tagsets/clear-override', requireHA, async (req, res) => {
 router.get('/pool-health', requireHA, async (req, res) => {
   // Mock data for development
   if (!SUPERVISOR_TOKEN && process.env.NODE_ENV === 'development') {
-    // Generate mock history data (48 hours of shuffles at 15-min intervals = ~192 points)
+    // Configured values (what's "saved")
+    const configuredSameTv = 120;
+    const configuredCrossTv = 72;
+
+    // Use query params for preview, or fall back to configured
+    const sameTvHours = parseInt(req.query.same_tv_hours, 10) || configuredSameTv;
+    const crossTvHours = parseInt(req.query.cross_tv_hours, 10) || configuredCrossTv;
+
+    // Generate mock history data (7 days of shuffles at 15-min intervals = ~672 points)
     const now = new Date();
     const generateMockHistory = (poolSize, startAvailable) => {
       const history = [];
-      // Generate data points every 15 minutes for 48 hours (192 points)
-      for (let i = 192; i >= 0; i--) {
+      // Generate data points every 15 minutes for 7 days (672 points)
+      for (let i = 672; i >= 0; i--) {
         const timestamp = new Date(now.getTime() - i * 15 * 60 * 1000);
         // Simulate gradual decrease with some variation
-        const available = Math.max(10, startAvailable - Math.floor(i * 0.8) + Math.floor(Math.random() * 20) - 10);
+        const available = Math.max(10, startAvailable - Math.floor(i * 0.2) + Math.floor(Math.random() * 20) - 10);
         history.push({
           timestamp: timestamp.toISOString(),
           pool_size: poolSize,
@@ -720,6 +728,21 @@ router.get('/pool-health', requireHA, async (req, res) => {
       return history;
     };
 
+    // Simulate how recency affects available count
+    // Larger windows = more images marked as recent = fewer available
+    const windowFactor = (sameTvHours + crossTvHours) / (configuredSameTv + configuredCrossTv);
+    const adjustRecent = (baseRecent) => Math.round(baseRecent * windowFactor);
+
+    const tv1SameTvRecent = adjustRecent(300);
+    const tv1CrossTvRecent = adjustRecent(50);
+    const tv1TotalRecent = tv1SameTvRecent + tv1CrossTvRecent;
+    const tv1Available = Math.max(0, 500 - tv1TotalRecent);
+
+    const tv2SameTvRecent = adjustRecent(320);
+    const tv2CrossTvRecent = adjustRecent(24);
+    const tv2TotalRecent = tv2SameTvRecent + tv2CrossTvRecent;
+    const tv2Available = Math.max(0, 533 - tv2TotalRecent);
+
     return res.json({
       success: true,
       data: {
@@ -727,43 +750,78 @@ router.get('/pool-health', requireHA, async (req, res) => {
           'mock_device_1': {
             name: 'Living Room Frame',
             pool_size: 500,
-            same_tv_recent: 300,
-            cross_tv_recent: 50,
-            total_recent: 350,
-            available: 150,
+            same_tv_recent: tv1SameTvRecent,
+            cross_tv_recent: tv1CrossTvRecent,
+            total_recent: tv1TotalRecent,
+            available: tv1Available,
             shuffle_frequency_minutes: 15,
-            same_tv_hours: 120,
-            cross_tv_hours: 72,
+            same_tv_hours: sameTvHours,
+            cross_tv_hours: crossTvHours,
             history: generateMockHistory(500, 200),
           },
           'mock_device_2': {
             name: 'Bedroom Frame',
             pool_size: 533,
-            same_tv_recent: 320,
-            cross_tv_recent: 24,
-            total_recent: 344,
-            available: 189,
+            same_tv_recent: tv2SameTvRecent,
+            cross_tv_recent: tv2CrossTvRecent,
+            total_recent: tv2TotalRecent,
+            available: tv2Available,
             shuffle_frequency_minutes: 15,
-            same_tv_hours: 120,
-            cross_tv_hours: 72,
+            same_tv_hours: sameTvHours,
+            cross_tv_hours: crossTvHours,
             history: generateMockHistory(533, 250),
           },
         },
         windows: {
-          same_tv_hours: 120,
-          cross_tv_hours: 72,
+          same_tv_hours: sameTvHours,
+          cross_tv_hours: crossTvHours,
+          configured_same_tv_hours: configuredSameTv,
+          configured_cross_tv_hours: configuredCrossTv,
         },
       },
     });
   }
 
   try {
-    const result = await haRequest('GET', '/api/frame_art_shuffler/pool_health');
+    // Pass through query params for preview
+    const params = new URLSearchParams();
+    if (req.query.same_tv_hours) params.append('same_tv_hours', req.query.same_tv_hours);
+    if (req.query.cross_tv_hours) params.append('cross_tv_hours', req.query.cross_tv_hours);
+    const queryString = params.toString();
+    const url = '/api/frame_art_shuffler/pool_health' + (queryString ? `?${queryString}` : '');
+
+    const result = await haRequest('GET', url);
     res.json({ success: true, data: result });
   } catch (error) {
     console.error('Error fetching pool health:', error.message);
     res.status(500).json({
       error: 'Failed to fetch pool health',
+      details: error.response?.data?.message || error.message
+    });
+  }
+});
+
+// POST /api/ha/set-recency-windows - Set recency window configuration
+router.post('/set-recency-windows', requireHA, async (req, res) => {
+  const { same_tv_hours, cross_tv_hours } = req.body;
+
+  // Mock for development
+  if (!SUPERVISOR_TOKEN && process.env.NODE_ENV === 'development') {
+    console.log('Mock: set_recency_windows called with', { same_tv_hours, cross_tv_hours });
+    return res.json({ success: true });
+  }
+
+  try {
+    const serviceData = {};
+    if (same_tv_hours !== undefined) serviceData.same_tv_hours = parseInt(same_tv_hours, 10);
+    if (cross_tv_hours !== undefined) serviceData.cross_tv_hours = parseInt(cross_tv_hours, 10);
+
+    await haRequest('POST', '/api/services/frame_art_shuffler/set_recency_windows', serviceData);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error setting recency windows:', error.message);
+    res.status(500).json({
+      error: 'Failed to set recency windows',
       details: error.response?.data?.message || error.message
     });
   }
