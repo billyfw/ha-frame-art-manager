@@ -9294,7 +9294,6 @@ body.dropdown-open .image-card:hover {
   border-spacing: 0;
   background: #fff;
   border-radius: 10px;
-  overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   border: 1px solid #d8dde3;
 }
@@ -9360,6 +9359,7 @@ body.dropdown-open .image-card:hover {
   color: #9ca3af;
   margin-left: 4px;
   position: relative;
+  cursor: default;
 }
 
 .pool-health-table .info-icon:hover {
@@ -9383,6 +9383,8 @@ body.dropdown-open .image-card:hover {
   width: 280px;
   line-height: 1.4;
   text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
   opacity: 0;
   visibility: hidden;
   z-index: 1000;
@@ -9400,6 +9402,22 @@ body.dropdown-open .image-card:hover {
 .pool-health-variety {
   font-weight: 600;
   text-align: center;
+}
+
+/* Sparkline/Trend column */
+.pool-health-trend {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.pool-health-sparkline {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.sparkline-empty {
+  color: #9ca3af;
+  font-size: 12px;
 }
 
 /* Mobile responsiveness for pool health table */

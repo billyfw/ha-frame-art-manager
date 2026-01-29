@@ -11970,6 +11970,58 @@ function showToast(message, duration = 3000) {
 // Global pool health data cache
 let poolHealthData = null;
 
+/**
+ * Generate an inline SVG sparkline for pool health history
+ * @param {Array} history - Array of {timestamp, pool_size, pool_available}
+ * @param {number} poolSize - Current pool size for scaling
+ * @returns {string} SVG markup string
+ */
+function generatePoolHealthSparkline(history, poolSize) {
+  if (!history || history.length < 2) {
+    return '<span class="sparkline-empty">—</span>';
+  }
+
+  const width = 80;
+  const height = 24;
+  const padding = 2;
+
+  // Extract available values
+  const values = history.map(h => h.pool_available);
+  const maxVal = Math.max(...values, poolSize * 0.5); // Use at least 50% of pool as max
+  const minVal = Math.min(...values, 0);
+  const range = maxVal - minVal || 1;
+
+  // Generate path points
+  const points = values.map((val, i) => {
+    const x = padding + (i / (values.length - 1)) * (width - 2 * padding);
+    const y = height - padding - ((val - minVal) / range) * (height - 2 * padding);
+    return `${x},${y}`;
+  });
+
+  // Determine color based on latest value trend
+  const latestValue = values[values.length - 1];
+  const avgValue = values.reduce((a, b) => a + b, 0) / values.length;
+  const strokeColor = latestValue >= avgValue ? '#22c55e' : '#ef4444'; // green if stable/up, red if down
+
+  // Create tooltip text
+  const firstTime = new Date(history[0].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const lastTime = new Date(history[history.length - 1].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const tooltip = `Available over 24h: ${values[0]} → ${latestValue} (${firstTime} - ${lastTime})`;
+
+  return `
+    <svg class="pool-health-sparkline" width="${width}" height="${height}" title="${escapeHtml(tooltip)}">
+      <polyline
+        fill="none"
+        stroke="${strokeColor}"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        points="${points.join(' ')}"
+      />
+    </svg>
+  `;
+}
+
 // Load pool health data from API
 async function loadPoolHealth() {
   const container = document.getElementById('pool-health-container');
@@ -12024,6 +12076,7 @@ function renderPoolHealthTable() {
             Variety
             <span class="info-icon" data-tooltip="Hours of unique shuffles before the sequence may start repeating. Green (>10h) = healthy variety. Yellow (5-10h) = moderate. Red (<5h) = low variety, consider adding images or reducing windows.">ⓘ</span>
           </th>
+          <th class="desktop-only" title="Available images over the last 48 hours">Trend (48h)</th>
         </tr>
       </thead>
       <tbody>
@@ -12050,6 +12103,9 @@ function renderPoolHealthTable() {
       varietyClass = 'health-medium';
     }
 
+    // Generate sparkline from history data
+    const sparkline = generatePoolHealthSparkline(data.history, poolSize);
+
     html += `
       <tr data-tv-id="${escapeHtml(tvId)}">
         <td class="pool-health-tv-name">${escapeHtml(data.name || tvId)}</td>
@@ -12059,6 +12115,7 @@ function renderPoolHealthTable() {
         <td class="pool-health-total desktop-only">${totalRecent}</td>
         <td class="pool-health-available">${available} (${availablePct}%)</td>
         <td class="pool-health-variety ${varietyClass}">${varietyDisplay}h</td>
+        <td class="pool-health-trend desktop-only">${sparkline}</td>
       </tr>
     `;
   }

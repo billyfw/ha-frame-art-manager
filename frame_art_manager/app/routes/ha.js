@@ -702,6 +702,24 @@ router.post('/tagsets/clear-override', requireHA, async (req, res) => {
 router.get('/pool-health', requireHA, async (req, res) => {
   // Mock data for development
   if (!SUPERVISOR_TOKEN && process.env.NODE_ENV === 'development') {
+    // Generate mock history data (48 hours of shuffles at 15-min intervals = ~192 points)
+    const now = new Date();
+    const generateMockHistory = (poolSize, startAvailable) => {
+      const history = [];
+      // Generate data points every 15 minutes for 48 hours (192 points)
+      for (let i = 192; i >= 0; i--) {
+        const timestamp = new Date(now.getTime() - i * 15 * 60 * 1000);
+        // Simulate gradual decrease with some variation
+        const available = Math.max(10, startAvailable - Math.floor(i * 0.8) + Math.floor(Math.random() * 20) - 10);
+        history.push({
+          timestamp: timestamp.toISOString(),
+          pool_size: poolSize,
+          pool_available: available,
+        });
+      }
+      return history;
+    };
+
     return res.json({
       success: true,
       data: {
@@ -716,6 +734,7 @@ router.get('/pool-health', requireHA, async (req, res) => {
             shuffle_frequency_minutes: 15,
             same_tv_hours: 120,
             cross_tv_hours: 72,
+            history: generateMockHistory(500, 200),
           },
           'mock_device_2': {
             name: 'Bedroom Frame',
@@ -727,6 +746,7 @@ router.get('/pool-health', requireHA, async (req, res) => {
             shuffle_frequency_minutes: 15,
             same_tv_hours: 120,
             cross_tv_hours: 72,
+            history: generateMockHistory(533, 250),
           },
         },
         windows: {
