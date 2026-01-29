@@ -691,9 +691,60 @@ router.post('/tagsets/clear-override', requireHA, async (req, res) => {
     res.json({ success: true, message: 'Override cleared' });
   } catch (error) {
     console.error('Error clearing tagset override:', error.message);
-    res.status(500).json({ 
-      error: 'Failed to clear tagset override', 
-      details: error.response?.data?.message || error.message 
+    res.status(500).json({
+      error: 'Failed to clear tagset override',
+      details: error.response?.data?.message || error.message
+    });
+  }
+});
+
+// GET /api/ha/pool-health - Get pool health data for all TVs
+router.get('/pool-health', requireHA, async (req, res) => {
+  // Mock data for development
+  if (!SUPERVISOR_TOKEN && process.env.NODE_ENV === 'development') {
+    return res.json({
+      success: true,
+      data: {
+        tvs: {
+          'mock_device_1': {
+            name: 'Living Room Frame',
+            pool_size: 500,
+            same_tv_recent: 300,
+            cross_tv_recent: 50,
+            total_recent: 350,
+            available: 150,
+            shuffle_frequency_minutes: 15,
+            same_tv_hours: 120,
+            cross_tv_hours: 72,
+          },
+          'mock_device_2': {
+            name: 'Bedroom Frame',
+            pool_size: 533,
+            same_tv_recent: 320,
+            cross_tv_recent: 24,
+            total_recent: 344,
+            available: 189,
+            shuffle_frequency_minutes: 15,
+            same_tv_hours: 120,
+            cross_tv_hours: 72,
+          },
+        },
+        windows: {
+          same_tv_hours: 120,
+          cross_tv_hours: 72,
+        },
+      },
+    });
+  }
+
+  try {
+    const result = await haRequest('GET', '/api/frame_art_shuffler/pool_health');
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error fetching pool health:', error.message);
+    res.status(500).json({
+      error: 'Failed to fetch pool health',
+      details: error.response?.data?.message || error.message
     });
   }
 });

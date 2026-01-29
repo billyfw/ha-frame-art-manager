@@ -11305,9 +11305,13 @@ async function loadTagsTab() {
   if (!allTVs || allTVs.length === 0) {
     await loadTVs();
   }
-  
+
   renderTagsetsTable();
   renderTVAssignments();
+
+  // Load pool health data and initialize refresh button
+  initPoolHealthRefreshButton();
+  loadPoolHealth();
 }
 
 // Track which tagsets have expanded tag lists
@@ -11941,22 +11945,147 @@ function showToast(message, duration = 3000) {
   if (existingToast) {
     existingToast.remove();
   }
-  
+
   const toast = document.createElement('div');
   toast.className = 'toast-notification';
   toast.textContent = message;
   document.body.appendChild(toast);
-  
+
   // Trigger animation
   requestAnimationFrame(() => {
     toast.classList.add('show');
   });
-  
+
   // Remove after duration
   setTimeout(() => {
     toast.classList.remove('show');
     setTimeout(() => toast.remove(), 300);
   }, duration);
+}
+
+// ============================================================================
+// POOL HEALTH
+// ============================================================================
+
+// Global pool health data cache
+let poolHealthData = null;
+
+// Load pool health data from API
+async function loadPoolHealth() {
+  const container = document.getElementById('pool-health-container');
+  if (!container) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/ha/pool-health`);
+    const result = await response.json();
+
+    if (result.success && result.data) {
+      poolHealthData = result.data;
+      renderPoolHealthTable();
+    } else {
+      container.innerHTML = `<p class="empty-state">Failed to load pool health: ${result.error || 'Unknown error'}</p>`;
+    }
+  } catch (error) {
+    console.error('Error loading pool health:', error);
+    container.innerHTML = `<p class="empty-state">Error loading pool health data.</p>`;
+  }
+}
+
+// Render the pool health table
+function renderPoolHealthTable() {
+  const container = document.getElementById('pool-health-container');
+  if (!container) return;
+
+  if (!poolHealthData || !poolHealthData.tvs || Object.keys(poolHealthData.tvs).length === 0) {
+    container.innerHTML = '<p class="empty-state">No pool health data available.</p>';
+    return;
+  }
+
+  const windows = poolHealthData.windows || {};
+  const sameTvHours = windows.same_tv_hours || 120;
+  const crossTvHours = windows.cross_tv_hours || 72;
+
+  // Sort TVs alphabetically by name
+  const sortedTVs = Object.entries(poolHealthData.tvs).sort((a, b) =>
+    (a[1].name || '').localeCompare(b[1].name || '')
+  );
+
+  let html = `
+    <table class="pool-health-table">
+      <thead>
+        <tr>
+          <th>TV</th>
+          <th>Pool</th>
+          <th class="desktop-only" title="Images shown on this TV within ${sameTvHours}h">Same-TV Recent</th>
+          <th class="desktop-only" title="Images shown on other TVs within ${crossTvHours}h (excludes same-TV)">Cross-TV Recent</th>
+          <th class="desktop-only" title="Total images deprioritized (same-TV + cross-TV)">Total Recent</th>
+          <th title="Images not recently shown, preferred for selection">Available</th>
+          <th>
+            Variety
+            <span class="info-icon" data-tooltip="Hours of unique shuffles before the sequence may start repeating. Green (>10h) = healthy variety. Yellow (5-10h) = moderate. Red (<5h) = low variety, consider adding images or reducing windows.">ⓘ</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  for (const [tvId, data] of sortedTVs) {
+    const poolSize = data.pool_size || 0;
+    const sameTvRecent = data.same_tv_recent || 0;
+    const crossTvRecent = data.cross_tv_recent || 0;
+    const totalRecent = data.total_recent || 0;
+    const available = data.available || 0;
+    const availablePct = poolSize > 0 ? Math.round((available / poolSize) * 100) : 0;
+    const shuffleFrequency = data.shuffle_frequency_minutes || 60;
+
+    // Calculate variety hours: how long until fresh pool is exhausted
+    const varietyHours = (available * shuffleFrequency) / 60;
+    const varietyDisplay = varietyHours >= 100 ? '99+' : Math.round(varietyHours);
+
+    // Determine health status for variety (more intuitive than available %)
+    let varietyClass = 'health-good';
+    if (varietyHours < 5) {
+      varietyClass = 'health-low';
+    } else if (varietyHours < 10) {
+      varietyClass = 'health-medium';
+    }
+
+    html += `
+      <tr data-tv-id="${escapeHtml(tvId)}">
+        <td class="pool-health-tv-name">${escapeHtml(data.name || tvId)}</td>
+        <td class="pool-health-pool">${poolSize}</td>
+        <td class="pool-health-same-tv desktop-only">${sameTvRecent}</td>
+        <td class="pool-health-cross-tv desktop-only">${crossTvRecent}</td>
+        <td class="pool-health-total desktop-only">${totalRecent}</td>
+        <td class="pool-health-available">${available} (${availablePct}%)</td>
+        <td class="pool-health-variety ${varietyClass}">${varietyDisplay}h</td>
+      </tr>
+    `;
+  }
+
+  html += `
+      </tbody>
+    </table>
+    <p class="pool-health-footer">
+      Windows: Same-TV ${sameTvHours}h, Cross-TV ${crossTvHours}h
+    </p>
+  `;
+
+  container.innerHTML = html;
+}
+
+// Initialize pool health refresh button
+function initPoolHealthRefreshButton() {
+  const btn = document.getElementById('refresh-pool-health-btn');
+  if (!btn) return;
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = 'Loading...';
+    await loadPoolHealth();
+    btn.disabled = false;
+    btn.textContent = 'Refresh';
+  });
 }
 
 // Tagset modal state
