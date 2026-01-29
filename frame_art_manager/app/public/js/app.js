@@ -11985,7 +11985,7 @@ let poolHealthData = null;
  */
 function generatePoolHealthSparkline(history, poolSize) {
   if (!history || history.length < 2) {
-    return '<span class="sparkline-empty">—</span>';
+    return '<span class="sparkline-empty" title="History accumulates with each auto-shuffle">—</span>';
   }
 
   const width = 80;
@@ -12010,10 +12010,12 @@ function generatePoolHealthSparkline(history, poolSize) {
   const avgValue = values.reduce((a, b) => a + b, 0) / values.length;
   const strokeColor = latestValue >= avgValue ? '#22c55e' : '#ef4444'; // green if stable/up, red if down
 
-  // Create tooltip text
-  const firstTime = new Date(history[0].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const lastTime = new Date(history[history.length - 1].timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const tooltip = `Available over 24h: ${values[0]} → ${latestValue} (${firstTime} - ${lastTime})`;
+  // Create tooltip text showing time range of actual data
+  const firstDate = new Date(history[0].timestamp);
+  const lastDate = new Date(history[history.length - 1].timestamp);
+  const hoursSpan = Math.round((lastDate - firstDate) / (1000 * 60 * 60));
+  const timeLabel = hoursSpan >= 24 ? `${Math.round(hoursSpan / 24)}d` : `${hoursSpan}h`;
+  const tooltip = `Available over ${timeLabel}: ${values[0]} → ${latestValue} (${history.length} samples)`;
 
   return `
     <svg class="pool-health-sparkline" width="${width}" height="${height}" title="${escapeHtml(tooltip)}">
