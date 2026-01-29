@@ -11984,23 +11984,41 @@ let poolHealthData = null;
  * @returns {string} SVG markup string
  */
 function generatePoolHealthSparkline(history, poolSize) {
-  if (!history || history.length < 2) {
-    return '<span class="sparkline-empty" title="History accumulates with each auto-shuffle">—</span>';
-  }
-
   const width = 80;
   const height = 24;
   const padding = 2;
+  const maxHours = 168; // 7 days
+
+  if (!history || history.length < 2) {
+    // Show full gray placeholder for no data
+    return `
+      <svg class="pool-health-sparkline" width="${width}" height="${height}" title="History accumulates with each auto-shuffle">
+        <line x1="${padding}" y1="${height/2}" x2="${width - padding}" y2="${height/2}"
+              stroke="#e5e7eb" stroke-width="1" stroke-dasharray="2,2"/>
+      </svg>
+    `;
+  }
+
+  // Calculate what portion of 7 days we have data for
+  const firstDate = new Date(history[0].timestamp);
+  const lastDate = new Date(history[history.length - 1].timestamp);
+  const hoursSpan = Math.max(1, (lastDate - firstDate) / (1000 * 60 * 60));
+  const dataPct = Math.min(1, hoursSpan / maxHours);
+
+  // Gray section on left (missing data), sparkline on right (actual data)
+  const grayWidth = (1 - dataPct) * (width - 2 * padding);
+  const sparklineWidth = dataPct * (width - 2 * padding);
+  const sparklineStart = padding + grayWidth;
 
   // Extract available values
   const values = history.map(h => h.pool_available);
-  const maxVal = Math.max(...values, poolSize * 0.5); // Use at least 50% of pool as max
+  const maxVal = Math.max(...values, poolSize * 0.5);
   const minVal = Math.min(...values, 0);
   const range = maxVal - minVal || 1;
 
-  // Generate path points
+  // Generate path points (scaled to sparkline portion only)
   const points = values.map((val, i) => {
-    const x = padding + (i / (values.length - 1)) * (width - 2 * padding);
+    const x = sparklineStart + (i / (values.length - 1)) * sparklineWidth;
     const y = height - padding - ((val - minVal) / range) * (height - 2 * padding);
     return `${x},${y}`;
   });
@@ -12008,27 +12026,27 @@ function generatePoolHealthSparkline(history, poolSize) {
   // Determine color based on latest value trend
   const latestValue = values[values.length - 1];
   const avgValue = values.reduce((a, b) => a + b, 0) / values.length;
-  const strokeColor = latestValue >= avgValue ? '#22c55e' : '#ef4444'; // green if stable/up, red if down
+  const strokeColor = latestValue >= avgValue ? '#22c55e' : '#ef4444';
 
-  // Create tooltip text showing time range of actual data
-  const firstDate = new Date(history[0].timestamp);
-  const lastDate = new Date(history[history.length - 1].timestamp);
-  const hoursSpan = Math.round((lastDate - firstDate) / (1000 * 60 * 60));
-  const timeLabel = hoursSpan >= 24 ? `${Math.round(hoursSpan / 24)}d` : `${hoursSpan}h`;
+  // Create tooltip
+  const timeLabel = hoursSpan >= 24 ? `${Math.round(hoursSpan / 24)}d` : `${Math.round(hoursSpan)}h`;
   const tooltip = `Available over ${timeLabel}: ${values[0]} → ${latestValue} (${history.length} samples)`;
 
-  return `
-    <svg class="pool-health-sparkline" width="${width}" height="${height}" title="${escapeHtml(tooltip)}">
-      <polyline
-        fill="none"
-        stroke="${strokeColor}"
-        stroke-width="1.5"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        points="${points.join(' ')}"
-      />
-    </svg>
-  `;
+  // Build SVG with gray placeholder on left, sparkline on right
+  let svg = `<svg class="pool-health-sparkline" width="${width}" height="${height}" title="${escapeHtml(tooltip)}">`;
+
+  // Gray dotted line for missing data (only if less than ~95% coverage)
+  if (dataPct < 0.95 && grayWidth > 3) {
+    svg += `<line x1="${padding}" y1="${height/2}" x2="${sparklineStart - 1}" y2="${height/2}"
+                  stroke="#d1d5db" stroke-width="1" stroke-dasharray="2,2"/>`;
+  }
+
+  // Actual sparkline
+  svg += `<polyline fill="none" stroke="${strokeColor}" stroke-width="1.5"
+                    stroke-linecap="round" stroke-linejoin="round" points="${points.join(' ')}"/>`;
+  svg += `</svg>`;
+
+  return svg;
 }
 
 // Load pool health data from API
