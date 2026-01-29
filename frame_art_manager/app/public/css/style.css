@@ -9268,6 +9268,153 @@ body.dropdown-open .image-card:hover {
   border: none;
 }
 
+/* Pool Health Section */
+.pool-health-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.pool-health-header h3 {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.pool-health-description {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 12px 0;
+}
+
+.pool-health-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #d8dde3;
+}
+
+.pool-health-table thead {
+  background: linear-gradient(to bottom, #f0f4f8, #e8ecf0);
+  border-bottom: 2px solid #d0d5dc;
+}
+
+.pool-health-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: #4a5568;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.pool-health-table td {
+  padding: 12px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid #e8ecf0;
+  vertical-align: middle;
+  text-align: left;
+}
+
+.pool-health-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.pool-health-table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+/* Pool health status colors */
+.pool-health-available.health-good {
+  color: #059669;
+  font-weight: 600;
+}
+
+.pool-health-available.health-medium {
+  color: #d97706;
+  font-weight: 600;
+}
+
+.pool-health-available.health-low {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.pool-health-footer {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 8px 0 0 0;
+  text-align: right;
+}
+
+/* Info icon for tooltips */
+.pool-health-table .info-icon {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-left: 4px;
+  position: relative;
+}
+
+.pool-health-table .info-icon:hover {
+  color: #6b7280;
+}
+
+/* Custom instant tooltip for info icon */
+.pool-health-table .info-icon::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #374151;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: normal;
+  width: 280px;
+  line-height: 1.4;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  margin-bottom: 6px;
+}
+
+.pool-health-table .info-icon:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Variety column */
+.pool-health-variety {
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Mobile responsiveness for pool health table */
+@media (max-width: 768px) {
+  .pool-health-table th.desktop-only,
+  .pool-health-table td.desktop-only {
+    display: none;
+  }
+
+  .pool-health-table th,
+  .pool-health-table td {
+    padding: 10px 12px;
+  }
+}
+
 /* Tagsets Table */
 .tagsets-table {
   width: 100%;
