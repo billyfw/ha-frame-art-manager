@@ -12275,12 +12275,12 @@ function initRecencySliders() {
       const result = await response.json();
 
       if (result.success) {
-        // Update configured values
-        configuredSameTvHours = sameTv;
-        configuredCrossTvHours = crossTv;
         // Refresh table with new actual values
         await loadPoolHealth();
-        // Update marker positions
+        // Override configured values (server response may lag behind our new values)
+        configuredSameTvHours = sameTv;
+        configuredCrossTvHours = crossTv;
+        // Update marker positions to reflect new saved values
         updateMarkerPositions();
         // Keep buttons disabled since values now match configured
         applyBtn.textContent = 'Apply Changes';
