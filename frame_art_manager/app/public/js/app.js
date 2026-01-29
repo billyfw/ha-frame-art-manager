@@ -12194,6 +12194,7 @@ function initRecencySliders() {
   const sameTvMarker = document.getElementById('same-tv-marker');
   const crossTvMarker = document.getElementById('cross-tv-marker');
   const applyBtn = document.getElementById('apply-recency-btn');
+  const resetBtn = document.getElementById('reset-recency-btn');
 
   if (!sameTvSlider || !crossTvSlider) return;
 
@@ -12232,9 +12233,10 @@ function initRecencySliders() {
     const sameTv = parseInt(sameTvSlider.value, 10);
     const crossTv = parseInt(crossTvSlider.value, 10);
 
-    // Enable apply button if values differ from configured
+    // Enable apply/reset buttons if values differ from configured
     const hasChanges = sameTv !== configuredSameTvHours || crossTv !== configuredCrossTvHours;
     applyBtn.disabled = !hasChanges;
+    if (resetBtn) resetBtn.disabled = !hasChanges;
 
     clearTimeout(previewTimeout);
     if (hasChanges) {
@@ -12243,6 +12245,17 @@ function initRecencySliders() {
       // Reset preview to show current values (no change)
       renderVarietyTable(null);
     }
+  }
+
+  // Reset button handler - revert sliders to saved values
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      sameTvSlider.value = configuredSameTvHours;
+      crossTvSlider.value = configuredCrossTvHours;
+      sameTvValue.textContent = `${configuredSameTvHours}h`;
+      crossTvValue.textContent = `${configuredCrossTvHours}h`;
+      onSliderChange();
+    });
   }
 
   // Apply button handler
