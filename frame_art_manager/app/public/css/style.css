@@ -9342,6 +9342,19 @@ body.dropdown-open .image-card:hover {
   background: #fafbfc;
 }
 
+/* Available + Trend grouped columns - subtle background to show relationship */
+.pool-health-table th.pool-health-available-header,
+.pool-health-table th.pool-health-trend-header,
+.pool-health-table td.pool-health-available,
+.pool-health-table td.pool-health-trend {
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.pool-health-table tbody tr:nth-child(even) td.pool-health-available,
+.pool-health-table tbody tr:nth-child(even) td.pool-health-trend {
+  background: rgba(59, 130, 246, 0.07);
+}
+
 /* Pool health status colors */
 .pool-health-available.health-good {
   color: #059669;
