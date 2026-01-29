@@ -12282,15 +12282,22 @@ function initRecencySliders() {
         await loadPoolHealth();
         // Update marker positions
         updateMarkerPositions();
+        // Keep buttons disabled since values now match configured
+        applyBtn.textContent = 'Apply Changes';
+        applyBtn.disabled = true;
+        if (resetBtn) resetBtn.disabled = true;
+        // Clear preview (values match)
+        renderVarietyTable(null);
       } else {
         console.error('Error applying recency windows:', result.error);
+        applyBtn.disabled = false;
+        applyBtn.textContent = 'Apply Changes';
       }
     } catch (error) {
       console.error('Error applying recency windows:', error);
+      applyBtn.disabled = false;
+      applyBtn.textContent = 'Apply Changes';
     }
-
-    applyBtn.disabled = false;
-    applyBtn.textContent = 'Apply Changes';
   });
 }
 
@@ -12429,12 +12436,15 @@ function updateRecencySlidersFromData() {
   const crossTvValue = document.getElementById('cross-tv-value');
   const applyBtn = document.getElementById('apply-recency-btn');
 
+  const resetBtn = document.getElementById('reset-recency-btn');
+
   if (sameTvSlider && crossTvSlider) {
     sameTvSlider.value = configuredSameTvHours;
     crossTvSlider.value = configuredCrossTvHours;
     sameTvValue.textContent = `${configuredSameTvHours}h`;
     crossTvValue.textContent = `${configuredCrossTvHours}h`;
     applyBtn.disabled = true;
+    if (resetBtn) resetBtn.disabled = true;
   }
 
   // Position the saved-value markers
