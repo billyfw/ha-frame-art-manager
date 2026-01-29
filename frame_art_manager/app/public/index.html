@@ -354,6 +354,7 @@
         <!-- Sub-tabs for Advanced section -->
         <div class="advanced-tabs">
           <button class="advanced-tab-btn active" data-tab="tags">Tags</button>
+          <button class="advanced-tab-btn" data-tab="recency">Recency</button>
           <button class="advanced-tab-btn" data-tab="settings">Settings</button>
           <button class="advanced-tab-btn" data-tab="metadata">Metadata</button>
           <button class="advanced-tab-btn" data-tab="sync">Sync Detail</button>
@@ -380,6 +381,20 @@
             </div>
           </div>
 
+          <!-- Tagsets Section -->
+          <div class="subsection subsection-no-card tagsets-section">
+            <div class="tagsets-header">
+              <h3>Manage Tagsets</h3>
+              <button type="button" id="new-tagset-btn" class="btn-primary btn-small">+ New Tagset</button>
+            </div>
+            <div id="tagsets-table-container">
+              <div class="loading-indicator">Loading tagsets...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recency Sub-tab -->
+        <div id="advanced-recency-content" class="advanced-tab-content">
           <!-- Pool Health Section -->
           <div class="subsection subsection-no-card">
             <div class="pool-health-header">
@@ -390,16 +405,57 @@
             <div id="pool-health-container" class="pool-health-container">
               <div class="loading-indicator">Loading pool health...</div>
             </div>
-          </div>
 
-          <!-- Tagsets Section -->
-          <div class="subsection subsection-no-card tagsets-section">
-            <div class="tagsets-header">
-              <h3>Manage Tagsets</h3>
-              <button type="button" id="new-tagset-btn" class="btn-primary btn-small">+ New Tagset</button>
-            </div>
-            <div id="tagsets-table-container">
-              <div class="loading-indicator">Loading tagsets...</div>
+            <!-- Recency Windows Configuration -->
+            <div class="recency-windows-config">
+              <h4>Recency Windows</h4>
+              <p class="recency-windows-description">Adjust how long images are deprioritized after being shown. Drag sliders to preview impact on Variety.</p>
+              <div class="recency-sliders">
+                <div class="recency-slider-row">
+                  <label for="same-tv-slider">Same-TV:</label>
+                  <span class="slider-edge-label">6h</span>
+                  <div class="slider-container">
+                    <div class="slider-day-marks">
+                      <div class="slider-day-mark" style="left:11.1%"><span>1d</span></div>
+                      <div class="slider-day-mark" style="left:25.9%"><span>2d</span></div>
+                      <div class="slider-day-mark" style="left:40.7%"><span>3d</span></div>
+                      <div class="slider-day-mark" style="left:55.6%"><span>4d</span></div>
+                      <div class="slider-day-mark" style="left:70.4%"><span>5d</span></div>
+                      <div class="slider-day-mark" style="left:85.2%"><span>6d</span></div>
+                    </div>
+                    <input type="range" id="same-tv-slider" min="6" max="168" value="120" class="recency-slider">
+                    <div id="same-tv-marker" class="slider-saved-marker" title="Click to reset to saved value">
+                      <span class="marker-label"></span>
+                    </div>
+                  </div>
+                  <span class="slider-edge-label">7d</span>
+                  <span id="same-tv-value" class="recency-value">120h</span>
+                </div>
+                <div class="recency-slider-row">
+                  <label for="cross-tv-slider">Cross-TV:</label>
+                  <span class="slider-edge-label">6h</span>
+                  <div class="slider-container">
+                    <div class="slider-day-marks">
+                      <div class="slider-day-mark" style="left:11.1%"><span>1d</span></div>
+                      <div class="slider-day-mark" style="left:25.9%"><span>2d</span></div>
+                      <div class="slider-day-mark" style="left:40.7%"><span>3d</span></div>
+                      <div class="slider-day-mark" style="left:55.6%"><span>4d</span></div>
+                      <div class="slider-day-mark" style="left:70.4%"><span>5d</span></div>
+                      <div class="slider-day-mark" style="left:85.2%"><span>6d</span></div>
+                    </div>
+                    <input type="range" id="cross-tv-slider" min="6" max="168" value="72" class="recency-slider">
+                    <div id="cross-tv-marker" class="slider-saved-marker" title="Click to reset to saved value">
+                      <span class="marker-label"></span>
+                    </div>
+                  </div>
+                  <span class="slider-edge-label">7d</span>
+                  <span id="cross-tv-value" class="recency-value">72h</span>
+                </div>
+              </div>
+              <div id="recency-variety-preview" class="recency-variety-preview"></div>
+              <div class="recency-actions">
+                <button type="button" id="apply-recency-btn" class="btn-primary btn-small" disabled>Apply Changes</button>
+              </div>
             </div>
           </div>
         </div>
