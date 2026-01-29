@@ -12099,8 +12099,8 @@ function renderPoolHealthTable() {
           <th class="desktop-only" title="Images shown on this TV within ${sameTvHours}h">Same-TV Recent</th>
           <th class="desktop-only" title="Images shown on other TVs within ${crossTvHours}h (excludes same-TV)">Cross-TV Recent</th>
           <th class="desktop-only" title="Total images deprioritized (same-TV + cross-TV)">Total Recent</th>
-          <th title="Images not recently shown, preferred for selection">Available</th>
-          <th class="desktop-only">
+          <th class="pool-health-available-header" title="Images not recently shown, preferred for selection">Available</th>
+          <th class="pool-health-trend-header desktop-only">
             Trend (7d)
             <span class="info-icon" data-tooltip="Available count over the last 7 days. Shows how your pool availability has changed over time.">ⓘ</span>
           </th>
