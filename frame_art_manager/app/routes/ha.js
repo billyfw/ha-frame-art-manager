@@ -5,10 +5,15 @@ const path = require('path');
 const fs = require('fs');
 
 /**
- * Parse JSONL (one JSON object per line) into an array.
+ * Parse events data in either JSONL or JSON array format.
+ * JSONL: one JSON object per line. JSON array: traditional [...] format.
  */
 function parseJsonl(data) {
-  return data.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
+  const trimmed = data.trim();
+  if (trimmed.startsWith('[')) {
+    return JSON.parse(trimmed);
+  }
+  return trimmed.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
 }
 
 // Supervisor API configuration
