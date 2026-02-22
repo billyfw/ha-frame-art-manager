@@ -4,6 +4,13 @@ const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
 
+/**
+ * Parse JSONL (one JSON object per line) into an array.
+ */
+function parseJsonl(data) {
+  return data.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
+}
+
 // Supervisor API configuration
 const SUPERVISOR_TOKEN = process.env.SUPERVISOR_TOKEN;
 // Allow overriding HA_URL for local development (e.g. http://192.168.1.100:8123/api)
@@ -433,7 +440,7 @@ router.get('/recently-displayed', requireHA, async (req, res) => {
     try {
       const eventsPath = path.join(logsPath, 'events.json');
       const eventsData = await fs.promises.readFile(eventsPath, 'utf8');
-      events = JSON.parse(eventsData) || [];
+      events = parseJsonl(eventsData);
     } catch (e) {
       // events.json may not exist - that's fine
     }

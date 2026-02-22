@@ -3,6 +3,13 @@ const router = express.Router();
 const fs = require('fs').promises;
 const path = require('path');
 
+/**
+ * Parse JSONL (one JSON object per line) into an array.
+ */
+function parseJsonl(data) {
+  return data.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
+}
+
 // Path to activity logs - in production this is /config/frame_art/logs/
 // In development, use test-data folder
 const getLogsPath = () => {
@@ -22,9 +29,9 @@ async function buildDisplayPeriods(logsPath) {
   
   try {
     const data = await fs.readFile(eventsPath, 'utf8');
-    const events = JSON.parse(data);
-    
-    if (!Array.isArray(events) || events.length === 0) {
+    const events = parseJsonl(data);
+
+    if (events.length === 0) {
       return {};
     }
     
@@ -167,11 +174,7 @@ router.get('/last-displayed', async (req, res) => {
   
   try {
     const data = await fs.readFile(eventsPath, 'utf8');
-    const events = JSON.parse(data);
-    
-    if (!Array.isArray(events)) {
-      return res.json({ success: true, lastDisplayed: {} });
-    }
+    const events = parseJsonl(data);
     
     // Find the most recent completed_at for each filename
     const lastDisplayed = {};
