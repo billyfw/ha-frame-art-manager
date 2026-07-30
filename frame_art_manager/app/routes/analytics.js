@@ -20,15 +20,58 @@ const getLogsPath = () => {
   return path.join(__dirname, '..', 'test-data', 'mock-logs');
 };
 
+// Multi-home: the shuffler's display logs live on each house's HA box. As an
+// add-on we read them off the shared /config mount; centrally (Fly) we fetch
+// them from the integration's logs view. See docs/MULTI_HOME_PLAN.md §4.3.
+const axios = require('axios');
+const houses = require('../houses');
+
+/**
+ * Read one log file ('events' | 'summary' | 'pending') for the request's house.
+ * Missing data raises an ENOENT-coded error so existing "no data yet" handling
+ * works identically for both the local-file and HTTP paths.
+ */
+async function readLog(req, type) {
+  const house = houses.resolveHouse(req);
+
+  if (!house) {
+    const filename = type === 'events' ? 'events.json'
+      : type === 'pending' ? 'pending.json' : 'summary.json';
+    return fs.readFile(path.join(getLogsPath(), filename), 'utf8');
+  }
+
+  const cfg = houses.houseRequestConfig(house);
+  try {
+    const response = await axios({
+      method: 'GET',
+      url: `${house.baseUrl}/api/frame_art_shuffler/logs`,
+      params: { type },
+      headers: cfg.headers,
+      timeout: cfg.timeout,
+      httpAgent: cfg.httpAgent,
+      httpsAgent: cfg.httpsAgent,
+      proxy: cfg.proxy,
+      responseType: 'text',
+      transformResponse: [(d) => d],
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.status === 404) {
+      const err = new Error(`No ${type} log at ${house.id}`);
+      err.code = 'ENOENT';
+      throw err;
+    }
+    throw error;
+  }
+}
+
 /**
  * Build display_periods from events.json for timeline visualization
  * Groups events by image+TV and returns time ranges
  */
-async function buildDisplayPeriods(logsPath) {
-  const eventsPath = path.join(logsPath, 'events.json');
-  
+async function buildDisplayPeriods(eventsData) {
   try {
-    const data = await fs.readFile(eventsPath, 'utf8');
+    const data = eventsData;
     const events = parseJsonl(data);
 
     if (events.length === 0) {
@@ -90,15 +133,17 @@ async function buildDisplayPeriods(logsPath) {
 
 // GET /api/analytics/summary - Get activity summary data
 router.get('/summary', async (req, res) => {
-  const logsPath = getLogsPath();
-  const summaryPath = path.join(logsPath, 'summary.json');
-  
   try {
-    const data = await fs.readFile(summaryPath, 'utf8');
+    const data = await readLog(req, 'summary');
     const summary = JSON.parse(data);
-    
-    // Also load display periods from events.json
-    const displayPeriods = await buildDisplayPeriods(logsPath);
+
+    // Also load display periods from events.json (best effort)
+    let displayPeriods = {};
+    try {
+      displayPeriods = await buildDisplayPeriods(await readLog(req, 'events'));
+    } catch (err) {
+      if (err.code !== 'ENOENT') console.warn('display periods unavailable:', err.message);
+    }
     
     // Merge display_periods into each image's data
     if (summary.images && Object.keys(displayPeriods).length > 0) {
@@ -143,13 +188,10 @@ router.get('/summary', async (req, res) => {
 
 // GET /api/analytics/status - Quick check if logging is available
 router.get('/status', async (req, res) => {
-  const logsPath = getLogsPath();
-  const summaryPath = path.join(logsPath, 'summary.json');
-  
   try {
-    const data = await fs.readFile(summaryPath, 'utf8');
+    const data = await readLog(req, 'summary');
     const summary = JSON.parse(data);
-    
+
     res.json({
       available: true,
       logging_enabled: summary.logging_enabled ?? true,
@@ -169,11 +211,8 @@ router.get('/status', async (req, res) => {
 // GET /api/analytics/last-displayed - Get last displayed timestamp for each image
 // Returns { filename: timestamp } for sorting by last displayed
 router.get('/last-displayed', async (req, res) => {
-  const logsPath = getLogsPath();
-  const eventsPath = path.join(logsPath, 'events.json');
-  
   try {
-    const data = await fs.readFile(eventsPath, 'utf8');
+    const data = await readLog(req, 'events');
     const events = parseJsonl(data);
     
     // Find the most recent completed_at for each filename

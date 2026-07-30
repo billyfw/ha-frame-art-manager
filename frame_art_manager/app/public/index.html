@@ -6,6 +6,15 @@
   <title>ANCWBFW Frame Art Manager</title>
   <base href="./">
   <link rel="stylesheet" href="css/style.css">
+  <!-- PWA: installable from the tailnet HTTPS origin (frame.<tailnet>.ts.net).
+       The service worker exists for installability only — no offline caching,
+       see public/sw.js. -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#1a1a1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Frame Art">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
 </head>
 <body>
   <div class="container">
@@ -1266,6 +1275,14 @@
   </div>
 
   <script src="js/app.js"></script>
+  <script src="js/house-switcher.js"></script>
+  <script>
+    if ('serviceWorker' in navigator && location.protocol === 'https:') {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () { /* non-fatal */ });
+      });
+    }
+  </script>
 </body>
 </html>
 

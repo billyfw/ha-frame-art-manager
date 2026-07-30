@@ -16,16 +16,22 @@ const SUPERVISOR_TOKEN = process.env.SUPERVISOR_TOKEN;
 // Allow overriding HA_URL for local development (e.g. http://192.168.1.100:8123/api)
 const HA_API_BASE = process.env.HA_URL || 'http://supervisor/core/api';
 
-// Middleware to check if we're running in HA environment
+// Multi-home: when HOUSES_JSON is configured (central/Fly deployment) requests
+// go straight to each house's HA REST API with a long-lived token. The
+// Supervisor path below remains for the legacy add-on deployment.
+const houses = require('../houses');
+
+// Middleware: attach the target house (?house=<id>, default first) and ensure
+// we have SOME way to reach Home Assistant.
 const requireHA = (req, res, next) => {
-  if (!SUPERVISOR_TOKEN) {
-    // For development/testing outside HA, you might want to mock this or error
-    if (process.env.NODE_ENV === 'development') {
-      return next();
-    }
-    return res.status(503).json({ error: 'Home Assistant Supervisor token not found. Are we running as an Add-on?' });
-  }
-  next();
+  req.house = houses.resolveHouse(req);
+  if (req.house || SUPERVISOR_TOKEN) return next();
+  if (process.env.NODE_ENV === 'development') return next();
+  return res.status(503).json({
+    error:
+      'No Home Assistant connection configured. Set HOUSES_JSON + token env vars ' +
+      '(central deployment) or run as an add-on with a Supervisor token.',
+  });
 };
 
 // Mock tagsets for development - GLOBAL tagsets (not per-TV)
@@ -84,9 +90,11 @@ const MOCK_TV_TAGSET_ASSIGNMENTS = {
   }
 };
 
-// Helper for HA requests
-const haRequest = async (method, endpoint, data = null) => {
-  if (!SUPERVISOR_TOKEN && process.env.NODE_ENV === 'development') {
+// Helper for HA requests.
+// `house` (from req.house) selects the target home; when absent we fall back to
+// the Supervisor proxy, i.e. the legacy add-on deployment.
+const haRequest = async (method, endpoint, data = null, house = null) => {
+  if (!SUPERVISOR_TOKEN && !house && process.env.NODE_ENV === 'development') {
     // Mock responses for dev
     if (endpoint.includes('template')) {
       // Helper to get effective tags for a TV based on global tagsets
@@ -144,15 +152,30 @@ const haRequest = async (method, endpoint, data = null) => {
   }
 
   try {
-    const config = {
-      method,
-      url: `${HA_API_BASE}${endpoint}`,
-      headers: {
-        'Authorization': `Bearer ${SUPERVISOR_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      data
-    };
+    let config;
+    if (house) {
+      const houseCfg = houses.houseRequestConfig(house);
+      config = {
+        method,
+        url: `${houseCfg.apiBase}${endpoint}`,
+        headers: houseCfg.headers,
+        timeout: houseCfg.timeout,
+        httpAgent: houseCfg.httpAgent,
+        httpsAgent: houseCfg.httpsAgent,
+        proxy: houseCfg.proxy,
+        data
+      };
+    } else {
+      config = {
+        method,
+        url: `${HA_API_BASE}${endpoint}`,
+        headers: {
+          'Authorization': `Bearer ${SUPERVISOR_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        data
+      };
+    }
     const response = await axios(config);
     return response.data;
   } catch (error) {
@@ -163,6 +186,16 @@ const haRequest = async (method, endpoint, data = null) => {
     throw error;
   }
 };
+
+// GET /api/ha/houses - Homes this manager can talk to, and which one is active.
+// Not behind requireHA: the UI calls it to decide whether to show the switcher.
+router.get('/houses', (req, res) => {
+  const active = houses.resolveHouse(req);
+  res.json({
+    houses: houses.listHousesPublic(),
+    active: active ? active.id : null,
+  });
+});
 
 // GET /api/ha/tvs - Get list of Frame TVs with tagset data
 router.get('/tvs', requireHA, async (req, res) => {
@@ -246,7 +279,7 @@ router.get('/tvs', requireHA, async (req, res) => {
       {{ {'tagsets': ns.global_tagsets, 'tvs': ns.tvs} | to_json }}
     `;
 
-    const result = await haRequest('POST', '/template', { template });
+    const result = await haRequest('POST', '/template', { template }, req.house);
     
     // The template API returns the rendered string, we need to parse it
     let data = { tagsets: {}, tvs: [] };
@@ -312,7 +345,7 @@ router.post('/display', requireHA, async (req, res) => {
       payload.entity_id = entity_id;
     }
 
-    await haRequest('POST', `/services/frame_art_shuffler/display_image`, payload);
+    await haRequest('POST', `/services/frame_art_shuffler/display_image`, payload, req.house);
 
     res.json({ success: true, message: 'Command sent to TV' });
   } catch (error) {
@@ -385,7 +418,7 @@ router.get('/recently-displayed', requireHA, async (req, res) => {
     
     let haResult = [];
     if (SUPERVISOR_TOKEN || process.env.NODE_ENV !== 'development') {
-      const result = await haRequest('POST', '/template', { template });
+      const result = await haRequest('POST', '/template', { template }, req.house);
       if (typeof result === 'string') {
         try {
           haResult = JSON.parse(result);
@@ -554,7 +587,7 @@ router.post('/tagsets/upsert', requireHA, async (req, res) => {
       }
     }
 
-    await haRequest('POST', '/services/frame_art_shuffler/upsert_tagset', payload);
+    await haRequest('POST', '/services/frame_art_shuffler/upsert_tagset', payload, req.house);
     res.json({ success: true, message: `Tagset '${name}' saved` });
   } catch (error) {
     console.error('Error upserting tagset:', error.message);
@@ -612,7 +645,7 @@ router.post('/tagsets/delete', requireHA, async (req, res) => {
   }
 
   try {
-    await haRequest('POST', '/services/frame_art_shuffler/delete_tagset', { name: tagsetName });
+    await haRequest('POST', '/services/frame_art_shuffler/delete_tagset', { name: tagsetName }, req.house);
     res.json({ success: true, message: `Tagset '${tagsetName}' deleted` });
   } catch (error) {
     console.error('Error deleting tagset:', error.message);
@@ -640,7 +673,7 @@ router.post('/tagsets/select', requireHA, async (req, res) => {
       name: name.trim()
     };
 
-    await haRequest('POST', '/services/frame_art_shuffler/select_tagset', payload);
+    await haRequest('POST', '/services/frame_art_shuffler/select_tagset', payload, req.house);
     res.json({ success: true, message: `Tagset '${name}' selected` });
   } catch (error) {
     console.error('Error selecting tagset:', error.message);
@@ -672,7 +705,7 @@ router.post('/tagsets/override', requireHA, async (req, res) => {
       duration_minutes
     };
 
-    await haRequest('POST', '/services/frame_art_shuffler/override_tagset', payload);
+    await haRequest('POST', '/services/frame_art_shuffler/override_tagset', payload, req.house);
     res.json({ success: true, message: `Override '${name}' applied for ${duration_minutes} minutes` });
   } catch (error) {
     console.error('Error applying tagset override:', error.message);
@@ -694,7 +727,7 @@ router.post('/tagsets/clear-override', requireHA, async (req, res) => {
   try {
     const payload = { device_id };
 
-    await haRequest('POST', '/services/frame_art_shuffler/clear_tagset_override', payload);
+    await haRequest('POST', '/services/frame_art_shuffler/clear_tagset_override', payload, req.house);
     res.json({ success: true, message: 'Override cleared' });
   } catch (error) {
     console.error('Error clearing tagset override:', error.message);
@@ -797,7 +830,7 @@ router.get('/pool-health', requireHA, async (req, res) => {
     const queryString = params.toString();
     const url = '/frame_art_shuffler/pool_health' + (queryString ? `?${queryString}` : '');
 
-    const result = await haRequest('GET', url);
+    const result = await haRequest('GET', url, null, req.house);
     res.json({ success: true, data: result });
   } catch (error) {
     console.error('Error fetching pool health:', error.message);
@@ -823,7 +856,7 @@ router.post('/set-recency-windows', requireHA, async (req, res) => {
     if (same_tv_hours !== undefined) serviceData.same_tv_hours = parseInt(same_tv_hours, 10);
     if (cross_tv_hours !== undefined) serviceData.cross_tv_hours = parseInt(cross_tv_hours, 10);
 
-    await haRequest('POST', '/services/frame_art_shuffler/set_recency_windows', serviceData);
+    await haRequest('POST', '/services/frame_art_shuffler/set_recency_windows', serviceData, req.house);
     res.json({ success: true });
   } catch (error) {
     console.error('Error setting recency windows:', error.message);

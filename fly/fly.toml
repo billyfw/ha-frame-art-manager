@@ -29,7 +29,7 @@ primary_region = "lax"
   GIT_AUTO_PULL_ON_STARTUP = "true"
   GIT_AUTO_PUSH_ON_CHANGE = "true"
   TAILSCALE_PROXY = "socks5h://localhost:1055"
-  HOUSES_JSON = '[{"id":"madrone","ha_url":"http://100.81.0.118:8123","token_env":"HA_TOKEN_MADRONE"}]'
+  HOUSES_JSON = '[{"id":"madrone","name":"Madrone","ha_url":"http://100.81.0.118:8123","token_env":"HA_TOKEN_MADRONE"}]'
   GIT_COMMIT_USER_NAME = "Frame Art Manager"
   GIT_COMMIT_USER_EMAIL = "frame-art@fly.io"
   # Phase 4: outbound proxy for HA calls to tailnet/subnet IPs (userspace tailscaled)
