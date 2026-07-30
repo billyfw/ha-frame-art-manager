@@ -377,6 +377,33 @@ router.get('/upload-log', requireHA, async (req, res) => {
     return res.json({ success: true, logs: mockLogs });
   }
 
+  // Centrally hosted: the log lives on the house's HA box, so fetch it from the
+  // shuffler's logs view. As an add-on it is on the shared /config mount.
+  if (req.house) {
+    const cfg = houses.houseRequestConfig(req.house);
+    try {
+      const response = await axios({
+        method: 'GET',
+        url: `${req.house.baseUrl}/api/frame_art_shuffler/logs`,
+        params: { type: 'upload' },
+        headers: cfg.headers,
+        timeout: cfg.timeout,
+        httpAgent: cfg.httpAgent,
+        httpsAgent: cfg.httpsAgent,
+        proxy: cfg.proxy,
+        responseType: 'text',
+        transformResponse: [(d) => d],
+      });
+      return res.json({ success: true, logs: response.data });
+    } catch (error) {
+      if (error.response && error.response.status === 404) {
+        return res.json({ success: true, logs: 'Waiting for logs...' });
+      }
+      console.error('Error fetching upload log:', error.message);
+      return res.status(500).json({ error: 'Failed to read upload log' });
+    }
+  }
+
   const logPath = '/config/frame_art_shuffler/upload.log';
   try {
     if (fs.existsSync(logPath)) {

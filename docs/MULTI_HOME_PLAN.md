@@ -592,11 +592,13 @@ house checkout de-gitted (3.4 GB → 1.1 GB). Manager repo commit fe1ac43.
       normal semantic message + pushes when dirty or ahead.
 - Verified live through Fly: 2 TVs + tagsets from Madrone over the tailnet, analytics
       12,857 events, all former 503s now 200.
-- Known gap: `/api/ha/upload-log` still reads `/config/frame_art_shuffler/upload.log`
-      off the local filesystem, which does not exist centrally. Fix if wanted: add
-      `type=upload` to the shuffler's logs view.
-- Pre-existing (not from this work): 2 failing metadata tests in the manager suite
-      (`updateImage` matte, `renameImage`) — same on an unmodified checkout.
+- [x] Upload log closed 2026-07-30: shuffler logs view gained `type=upload`
+      (served from `/config/frame_art_shuffler/upload.log`, beside the pairing tokens,
+      as free text); manager fetches it per house. Verified live through Fly.
+- [x] The 2 "pre-existing failures" were **wrong tests, not a bug**: valid matte ids are
+      `none` or `<type>_<color>` (constants.js MATTE_TYPES), so a bare `'triptych'`
+      correctly normalizes to `none`. Confirmed against the real library — all 653
+      images use `none` or `flexible_<color>`. Tests corrected; suite is 122/122.
 
 **Maui, when its HA exists → follow §6.3 verbatim** (10-minute checklist: HACS install,
 fresh read-only PAT, first sync ~1.1 GB library-only, TVs, HOUSES_JSON + HA_TOKEN_LAU,
