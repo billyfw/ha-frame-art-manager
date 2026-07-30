@@ -546,14 +546,28 @@ house checkout de-gitted (3.4 GB → 1.1 GB). Manager repo commit fe1ac43.
 - [ ] Delete the `art-manager` entry from **UniFi local DNS** (the only live remnant;
       harmless, points at the HA box).
 
-**Monitoring (syshealth — `~/devprojects/system-health-monitor`, monitors.yml)**
-- [ ] Add monitor `frame-art-manager`: copy the `ha-box` verify shape —
-      `run: checks/http-health.sh`, `args: {url: "https://frame.tail9ddff9.ts.net/api/health"}`
-      (unauthenticated, safe), interval 12m, mint uuid per syshealth's CLAUDE.md flow.
-      Runner on bd is on the tailnet so reachability doubles as a Fly-tailscaled check.
-- [ ] Add library-staleness check: sensor `sensor.frame_art_library_sync` on each house
-      must be `ok` with recent `last_sync_time` (needs an authed check script — HA token;
-      new check type or script wrapping curl with Bearer from a secrets file).
+**Monitoring (syshealth — `~/devprojects/system-health-monitor`) — DONE 2026-07-30**
+- [x] `frame-art-manager/api-verify` — HTTP check on
+      `https://frame.tail9ddff9.ts.net/api/health` every 12m (critical). One probe covers
+      app + Fly machine + its tailscaled, since the runner is a tailnet member.
+- [x] `frame-art-library/madrone` — `checks/frame-art-library-sync.sh` every 30m
+      (standard). Reads `sensor.frame_art_library_sync` via HA REST; fails on state
+      never/error/unknown, missing entity, or `last_sync_time` older than
+      `max_age_min` (60). Token convention reused from `pool-valve-closed.sh`
+      (`~/.config/homeassistant/token` on viz.mad). **Maui: add a second entry under the
+      same system with `args: {ha_url: "http://<maui-ha-ip>:8123", max_age_min: "60"}`.**
+- **This check immediately earned its keep**: it revealed the 15-min fallback timer had
+      NEVER fired. Cause: the timer was registered only if a token existed at setup time,
+      but library-sync settings live in `entry.options` and the integration's update
+      listener reloads only on *structural* (`entry.data`) changes — so saving the token
+      never re-ran setup. Pokes and the service masked it. Fixed: the timer now ticks
+      every minute and re-reads options each tick (reload-independent). Also fixed: the
+      status sensor now polls (the sensor platform is forwarded ~900 lines before the
+      status is seeded, so an event-only entity read `never` after every restart), and
+      `LibrarySyncer` construction moved inside the try/finally so a failure there can't
+      strand the running flag and silently disable all future syncs.
+- Note: for ~60s after an HA restart the sensor can read `never` until the first timer
+      tick; the check's 30m interval + retry makes a false alarm very unlikely.
 
 **Shuffler release**
 - [ ] Madrone runs dev build 0.2.0+dev20260729222116 — tag & release v0.3.0 via HACS
