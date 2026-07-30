@@ -22,6 +22,9 @@ primary_region = "lax"
   NODE_ENV = "production"
   FRAME_ART_PATH = "/data/frame_art"
   PORT = "8099"
+  # Second listener so http://frame.mad/ (and later frame.lau) work without a
+  # port suffix — tailscale serve can't, it matches on Host header.
+  HTTP_ALT_PORT = "80"
   TS_HOSTNAME = "frame"
   GIT_AUTO_PULL_ON_STARTUP = "true"
   GIT_AUTO_PUSH_ON_CHANGE = "true"

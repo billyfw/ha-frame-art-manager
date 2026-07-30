@@ -196,6 +196,17 @@ app.listen(PORT, async () => {
   console.log('\n✨ Server ready!\n');
 });
 
+// Optional second listener so bare vanity hostnames work without a port suffix
+// (http://frame.mad/). `tailscale serve` cannot cover these: it matches on the
+// Host header and only knows its own ts.net names, returning 404 for anything
+// else. Startup work is not repeated here — this is just an extra socket.
+if (process.env.HTTP_ALT_PORT) {
+  const altPort = Number(process.env.HTTP_ALT_PORT);
+  app.listen(altPort, () => {
+    console.log(`Also listening on port ${altPort} (vanity hostnames)`);
+  });
+}
+
 // Backfill sourceHash for images that don't have one
 async function backfillSourceHashes() {
   try {
