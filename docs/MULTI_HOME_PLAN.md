@@ -8,9 +8,9 @@ HomeAssistantView implemented in frame-art-shuffler with options UI; 57/57 tests
 LFS batch auth verified live (§4.1 [verify] resolved: Basic x-access-token works); live
 adoption run against billyfw/frame_art adopted all 653 existing files with ZERO downloads
 (~3.5 min one-time for serial pointer fetches; subsequent syncs = one tip check).
-Remaining for Phase 2 sign-off (§4.4): dev_deploy to Madrone HA + on-box verification —
-requires user approval per that repo's workflow rules. Production needs a fine-grained
-read-only PAT (live test used a broader gh oauth token).
+**Phase 2 SIGNED OFF 2026-07-30** (§4.4 all green: on-box adoption 653/0-download,
+LFS delta download + deletion round trip, authed logs endpoint). Madrone runs
+library_sync on a 15-min timer with the read-only PAT. Next: Phase 3 — the flip (§5).
 **Decided:** 2026-07-29, in discussion with Billy. This document is the executable plan.
 **Audience:** Any Claude session (or human) continuing this work with NO prior conversation
 context. Everything needed is in this file plus the referenced code. Verify claims marked
@@ -390,15 +390,22 @@ Optional `?since=<iso>` filter for events to bound payload size.
       commit e4b79bf). Setup verified: logs endpoint answers 401 (views register LAST in
       async_setup_entry, so 401 proves full setup incl. sync wiring), and the add-on's
       `/api/ha/tvs` template path returns both TVs with attributes.
-- [ ] **Awaiting the read-only PAT (Billy, at computer):** integration Options →
-      "Library sync settings" → paste token → call `frame_art_shuffler.sync_library` →
-      expect on-box adoption of the existing checkout (state file written, sensor `ok`,
-      nothing re-downloaded).
-- [ ] After PAT: upload via the (still-active) Madrone add-on UI → push → run
-      `sync_library` → must fetch the new file + metadata (NOT a no-op — the push moved
-      the tip).
-- [ ] After PAT: `curl -H "Authorization: Bearer <long-lived-token>"
-      "http://ha.mad:8123/api/frame_art_shuffler/logs?type=events" | head`
+- [x] 2026-07-30 — On-box adoption: PAT injected via the options-flow HTTP API (also
+      proving the options-persistence fix, see below), `sync_library` adopted 653 files
+      with 0 bytes downloaded (202 s one-time), state file 654 entries at tip.
+- [x] 2026-07-30 — Delta round trip: test image pushed from the Mac checkout →
+      `sync_library` downloaded it to the box via LFS batch (19,308 bytes, 2.0 s);
+      deletion pushed → removed on box (1.1 s). NOTE: a sync triggered <15 s after a
+      push can see the OLD tip (GitHub API replication lag) and correctly skip — the
+      Phase 3 post-push poke should delay ~15 s or the timer catches it.
+- [x] 2026-07-30 — Logs endpoint with long-lived token streams events JSONL
+      (12,836 lines). Token stored at `~/.config/frame-art/ha_madrone_token` on the dev
+      Mac; becomes Fly secret `HA_TOKEN_MADRONE` in Phase 3.
+- **Bug found & fixed during sign-off**: options flow steps returned
+      `async_create_entry(data={})` after `async_update_entry`, and HA applies the
+      RETURNED data as the new `entry.options` — wiping every save. Affected the new
+      library-sync page AND the pre-existing logging-settings page (whose saves had
+      silently never persisted). Both now return `data=<options>`.
 
 ---
 
