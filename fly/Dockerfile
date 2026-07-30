@@ -9,6 +9,7 @@ FROM node:20-alpine
 # compile (normally uses prebuilt binaries; harmless to have).
 RUN apk add --no-cache \
     bash \
+    curl \
     git \
     git-lfs \
     openssh-client \
