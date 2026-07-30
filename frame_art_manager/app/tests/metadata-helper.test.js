@@ -129,7 +129,9 @@ test('INTEGRATION: addImage stores metadata correctly', async () => {
 test('INTEGRATION: updateImage modifies metadata', async () => {
   const filename = 'test-image-abc123.jpg';
   const updates = {
-    matte: 'triptych',
+    // Matte ids are 'none' or '<type>_<color>' (see constants.js MATTE_TYPES);
+    // a bare type name is invalid and normalizes to 'none'.
+    matte: 'triptych_black',
     filter: 'Pastel',
     tags: ['updated', 'test']
   };
@@ -156,7 +158,7 @@ test('INTEGRATION: renameImage updates filename', async () => {
   
   assert.ok(renamedImage, 'New filename should exist');
   assert.ok(!oldImage, 'Old filename should not exist');
-  assert.strictEqual(renamedImage.matte, 'triptych'); // From previous test
+  assert.strictEqual(renamedImage.matte, 'triptych_black'); // From previous test
 });
 
 test('INTEGRATION: deleteImage removes metadata', async () => {
