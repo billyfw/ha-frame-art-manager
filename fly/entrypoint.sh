@@ -112,6 +112,9 @@ if git -C "${FRAME_ART_PATH}" rev-parse --is-inside-work-tree >/dev/null 2>&1; t
   fi
 fi
 
+git -C "${FRAME_ART_PATH}" config user.name "${GIT_COMMIT_USER_NAME:-Frame Art Manager}"
+git -C "${FRAME_ART_PATH}" config user.email "${GIT_COMMIT_USER_EMAIL:-frame-art@fly.io}"
+
 # ---------------------------------------------------------------- run app --
 export FRAME_ART_PATH PORT
 cd /app

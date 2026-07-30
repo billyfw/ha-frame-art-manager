@@ -743,6 +743,39 @@ class GitHelper {
    * Push changes to remote
    * @returns {Promise<{success: boolean, error?: string}>}
    */
+  // After every successful push, poke each house's HA so its shuffler pulls the
+  // library immediately (frame_art_shuffler.sync_library). Fire-and-forget with a
+  // delay: a sync <15s after a push can see the old tip (GitHub API replication
+  // lag) and skip. Houses config: HOUSES_JSON env [{id, ha_url, token_env}];
+  // curl uses the tailscaled SOCKS proxy (TAILSCALE_PROXY) to reach house IPs.
+  static pokeHouses() {
+    let houses;
+    try {
+      houses = JSON.parse(process.env.HOUSES_JSON || '[]');
+    } catch {
+      console.warn('pokeHouses: HOUSES_JSON is not valid JSON; skipping');
+      return;
+    }
+    const { execFile } = require('child_process');
+    for (const house of houses) {
+      const token = process.env[house.token_env];
+      if (!house.ha_url || !token) continue;
+      setTimeout(() => {
+        const args = ['-s', '-m', '120', '-o', '/dev/null', '-w', '%{http_code}',
+          '-X', 'POST', '-H', `Authorization: Bearer ${token}`,
+          '-H', 'Content-Type: application/json', '-d', '{}',
+          `${house.ha_url}/api/services/frame_art_shuffler/sync_library`];
+        if (process.env.TAILSCALE_PROXY) {
+          args.unshift('--proxy', process.env.TAILSCALE_PROXY);
+        }
+        execFile('curl', args, (err, stdout) => {
+          if (err) console.warn(`pokeHouses: ${house.id} unreachable (timer will catch up):`, err.message);
+          else console.log(`pokeHouses: ${house.id} -> HTTP ${stdout}`);
+        });
+      }, Number(process.env.POKE_DELAY_MS || 15000));
+    }
+  }
+
   async pushChanges() {
     try {
       await GitHelper.retryWithBackoff(
@@ -751,6 +784,7 @@ class GitHelper {
         2000,
         'git push'
       );
+      GitHelper.pokeHouses();
       return {
         success: true,
         message: 'Successfully pushed changes to remote'
