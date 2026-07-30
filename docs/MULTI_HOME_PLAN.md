@@ -524,7 +524,49 @@ Env `HOUSES_JSON` (Fly secret or fly.toml env), e.g.:
 | `do_release.sh` still SSHes to `ha.mad` and updates the add-on | Harmless during Phases 1–2 (add-on still deployed). Phase 3: replace with `fly deploy --remote-only`; keep version bump + tag |
 | Old committed secrets in `ha-config` repo (UniFi admin password etc., flagged in `maui-expansion.md` §8) | Out of scope here, but do not copy old patterns; all new secrets → Fly secrets / HA secrets.yaml |
 
-## 8. Decision log
+## 8. REMAINING WORK (added 2026-07-30 — Phase 3 COMPLETE, this is the finish list)
+
+Phase 3 shipped 2026-07-30: Fly is sole writer (write deploy key, RO key deleted),
+pokes live (verified Fly→GitHub→poke→Madrone in ~25 s), Madrone add-on uninstalled,
+house checkout de-gitted (3.4 GB → 1.1 GB). Manager repo commit fe1ac43.
+
+**Cosmetic / retirement**
+- [ ] `frame.mad` dnsmasq record → 100.104.227.75 (on Madrone's dnsmasq; canonical
+      origin stays https://frame.tail9ddff9.ts.net). Later `frame.lau` on Maui resolver.
+- [ ] Retire `art-manager.ancwbfw.com`: delete NPM proxy host (NPM admin UI) + GoDaddy
+      redirect (both now dead-end since the add-on is gone).
+
+**Monitoring (syshealth — `~/devprojects/system-health-monitor`, monitors.yml)**
+- [ ] Add monitor `frame-art-manager`: copy the `ha-box` verify shape —
+      `run: checks/http-health.sh`, `args: {url: "https://frame.tail9ddff9.ts.net/api/health"}`
+      (unauthenticated, safe), interval 12m, mint uuid per syshealth's CLAUDE.md flow.
+      Runner on bd is on the tailnet so reachability doubles as a Fly-tailscaled check.
+- [ ] Add library-staleness check: sensor `sensor.frame_art_library_sync` on each house
+      must be `ok` with recent `last_sync_time` (needs an authed check script — HA token;
+      new check type or script wrapping curl with Bearer from a secrets file).
+
+**Shuffler release**
+- [ ] Madrone runs dev build 0.2.0+dev20260729222116 — tag & release v0.3.0 via HACS
+      (library_sync + options-flow fix) and install the release build.
+
+**Phase 4 (manager features, §6.2)**
+- [ ] House switcher UI (`?house=` routing in routes/ha.js; HOUSES_JSON already live).
+- [ ] Analytics via the shuffler logs endpoint per house (endpoint live, 12,836 events).
+- [ ] PWA manifest + minimal SW + icons (finbox pattern) → installable; Amanda's
+      devices join tailnet, then install.
+- [ ] Server-side push sweep (60 s dirty-check) — closes the unpushed-window.
+
+**Maui, when its HA exists → follow §6.3 verbatim** (10-minute checklist: HACS install,
+fresh read-only PAT, first sync ~1.1 GB library-only, TVs, HOUSES_JSON + HA_TOKEN_LAU,
+frame.lau record). Poke note: Maui HA is reached via its LAN IP over the subnet router
+(never needs tailnet membership).
+
+**Housekeeping**
+- [ ] Check GitHub LFS bandwidth billing once (two consumers now; data pack $5/50GB if needed).
+- [ ] Re-save logging settings in the shuffler options if ever customized (historic saves
+      were silently wiped by the options-flow bug, fixed 2026-07-30).
+
+## 9. Decision log
 
 - 2026-07-29 — Architecture C1 chosen over C2/D (this doc §0). Amanda will be added to
   the tailnet (auth = tailnet membership, no passkey layer). Houses go shuffler-only; both
