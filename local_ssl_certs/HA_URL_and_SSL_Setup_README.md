@@ -1,3 +1,14 @@
+> ## ⚠️ RETIRED — HISTORICAL ONLY (2026-07-30)
+> This document describes an `art-manager.ancwbfw.com` setup that **is not in
+> place**: Nginx Proxy Manager is NOT installed on the HA box (verified via
+> `ha addons list`), and there is no GoDaddy record for `art-manager` (verified
+> via DoH — a `dig @1.1.1.1` from the LAN is intercepted locally and misleadingly
+> answers `192.168.1.152`, which is a UniFi local-DNS entry, not public DNS).
+> Do not trust this file as current-state. The Frame Art Manager now runs on
+> Fly.io, reachable at `https://frame.tail9ddff9.ts.net` (canonical) or
+> `http://frame.mad/` — see `docs/MULTI_HOME_PLAN.md`.
+> Remaining cleanup: delete the `art-manager` entry from UniFi local DNS.
+
 # Home Assistant URL Access and Local SSL Setup
 
 ## Overview

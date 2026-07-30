@@ -531,10 +531,20 @@ pokes live (verified Fly→GitHub→poke→Madrone in ~25 s), Madrone add-on uni
 house checkout de-gitted (3.4 GB → 1.1 GB). Manager repo commit fe1ac43.
 
 **Cosmetic / retirement**
-- [ ] `frame.mad` dnsmasq record → 100.104.227.75 (on Madrone's dnsmasq; canonical
-      origin stays https://frame.tail9ddff9.ts.net). Later `frame.lau` on Maui resolver.
-- [ ] Retire `art-manager.ancwbfw.com`: delete NPM proxy host (NPM admin UI) + GoDaddy
-      redirect (both now dead-end since the add-on is gone).
+- [x] 2026-07-30 `frame.mad` → 100.104.227.75 live. TWO gotchas found, both apply to
+      `frame.lau` later: (1) dnsmasq is the **HA add-on** — records live in Supervisor
+      add-on OPTIONS, not any file on disk; edit via Supervisor API
+      (`POST /addons/core_dnsmasq/options` with the full options object) then restart
+      the add-on. (2) `tailscale serve` routes by **Host header** and only knows its own
+      ts.net names → vanity names got its 404. Fix: app binds port 80 itself
+      (`HTTP_ALT_PORT=80`), userspace tailscaled forwards inbound to it; serve :80 off.
+      Client-side: browsers search on bare `frame.mad` (unknown TLD) — type
+      `http://frame.mad/`; stale negative DNS cache clears with `tailscale down && up`.
+- [x] `art-manager.ancwbfw.com` retirement — mostly a non-issue: NPM was never installed
+      and no GoDaddy record exists (both verified 2026-07-30). Stale doc
+      `local_ssl_certs/` now carries a RETIRED banner.
+- [ ] Delete the `art-manager` entry from **UniFi local DNS** (the only live remnant;
+      harmless, points at the HA box).
 
 **Monitoring (syshealth — `~/devprojects/system-health-monitor`, monitors.yml)**
 - [ ] Add monitor `frame-art-manager`: copy the `ha-box` verify shape —
