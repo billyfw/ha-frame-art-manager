@@ -196,6 +196,55 @@ app.listen(PORT, async () => {
   console.log('\n✨ Server ready!\n');
 });
 
+// Periodic push sweep. Historically pushes only happened on page load, the sync
+// button, or an upload — so a commit made while nobody had the UI open (or a
+// push that failed on a network blip) could sit only on this machine's volume.
+// Now that this instance is the single writer, a sweep makes the remote the
+// durable copy without user action. GIT_PUSH_SWEEP_SECONDS=0 disables it.
+function startPushSweep() {
+  const seconds = Number(process.env.GIT_PUSH_SWEEP_SECONDS || 60);
+  if (!seconds || process.env.GIT_AUTO_PUSH_ON_CHANGE === 'false') return;
+
+  const GitHelper = require('./git_helper');
+  let running = false;
+
+  setInterval(async () => {
+    if (running) return;
+    running = true;
+    try {
+      const git = new GitHelper(FRAME_ART_PATH);
+      const status = await git.git.status();
+      const dirty = status.files.length > 0;
+      const ahead = (status.ahead || 0) > 0;
+      if (!dirty && !ahead) return;
+
+      if (dirty) {
+        // Same semantic message the UI sync path generates (e.g. "added: foo").
+        const message = await git.generateCommitMessage(status.files);
+        const result = await git.commitChanges(message);
+        if (!result || result.success === false) {
+          console.warn('Push sweep: commit failed:', result && result.error);
+          return;
+        }
+      }
+      const push = await git.pushChanges();
+      if (push && push.success) {
+        console.log(`Push sweep: pushed${dirty ? ' new commit' : ' pending commits'}`);
+      } else {
+        console.warn('Push sweep: push failed:', push && push.error);
+      }
+    } catch (error) {
+      console.warn('Push sweep error:', error.message);
+    } finally {
+      running = false;
+    }
+  }, seconds * 1000).unref();
+
+  console.log(`Push sweep enabled (every ${seconds}s)`);
+}
+
+startPushSweep();
+
 // Optional second listener so bare vanity hostnames work without a port suffix
 // (http://frame.mad/). `tailscale serve` cannot cover these: it matches on the
 // Host header and only knows its own ts.net names, returning 404 for anything
