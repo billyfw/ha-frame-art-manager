@@ -48,6 +48,10 @@ fi
 # without a restart via: fly ssh console -C "tailscale serve --bg localhost:8099"
 timeout 20 /usr/local/bin/tailscale serve --bg "localhost:${PORT}" \
   || echo "WARN: tailscale serve not active (feature not enabled yet?); UI reachable at http://<tailscale-ip>:${PORT}"
+# Plain HTTP on :80 of the tailnet IP so vanity names (frame.mad / frame.lau)
+# work bare in a browser. Canonical PWA origin remains the https ts.net name.
+timeout 20 /usr/local/bin/tailscale serve --bg --http=80 "localhost:${PORT}" \
+  || echo "WARN: tailscale serve :80 not active"
 
 # ------------------------------------------------------------------ ssh key --
 if [ -n "${GIT_SSH_KEY_B64:-}" ]; then
