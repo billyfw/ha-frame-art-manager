@@ -1,0 +1,11 @@
+# Build context hygiene for fly/Dockerfile (context = repo root).
+# CRITICAL: node_modules must never be COPYed over the npm ci result in the image,
+# and no local .env may leak into the image.
+.git
+**/node_modules
+**/.env
+local_ssl_certs
+docs
+_archive
+**/_archive
+*.md

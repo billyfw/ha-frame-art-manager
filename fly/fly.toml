@@ -1,0 +1,36 @@
+# Fly.io config for the central Frame Art Manager. See docs/MULTI_HOME_PLAN.md.
+# Deploy from REPO ROOT (build context must include frame_art_manager/app/):
+#   fly deploy --remote-only -c fly/fly.toml --dockerfile fly/Dockerfile
+#
+# Required secrets (fly secrets set ...):
+#   GIT_SSH_KEY_B64  base64 of the deploy key (Phase 1: READ-ONLY key; Phase 3: write key)
+#   TS_AUTHKEY       tailscale auth key (first boot only; identity persists on volume)
+# Phase 4 adds: HOUSES_JSON (env below or secret) + HA_TOKEN_MADRONE / HA_TOKEN_LAU.
+#
+# DELIBERATELY NO [http_service]: access is tailnet-only (https://frame.<tailnet>.ts.net).
+# Adding [http_service] would (a) expose the unauthenticated app publicly and (b) enable
+# auto-stop, which tailnet traffic can never wake. The machine runs always-on.
+
+app = "frame-art-manager"
+primary_region = "lax"
+
+[mounts]
+  source = "frame_art_data"
+  destination = "/data"
+
+[env]
+  NODE_ENV = "production"
+  FRAME_ART_PATH = "/data/frame_art"
+  PORT = "8099"
+  TS_HOSTNAME = "frame"
+  GIT_AUTO_PULL_ON_STARTUP = "true"
+  # Phase 1 safety: no pushes even if the key allowed it. Flip to "true" in Phase 3.
+  GIT_AUTO_PUSH_ON_CHANGE = "false"
+  GIT_COMMIT_USER_NAME = "Frame Art Manager"
+  GIT_COMMIT_USER_EMAIL = "frame-art@fly.io"
+  # Phase 4: outbound proxy for HA calls to tailnet/subnet IPs (userspace tailscaled)
+  # TAILSCALE_PROXY = "socks5://localhost:1055"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
