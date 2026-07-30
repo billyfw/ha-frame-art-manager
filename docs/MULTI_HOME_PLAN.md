@@ -573,12 +573,30 @@ house checkout de-gitted (3.4 GB → 1.1 GB). Manager repo commit fe1ac43.
 - [ ] Madrone runs dev build 0.2.0+dev20260729222116 — tag & release v0.3.0 via HACS
       (library_sync + options-flow fix) and install the release build.
 
-**Phase 4 (manager features, §6.2)**
-- [ ] House switcher UI (`?house=` routing in routes/ha.js; HOUSES_JSON already live).
-- [ ] Analytics via the shuffler logs endpoint per house (endpoint live, 12,836 events).
-- [ ] PWA manifest + minimal SW + icons (finbox pattern) → installable; Amanda's
-      devices join tailnet, then install.
-- [ ] Server-side push sweep (60 s dirty-check) — closes the unpushed-window.
+**Phase 4 — DONE 2026-07-30** (all HA-coupled features restored; verified live)
+- [x] `app/houses.js` — HOUSES_JSON + per-house tokens; **outbound calls to tailnet/
+      subnet IPs MUST go through the tailscaled SOCKS proxy** (`TAILSCALE_PROXY=
+      socks5h://localhost:1055`) because userspace networking has no kernel route to
+      100.x. `routes/ha.js` resolves `req.house` in requireHA and threads it through
+      `haRequest`; Supervisor path retained for the legacy add-on. New `/api/ha/houses`.
+- [x] Analytics reads the shuffler's `/api/frame_art_shuffler/logs` per house; 404 is
+      mapped to an ENOENT-coded error so the existing "no data yet" branches are unchanged.
+- [x] **House selection is a sticky `house` cookie** (server reads query param OR
+      cookie) — this is why the ~100 frontend fetch call sites needed no changes. The
+      switcher (`public/js/house-switcher.js`) hides itself when <2 houses, so it
+      appears automatically when Maui is added — no UI work needed then.
+- [x] PWA: `manifest.webmanifest`, generated icons, minimal SW (installability only —
+      deliberately no offline caching; a stale cache would show deleted art). Install
+      from the **https ts.net origin** (service workers require HTTPS; frame.mad won't).
+- [x] Push sweep every 60 s (`GIT_PUSH_SWEEP_SECONDS`, 0 disables): commits with the
+      normal semantic message + pushes when dirty or ahead.
+- Verified live through Fly: 2 TVs + tagsets from Madrone over the tailnet, analytics
+      12,857 events, all former 503s now 200.
+- Known gap: `/api/ha/upload-log` still reads `/config/frame_art_shuffler/upload.log`
+      off the local filesystem, which does not exist centrally. Fix if wanted: add
+      `type=upload` to the shuffler's logs view.
+- Pre-existing (not from this work): 2 failing metadata tests in the manager suite
+      (`updateImage` matte, `renameImage`) — same on an unmodified checkout.
 
 **Maui, when its HA exists → follow §6.3 verbatim** (10-minute checklist: HACS install,
 fresh read-only PAT, first sync ~1.1 GB library-only, TVs, HOUSES_JSON + HA_TOKEN_LAU,
