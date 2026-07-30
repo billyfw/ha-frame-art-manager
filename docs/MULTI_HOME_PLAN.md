@@ -1,9 +1,16 @@
 # Multi-Home Architecture Plan — Fly.io Central Manager ("C1")
 
-**Status: Phase 1 DEPLOYED & VERIFIED 2026-07-29** (app `frame-art-manager` live on Fly,
-node `frame` = 100.104.227.75, 653 images served over tailnet; sole remaining Phase 1 item:
-enable the tailnet HTTPS/Serve feature + activate `tailscale serve` — see §3.3. Next: Phase 2,
-`library_sync` in the shuffler repo.)
+**Status: Phase 1 COMPLETE; Phase 2 IMPLEMENTED (pending deploy) — 2026-07-29**
+Phase 1: app `frame-art-manager` live on Fly, node `frame` = 100.104.227.75, HTTPS at
+`https://frame.tail9ddff9.ts.net`, 653 images served over tailnet.
+Phase 2: `library_sync` module + `sync_library` service + status sensor + timer + logs
+HomeAssistantView implemented in frame-art-shuffler with options UI; 57/57 tests pass;
+LFS batch auth verified live (§4.1 [verify] resolved: Basic x-access-token works); live
+adoption run against billyfw/frame_art adopted all 653 existing files with ZERO downloads
+(~3.5 min one-time for serial pointer fetches; subsequent syncs = one tip check).
+Remaining for Phase 2 sign-off (§4.4): dev_deploy to Madrone HA + on-box verification —
+requires user approval per that repo's workflow rules. Production needs a fine-grained
+read-only PAT (live test used a broader gh oauth token).
 **Decided:** 2026-07-29, in discussion with Billy. This document is the executable plan.
 **Audience:** Any Claude session (or human) continuing this work with NO prior conversation
 context. Everything needed is in this file plus the referenced code. Verify claims marked
@@ -372,17 +379,26 @@ New `HomeAssistantView` (pattern: copy `pool_health` in `__init__.py`):
 already parses JSONL via `parseJsonl`). `requires_auth = True` (long-lived token works).
 Optional `?since=<iso>` filter for events to bound payload size.
 
-### 4.4 Phase 2 verification
+### 4.4 Phase 2 verification (status 2026-07-29)
 
-- [ ] Unit tests with recorded/fake API responses (tree, pointer, batch, download);
-      pytest exists in the repo (`pytest.ini`, `tests/`).
-- [ ] Deploy to Madrone via `scripts/dev_deploy.sh` while the add-on still owns the
-      checkout. Run `sync_library` with the git checkout in place → adoption path records
-      state, changes nothing, sensor goes `ok`.
-- [ ] Upload an image via the (still-active) Madrone add-on UI → push → run
-      `sync_library` → no-op is WRONG here; it must fetch the new file (the add-on push
-      moved the remote tip). Verify the new file appears and metadata updates.
-- [ ] `curl -H "Authorization: Bearer <token>" http://ha.mad:8123/api/frame_art_shuffler/logs?type=events | head`
+- [x] Unit tests: 6 new tests in `tests/test_library_sync.py` (ordering, adoption,
+      deletion, corruption-blocks-metadata, auth), 57/57 suite green.
+- [x] Live module run from the dev Mac against the real repo: adopted 653 files with
+      zero downloads, converged to the same commit git reached. (~3.5 min one-time for
+      serial pointer fetches; later runs = single tip check.)
+- [x] Deployed to Madrone via `dev_deploy.sh --restart` (v0.2.0+dev20260729222116,
+      commit e4b79bf). Setup verified: logs endpoint answers 401 (views register LAST in
+      async_setup_entry, so 401 proves full setup incl. sync wiring), and the add-on's
+      `/api/ha/tvs` template path returns both TVs with attributes.
+- [ ] **Awaiting the read-only PAT (Billy, at computer):** integration Options →
+      "Library sync settings" → paste token → call `frame_art_shuffler.sync_library` →
+      expect on-box adoption of the existing checkout (state file written, sensor `ok`,
+      nothing re-downloaded).
+- [ ] After PAT: upload via the (still-active) Madrone add-on UI → push → run
+      `sync_library` → must fetch the new file + metadata (NOT a no-op — the push moved
+      the tip).
+- [ ] After PAT: `curl -H "Authorization: Bearer <long-lived-token>"
+      "http://ha.mad:8123/api/frame_art_shuffler/logs?type=events" | head`
 
 ---
 
