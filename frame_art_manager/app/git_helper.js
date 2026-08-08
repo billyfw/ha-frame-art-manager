@@ -17,8 +17,18 @@ const STALE_LOCK_AGE_MS = 5 * 60 * 1000;
 class GitHelper {
   constructor(frameArtPath) {
     this.frameArtPath = frameArtPath;
-    this.git = simpleGit(frameArtPath);
-    this.expectedRemote = 'billyfw/frame_art';
+    this.git = simpleGit({
+      baseDir: frameArtPath,
+      env: {
+        ...process.env,
+        GIT_TERMINAL_PROMPT: '0',
+        GIT_ASKPASS: '/bin/true',
+        SSH_ASKPASS: '/bin/true',
+        DISPLAY: '',
+        GIT_SSH_COMMAND: 'ssh -4 -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o BatchMode=yes -o StrictHostKeyChecking=no'
+      }
+    });
+    /* this.expectedRemote = 'billyfw/frame_art'; */
   }
 
   /**
@@ -349,32 +359,21 @@ class GitHelper {
     }
   }
 
-  /**
-   * Verify if the remote repository is the expected one (billyfw/frame_art)
-   * @returns {Promise<{isValid: boolean, remote?: string, error?: string}>}
-   */
   async verifyRemoteRepo() {
-    try {
-      const remotes = await this.git.getRemotes(true);
-      const origin = remotes.find(r => r.name === 'origin');
-      
-      if (!origin) {
-        return { isValid: false, error: 'No origin remote configured' };
-      }
-
-      // Check if remote URL contains expected repo name
-      const remoteUrl = origin.refs.fetch || origin.refs.push;
-      const isValid = remoteUrl.includes(this.expectedRemote);
-
-      return {
-        isValid,
-        remote: remoteUrl,
-        error: isValid ? null : `Expected ${this.expectedRemote}, found ${remoteUrl}`
-      };
-    } catch (error) {
-      return { isValid: false, error: error.message };
+  try {
+    const remotes = await this.git.getRemotes(true);
+    const origin = remotes.find(r => r.name === 'origin');
+    
+    if (!origin) {
+      return { isValid: false, error: 'No origin remote configured' };
     }
+
+    const remoteUrl = origin.refs.fetch || origin.refs.push;
+    return { isValid: true, remote: remoteUrl };
+  } catch (error) {
+    return { isValid: false, error: error.message };
   }
+}
 
   /**
    * Check if Git LFS is installed and configured
@@ -593,6 +592,7 @@ class GitHelper {
                             error.message.includes('Network is unreachable');
 
       if (isNetworkError) {
+        console.error('Git network error details:', error.message);
         return {
           success: false,
           error: 'Unable to reach remote repository. Changes saved locally but not synced. Check your network connection.',
@@ -797,6 +797,10 @@ class GitHelper {
                             error.message.includes('Could not resolve host') ||
                             error.message.includes('Connection refused') ||
                             error.message.includes('Network is unreachable');
+      
+      if (isNetworkError) {
+        console.error('Git push network error details:', error.message);
+      }
       
       return {
         success: false,

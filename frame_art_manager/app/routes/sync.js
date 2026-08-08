@@ -196,11 +196,11 @@ router.get('/status', async (req, res) => {
  */
 router.post('/full', async (req, res) => {
   const requestId = Math.random().toString(36).substring(7);
-  // console.log(`\n🔵 [${requestId}] /api/sync/full request received`);
+  console.log(`\n🔵 [${requestId}] /api/sync/full request received`);
   
   // Acquire sync lock for the entire operation
   if (!await GitHelper.acquireSyncLock()) {
-    // console.log(`⛔ [${requestId}] Sync lock already held, rejecting request`);
+    console.log(`⛔ [${requestId}] Sync lock already held, rejecting request`);
     return res.status(409).json({
       success: false,
       error: 'Another sync operation is already in progress. Please wait and try again.',
@@ -208,7 +208,7 @@ router.post('/full', async (req, res) => {
     });
   }
 
-  // console.log(`✅ [${requestId}] Sync lock acquired successfully`);
+  console.log(`✅ [${requestId}] Sync lock acquired successfully`);
 
   let git = null;
   let branchName = 'unknown';
@@ -240,10 +240,10 @@ router.post('/full', async (req, res) => {
     }
     
     // Step 1: Commit any uncommitted changes
-    // console.log(`📝 [${requestId}] Step 1: Checking for uncommitted changes...`);
+    console.log(`📝 [${requestId}] Step 1: Checking for uncommitted changes...`);
     const status = await git.getStatus();
     const hasUncommittedChanges = status.files.length > 0;
-    // console.log(`   [${requestId}] Uncommitted changes: ${hasUncommittedChanges ? 'YES (' + status.files.length + ' files)' : 'NO'}`);
+    console.log(`   [${requestId}] Uncommitted changes: ${hasUncommittedChanges ? 'YES (' + status.files.length + ' files)' : 'NO'}`);
     
     // Capture what changes we're about to commit (in case they get lost in a conflict)
     let preCommitChangesSummary = [];
@@ -275,10 +275,10 @@ router.post('/full', async (req, res) => {
       }
 
       preCommitChangesSummary = await git.describeUncommittedChanges();
-      // console.log(`   [${requestId}] Pre-commit changes captured:`, preCommitChangesSummary);
-      // console.log(`   [${requestId}] Committing ${status.files.length} uncommitted file(s)...`);
+      console.log(`   [${requestId}] Pre-commit changes captured:`, preCommitChangesSummary);
+      console.log(`   [${requestId}] Committing ${status.files.length} uncommitted file(s)...`);
       const commitMessage = await git.generateCommitMessage(status.files);
-      // console.log(`   [${requestId}] Commit message: ${commitMessage}`);
+      console.log(`   [${requestId}] Commit message: ${commitMessage}`);
       
       const commitResult = await git.commitChanges(commitMessage);
       
@@ -300,13 +300,13 @@ router.post('/full', async (req, res) => {
         });
       }
       
-      // console.log(`   [${requestId}] ✅ Commit successful`);
+      console.log(`   [${requestId}] ✅ Commit successful`);
     } else {
-      // console.log(`   [${requestId}] No uncommitted changes to commit`);
+      console.log(`   [${requestId}] No uncommitted changes to commit`);
     }
     
     // Step 2: Pull from remote (now that changes are committed)
-    // console.log(`⬇️  [${requestId}] Step 2: Pulling from remote...`);
+    console.log(`⬇️  [${requestId}] Step 2: Pulling from remote...`);
     const pullResult = await git.pullLatest(preCommitChangesSummary);
     const remoteChangesSummary = Array.isArray(pullResult.remoteChangesSummary) ? pullResult.remoteChangesSummary : [];
     
@@ -347,11 +347,11 @@ router.post('/full', async (req, res) => {
         console.log(`   [${requestId}] Local changes replaced:`, lostChangesSummary);
       }
     } else {
-      // console.log(`   [${requestId}] ✅ Pull successful`);
+      console.log(`   [${requestId}] ✅ Pull successful`);
     }
     
     // Step 3: Push to remote
-    // console.log(`⬆️  [${requestId}] Step 3: Pushing to remote...`);
+    console.log(`⬆️  [${requestId}] Step 3: Pushing to remote...`);
     const pushResult = await git.pushChanges();
     
     if (!pushResult.success) {
@@ -372,7 +372,7 @@ router.post('/full', async (req, res) => {
       });
     }
     
-    // console.log(`   [${requestId}] ✅ Push successful`);
+    console.log(`   [${requestId}] ✅ Push successful`);
     const headCommit = await resolveHeadCommit();
     await logSyncOperation(req.frameArtPath, {
       operation: 'full-sync',
