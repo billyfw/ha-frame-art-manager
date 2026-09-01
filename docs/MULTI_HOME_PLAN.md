@@ -140,7 +140,7 @@ Three git repos in `~/devprojects` plus the library:
   `ssh ha` (user `hassio`). HA is ALSO the Madrone subnet router + dnsmasq host (the second house
   design moves those roles to a separate infra box).
 - **the second house plan** (`network-management/house2-expansion.md`, `house2-buildout.md`): subnet
-  `10.32.1.0/24`, fresh HAOS on a Beelink S12 Pro, new sibling repo `ha-config-lau`,
+  `10.32.1.0/24`, fresh HAOS on a Beelink S12 Pro, new sibling repo `ha-lau-config`,
   federated topology, no dates yet ("draft scope for quote — site walk pending").
   **the second house's HA will NOT be a tailnet node by default** (the infra box subnet-routes) — this
   is why houses must never need to *initiate* connections to tailnet addresses (§2).
