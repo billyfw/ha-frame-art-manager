@@ -58,6 +58,10 @@ For a safe scratch library: APFS-clone the checkout (`cp -Rc`) and neuter pushes
   `config:rw`, serves ingress + **unauthenticated LAN port 8099** (known wart; goes away
   with the migration).
 - **Fly channel (target)**: `fly/` holds `Dockerfile`, `entrypoint.sh`, `fly.toml`.
+  Machine `8e2d09c7123238` (lax) is **shared-cpu-1x / 512 MB + 256 MB swap since
+  2026-09-02** (was 1 GB; measured steady RSS ~180 MB). `fly deploy` reconciles the
+  machine to fly.toml's `[[vm]]` + `swap_size_mb`, so change size THERE, not only with
+  `fly machine update`. If it ever OOM-restarts under a big LFS sync, go back to 1 GB.
   Deploy with `fly deploy --remote-only -c fly/fly.toml --dockerfile fly/Dockerfile`
   (no local Docker on this Mac). Tailnet-only: no `[http_service]`, no public IPs; UI at
   `https://frame.tail9ddff9.ts.net`. Machine must stay always-on (auto-stop can't wake on

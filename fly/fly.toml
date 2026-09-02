@@ -35,6 +35,13 @@ primary_region = "lax"
   # Phase 4: outbound proxy for HA calls to tailnet/subnet IPs (userspace tailscaled)
   # TAILSCALE_PROXY = "socks5://localhost:1055"
 
+# 1gb -> 512mb on 2026-09-02 (Billy: ~$2.50/mo). Measured steady RSS inside the machine
+# after 34 days up: node 107M + tailscaled 43M + hallpass 21M ~= 180M, so 512 keeps ~2.5x
+# headroom; the swap file absorbs a git-lfs/sharp spike instead of an OOM restart.
+# `fly deploy` reconciles the machine to THIS block, so size changes must land here,
+# not only via `fly machine update`.
+swap_size_mb = 256
+
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "1gb"
+  memory = "512mb"
