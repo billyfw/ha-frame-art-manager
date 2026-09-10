@@ -34,7 +34,7 @@ for i in $(seq 1 15); do
 done
 
 # --accept-routes: required to reach subnet-routed LAN IPs (Madrone 192.168.1.0/24,
-# Maui 10.32.1.0/24) for HA calls and pokes in Phase 3/4.
+# Maui 10.32.0.0/23) for HA calls and pokes in Phase 3/4.
 if [ -n "${TS_AUTHKEY:-}" ]; then
   /usr/local/bin/tailscale up --authkey="$TS_AUTHKEY" --hostname="$TS_HOSTNAME" --accept-routes
 else

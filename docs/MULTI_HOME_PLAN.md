@@ -140,7 +140,7 @@ Three git repos in `~/devprojects` plus the library:
   `ssh ha` (user `hassio`). HA is ALSO the Madrone subnet router + dnsmasq host (Maui
   design moves those roles to a separate infra box).
 - **Maui plan** (`network-management/maui-expansion.md`, `maui-buildout.md`): subnet
-  `10.32.1.0/24`, fresh HAOS on a Beelink S12 Pro, new sibling repo `ha-lau-config`,
+  `10.32.0.0/23`, fresh HAOS on a Beelink S12 Pro, new sibling repo `ha-lau-config`,
   federated topology, no dates yet ("draft scope for quote — site walk pending").
   **Maui's HA will NOT be a tailnet node by default** (the infra box subnet-routes) — this
   is why houses must never need to *initiate* connections to tailnet addresses (§2).
@@ -467,7 +467,7 @@ Env `HOUSES_JSON` (Fly secret or fly.toml env), e.g.:
   node reaches via the Maui subnet router. Both are stable, static assignments.
 - ⚠️ **Userspace tailscaled = outbound tailnet/subnet traffic must go through the SOCKS5/
   HTTP proxy on `localhost:1055`.** The axios calls in `routes/ha.js` (and the new poke)
-  need a proxy agent for destinations in `100.64.0.0/10`, `192.168.1.0/24`, `10.32.1.0/24`.
+  need a proxy agent for destinations in `100.64.0.0/10`, `192.168.1.0/24`, `10.32.0.0/23`.
   Implementation: `https-proxy-agent`/`socks-proxy-agent` (add dependency), applied via
   axios `httpAgent/httpsAgent` when `TAILSCALE_PROXY=socks5://localhost:1055` env is set.
   Git/SSH to GitHub is public internet — NO proxy (do not set global `ALL_PROXY`; scope
