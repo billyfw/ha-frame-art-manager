@@ -498,6 +498,24 @@ Env `HOUSES_JSON` (Fly secret or fly.toml env), e.g.:
 
 ### 6.3 Maui onboarding (when Maui HA exists — the 10-minute checklist)
 
+**Done 2026-10-04, differently from the checklist below (the record wins):**
+- The shuffler went in through HACS as a custom repository, release v0.4.0 (repo public; `hacs.json`
+  moved to the repo root). Install record: ha-lau-config `docs/devices/frame-art.md`.
+- The library lives in `/media/frame_art`, not `www/frame_art`: HA publishes www at `/local/` without
+  login, through the Nabu Casa remote URL too (Madrone's www library answered that way, 2026-10-03).
+  Wall tablets get pictures through each target's Artwork image entity (frame-art-shuffler
+  `docs/TABLET_TARGETS.md`).
+- First sync: seeded from Madrone's copy box to box, then `sync_library` adopted 660 files by size,
+  0 bytes downloaded (no LFS bandwidth used).
+- Manager: `HOUSES_JSON` in `fly/fly.toml` gained `lau` at **`http://100.87.218.7`** (ha-lau's own
+  tailnet address, **port 80**, not 8123 and not a LAN IP through a subnet router), Fly secret
+  `HA_TOKEN_LAU` (a long-lived token on ha-lau, "frame-art manager on Fly (house Lau)"); deployed on
+  the running image (no rebuild). Verified: `/api/ha/houses` lists both; `/api/ha/tvs?house=lau`
+  answers success with no displays yet; Madrone unchanged.
+- syshealth `frame-art-library/maui` from viz. No `frame.lau` record (no Maui resolver yet).
+- Fly access from dev: `~/.fly/bin/flyctl`, logged in as Billy on 2026-10-04 (`fly auth login` needs
+  a TTY: run it under `script` with stdin from a named pipe and feed the pasted code into the pipe).
+
 1. HACS → add `billyfw/frame-art-shuffler` → install integration; config flow.
 2. Options: paste the Lau read-only PAT (mint fresh, same scope), sync interval 15.
 3. First sync pulls library-only (~2–3 GB) — watch `sensor.frame_art_library_sync`.
