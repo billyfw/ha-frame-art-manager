@@ -22,6 +22,19 @@ alternatives) for supporting the second house in Maui.
 - **`~/devprojects/ha-config`**: Madrone HA config repo (the HA box is `ha.mad` /
   `192.168.1.152`, SSH alias `ssh ha`).
 
+## Every home in one list (2026-10-04, Billy)
+
+The gallery, the display list and the tagsets cover every home at once: `GET /api/ha/tvs?house=all`
+merges each house's displays (each carries `house`, `house_name`, `device_name`; with more than one
+house its `name` reads "<device> (<house>)") and returns `tagsets` as the union plus
+`tagsets_by_house`. Per-display calls (display, select, override, clear-override, upload log) carry
+`?house=<that display's house>`. **Tagsets are shared across homes in the UI**: a save goes to every
+home (a rename only where the old name exists), a delete to every home that has the tagset, and
+selecting a tagset for a display first copies it into that display's home if missing
+(`ensureTagsetInHouse`). Statistics, display logs and recency settings stay per home: the `house`
+cookie, chosen by the Home picker on the Statistics header and the Recency tab (house-switcher.js).
+House labels come from `HOUSES_JSON` names (Madrone, Maui).
+
 ## Key backend facts
 
 - Fully env-driven: `FRAME_ART_PATH`, `PORT` (8099), `NODE_ENV`,

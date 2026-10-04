@@ -31,7 +31,7 @@ primary_region = "lax"
   TAILSCALE_PROXY = "socks5h://localhost:1055"
   # Lau since 2026-10-04: ha-lau by its own tailnet address on port 80 (HAOS serves HA there), so the
   # 10.32 re-IP never touches it; token in the Fly secret HA_TOKEN_LAU (a long-lived token on ha-lau).
-  HOUSES_JSON = '[{"id":"madrone","name":"Madrone","ha_url":"http://100.81.0.118:8123","token_env":"HA_TOKEN_MADRONE"},{"id":"lau","name":"Launiupoko","ha_url":"http://100.87.218.7","token_env":"HA_TOKEN_LAU"}]'
+  HOUSES_JSON = '[{"id":"madrone","name":"Madrone","ha_url":"http://100.81.0.118:8123","token_env":"HA_TOKEN_MADRONE"},{"id":"lau","name":"Maui","ha_url":"http://100.87.218.7","token_env":"HA_TOKEN_LAU"}]'
   GIT_COMMIT_USER_NAME = "Frame Art Manager"
   GIT_COMMIT_USER_EMAIL = "frame-art@fly.io"
   # Phase 4: outbound proxy for HA calls to tailnet/subnet IPs (userspace tailscaled)

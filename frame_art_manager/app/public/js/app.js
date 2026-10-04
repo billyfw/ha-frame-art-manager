@@ -85,7 +85,9 @@ let sortAscending = typeof storedSortPreference?.ascending === 'boolean' ? store
 let allImages = {};
 let allTags = [];
 let allTVs = [];
-let allGlobalTagsets = {}; // Global tagsets (name -> {tags, exclude_tags})
+let allGlobalTagsets = {}; // Global tagsets (name -> {tags, exclude_tags}); with several homes, their union
+let tagsetsByHouse = {}; // home id -> that home's own tagsets (each home's shuffler keeps a copy)
+let allHouses = []; // [{id, name, ok}] from /ha/tvs?house=all; empty with a single home
 let currentImage = null;
 let selectedImages = new Set();
 let lastClickedIndex = null;
@@ -338,7 +340,7 @@ let preRecentSortState = null; // Saved sort state before entering recently disp
  */
 async function fetchRecentlyDisplayed() {
   try {
-    const response = await fetch(`${API_BASE}/ha/recently-displayed`);
+    const response = await fetch(`${API_BASE}/ha/recently-displayed?house=all`);
     if (!response.ok) throw new Error('Failed to fetch recently displayed');
     const data = await response.json();
     recentlyDisplayedData = data.images || {};
@@ -5035,13 +5037,17 @@ function uploadSingleFileWithProgress(file, onProgress, timeoutMs = 120000) {
 // Tag Management
 async function loadTVs() {
   try {
-    const response = await fetch(`${API_BASE}/ha/tvs`);
+    // Every home's displays in one list (2026-10-04): each carries `house`, and its name says
+    // which home it is in when there is more than one.
+    const response = await fetch(`${API_BASE}/ha/tvs?house=all`);
     const data = await response.json();
     if (data.success) {
       // Store TVs array
       if (Array.isArray(data.tvs)) {
         allTVs = data.tvs;
       }
+      tagsetsByHouse = data.tagsets_by_house || {};
+      allHouses = Array.isArray(data.houses) ? data.houses : [];
       // Store global tagsets (name -> definition)
       if (data.tagsets && typeof data.tagsets === 'object') {
         allGlobalTagsets = data.tagsets;
@@ -5058,6 +5064,57 @@ async function loadTVs() {
   } catch (error) {
     console.error('Error loading TVs:', error);
   }
+}
+
+// The home a display belongs to (null with a single home or an unknown device).
+function houseOfDevice(deviceId) {
+  const tv = (allTVs || []).find(t => t.device_id === deviceId);
+  return tv && tv.house ? tv.house : null;
+}
+
+// `?house=<id>` for a request that must reach one home's Home Assistant ('' = the default home).
+function houseQuery(house) {
+  return house ? `?house=${encodeURIComponent(house)}` : '';
+}
+
+// The homes a tagset change goes to: every home that answered, or [null] (the default) with one.
+function tagsetHomes() {
+  const ok = (allHouses || []).filter(h => h.ok).map(h => h.id);
+  return ok.length ? ok : [null];
+}
+
+function houseLabel(house) {
+  const h = (allHouses || []).find(x => x.id === house);
+  return h ? h.name : (house || 'Home');
+}
+
+// Tagsets read as one list across homes, but each home's shuffler keeps its own copy: before a
+// display selects a tagset, make sure its home has it (copied from the shared definition).
+async function ensureTagsetInHouse(tagsetName, house) {
+  if (!house || !tagsetName) return;
+  const have = tagsetsByHouse[house];
+  if (!have || have[tagsetName]) return;
+  const def = allGlobalTagsets[tagsetName];
+  if (!def) return;
+  const payload = {
+    name: tagsetName,
+    tags: def.tags || [],
+    exclude_tags: def.exclude_tags || [],
+    weighting_type: def.weighting_type || 'image'
+  };
+  if (def.tag_weights && Object.keys(def.tag_weights).length > 0) {
+    payload.tag_weights = def.tag_weights;
+  }
+  const response = await fetch(`${API_BASE}/ha/tagsets/upsert${houseQuery(house)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const result = await response.json();
+  if (!result.success) {
+    throw new Error(result.details || result.error || `Could not copy tagset ${tagsetName} to ${houseLabel(house)}`);
+  }
+  have[tagsetName] = def;
 }
 
 async function loadTags() {
@@ -8840,7 +8897,7 @@ function initTvModal() {
     }
     
     try {
-      const response = await fetch(`${API_BASE}/ha/tvs`);
+      const response = await fetch(`${API_BASE}/ha/tvs?house=all`);
       const data = await response.json();
       
       if (data.success && Array.isArray(data.tvs)) {
@@ -8938,7 +8995,7 @@ window.displayOnTv = async function(id, type) {
   const pollLogs = async () => {
     if (!logContainer) return;
     try {
-      const res = await fetch(`${API_BASE}/ha/upload-log`);
+      const res = await fetch(`${API_BASE}/ha/upload-log${houseQuery(type === 'device_id' ? houseOfDevice(id) : null)}`);
       const data = await res.json();
       if (data.success) {
         const remoteLogs = data.logs || '';
@@ -8992,7 +9049,7 @@ window.displayOnTv = async function(id, type) {
       payload.entity_id = id;
     }
 
-    const response = await fetch(`${API_BASE}/ha/display`, {
+    const response = await fetch(`${API_BASE}/ha/display${houseQuery(type === 'device_id' ? houseOfDevice(id) : null)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -13148,7 +13205,7 @@ async function saveTagset(e) {
   }
   
   // Check for case-insensitive duplicate tagset names
-  const existingTagsets = window.tvData?.global_tagsets || {};
+  const existingTagsets = allGlobalTagsets || {};
   const nameLower = name.toLowerCase();
   const originalNameLower = originalName.toLowerCase();
   
@@ -13192,21 +13249,33 @@ async function saveTagset(e) {
       payload.tag_weights = tagsetModalTagWeights;
     }
     
-    const response = await fetch(`${API_BASE}/ha/tagsets/upsert`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
+    // Tagsets are shared across homes: save to each one. A rename applies where the old name
+    // exists; a home that never had it gets the tagset under the new name.
+    const failures = [];
+    for (const house of tagsetHomes()) {
+      const body = { ...payload };
+      if (house && body.original_name && !((tagsetsByHouse[house] || {})[body.original_name])) {
+        delete body.original_name;
+      }
+      const response = await fetch(`${API_BASE}/ha/tagsets/upsert${houseQuery(house)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const result = await response.json();
+      if (!result.success) {
+        failures.push(`${house ? houseLabel(house) + ': ' : ''}${result.details || result.error || 'Failed to save tagset'}`);
+      }
+    }
+
+    if (failures.length === 0) {
       closeTagsetModal();
       // Refresh TV data and re-render
       await loadTVs();
       loadTagsTab();
     } else {
-      alert(result.error || 'Failed to save tagset');
+      await loadTVs();
+      alert(failures.join('\n'));
     }
   } catch (error) {
     console.error('Error saving tagset:', error);
@@ -13218,18 +13287,31 @@ async function saveTagset(e) {
 // Passes tagsets and tvs for pre-validation (HA Supervisor strips error messages)
 async function deleteTagset(tagsetName) {
   try {
-    const response = await fetch(`${API_BASE}/ha/tagsets/delete`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: tagsetName,
-        tagsets: allGlobalTagsets,
-        tvs: allTVs
-      })
-    });
-    
-    const result = await response.json();
-    console.log('Delete tagset response:', response.status, result);
+    // In every home that has it, each checked against that home's own tagsets and displays.
+    const homes = tagsetHomes().filter(h => h === null || (tagsetsByHouse[h] || {})[tagsetName]);
+    let result = { success: true };
+    const failures = [];
+    for (const house of homes) {
+      const response = await fetch(`${API_BASE}/ha/tagsets/delete${houseQuery(house)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: tagsetName,
+          tagsets: house ? (tagsetsByHouse[house] || {}) : allGlobalTagsets,
+          tvs: house ? allTVs.filter(tv => tv.house === house) : allTVs
+        })
+      });
+      const one = await response.json();
+      console.log('Delete tagset response:', house, response.status, one);
+      if (!one.success) {
+        failures.push(`${house ? houseLabel(house) + ': ' : ''}${one.details || one.error || 'Failed to delete tagset'}`);
+      } else if (house && tagsetsByHouse[house]) {
+        delete tagsetsByHouse[house][tagsetName];
+      }
+    }
+    if (failures.length) {
+      result = { success: false, details: failures.join('\n') };
+    }
     
     if (result.success) {
       // Update local state immediately
@@ -13253,7 +13335,9 @@ async function deleteTagset(tagsetName) {
 // Select a tagset for a TV
 async function selectTagset(deviceId, tagsetName, skipRender = false) {
   try {
-    const response = await fetch(`${API_BASE}/ha/tagsets/select`, {
+    const house = houseOfDevice(deviceId);
+    await ensureTagsetInHouse(tagsetName, house);
+    const response = await fetch(`${API_BASE}/ha/tagsets/select${houseQuery(house)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -13387,7 +13471,9 @@ async function applyOverride(e) {
   }
   
   try {
-    const response = await fetch(`${API_BASE}/ha/tagsets/override`, {
+    const house = houseOfDevice(deviceId);
+    await ensureTagsetInHouse(tagsetName, house);
+    const response = await fetch(`${API_BASE}/ha/tagsets/override${houseQuery(house)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -13416,7 +13502,7 @@ async function applyOverride(e) {
 // Clear override
 async function clearOverride(deviceId) {
   try {
-    const response = await fetch(`${API_BASE}/ha/tagsets/clear-override`, {
+    const response = await fetch(`${API_BASE}/ha/tagsets/clear-override${houseQuery(houseOfDevice(deviceId))}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

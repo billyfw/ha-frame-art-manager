@@ -630,6 +630,12 @@ frame.lau record). Poke note: Maui HA is reached via its LAN IP over the subnet 
 
 ## 9. Decision log
 
+- 2026-10-04 — No house switcher for the everyday screens (Billy: "why can't all house devices just
+  be shown?"). One list of every display labeled by home; per-display actions routed to the
+  display's home; tagsets shared across homes (saved to all, copied on first use); statistics and
+  recency stay per home with the Home picker on those pages. The cookie mechanism of Phase 4 stays
+  for them.
+
 - 2026-07-29 — Architecture C1 chosen over C2/D (this doc §0). Amanda will be added to
   the tailnet (auth = tailnet membership, no passkey layer). Houses go shuffler-only; both
   add-ons retire. Library mirror via GitHub HTTPS APIs, not git, at houses. Poke = HA
