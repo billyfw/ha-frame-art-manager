@@ -197,12 +197,8 @@ router.get('/houses', (req, res) => {
   });
 });
 
-// GET /api/ha/tvs - Get list of Frame TVs with tagset data
-router.get('/tvs', requireHA, async (req, res) => {
-  try {
-    // Template to find devices belonging to the integration
-    // Global tagsets are exposed as full definitions in sensor attributes
-    const template = `
+// The template that lists one house's Frame Art displays (TVs and wall tablets) with tagset data.
+const TVS_TEMPLATE = `
       {% set ns = namespace(tvs=[], global_tagsets={}) %}
       {% set devices = integration_entities('frame_art_shuffler') | map('device_id') | unique | list %}
       
@@ -279,25 +275,73 @@ router.get('/tvs', requireHA, async (req, res) => {
       {{ {'tagsets': ns.global_tagsets, 'tvs': ns.tvs} | to_json }}
     `;
 
-    const result = await haRequest('POST', '/template', { template }, req.house);
-    
-    // The template API returns the rendered string, we need to parse it
-    let data = { tagsets: {}, tvs: [] };
-    if (typeof result === 'string') {
-      try {
-        data = JSON.parse(result);
-      } catch (e) {
-        console.error('Failed to parse TV list template result:', result);
+/** One house's displays and global tagsets: { tagsets, tvs }. Throws when the house does not answer. */
+async function fetchTvsForHouse(house) {
+  const result = await haRequest('POST', '/template', { template: TVS_TEMPLATE }, house);
+  let data = { tagsets: {}, tvs: [] };
+  if (typeof result === 'string') {
+    try {
+      data = JSON.parse(result);
+    } catch (e) {
+      console.error('Failed to parse TV list template result:', result);
+    }
+  } else if (result && typeof result === 'object') {
+    // Mock or direct object return
+    data = result;
+  }
+  return { tagsets: data.tagsets || {}, tvs: data.tvs || [] };
+}
+
+/** True for ?house=all with at least one configured house (the merged, every-house view). */
+function wantsAllHouses(req) {
+  return Boolean(req.query && req.query.house === 'all' && houses.getUsableHouses().length > 0);
+}
+
+// GET /api/ha/tvs - Get list of Frame TVs with tagset data
+// ?house=all (2026-10-04): every house's displays in one list. Each display carries `house`,
+// `house_name` and its plain `device_name`; with more than one house its `name` reads
+// "<device> (<house>)". Tagsets: `tagsets_by_house`, plus `tagsets` = their union (first
+// house wins on a name clash). A house that does not answer is reported in `houses` and the
+// rest still list.
+router.get('/tvs', requireHA, async (req, res) => {
+  try {
+    if (wantsAllHouses(req)) {
+      const all = houses.getUsableHouses();
+      const settled = await Promise.allSettled(all.map((h) => fetchTvsForHouse(h)));
+      const multi = all.length > 1;
+      const tvs = [];
+      const tagsets = {};
+      const tagsetsByHouse = {};
+      const houseStatus = [];
+      settled.forEach((outcome, i) => {
+        const house = all[i];
+        if (outcome.status !== 'fulfilled') {
+          console.error(`TV list: house ${house.id} did not answer:`, outcome.reason && outcome.reason.message);
+          houseStatus.push({ id: house.id, name: house.name, ok: false, error: outcome.reason && outcome.reason.message });
+          return;
+        }
+        houseStatus.push({ id: house.id, name: house.name, ok: true });
+        tagsetsByHouse[house.id] = outcome.value.tagsets;
+        for (const [name, def] of Object.entries(outcome.value.tagsets)) {
+          if (!(name in tagsets)) tagsets[name] = def;
+        }
+        for (const tv of outcome.value.tvs) {
+          tvs.push({
+            ...tv,
+            house: house.id,
+            house_name: house.name,
+            device_name: tv.name,
+            name: multi ? `${tv.name} (${house.name})` : tv.name,
+          });
+        }
+      });
+      if (!houseStatus.some((h) => h.ok)) {
+        return res.status(500).json({ error: 'Failed to fetch TVs from Home Assistant', houses: houseStatus });
       }
-    } else if (result && typeof result === 'object') {
-      // Mock or direct object return
-      data = result;
+      return res.json({ success: true, tagsets, tvs, tagsets_by_house: tagsetsByHouse, houses: houseStatus });
     }
 
-    // Global tagsets as object: { name: { tags, exclude_tags }, ... }
-    const tagsets = data.tagsets || {};
-    const tvs = data.tvs || [];
-
+    const { tagsets, tvs } = await fetchTvsForHouse(req.house);
     res.json({ success: true, tagsets, tvs });
   } catch (error) {
     console.error('Error in /tvs route:', error.message);
@@ -445,16 +489,28 @@ router.get('/recently-displayed', requireHA, async (req, res) => {
     
     let haResult = [];
     if (SUPERVISOR_TOKEN || process.env.NODE_ENV !== 'development') {
-      const result = await haRequest('POST', '/template', { template }, req.house);
-      if (typeof result === 'string') {
-        try {
-          haResult = JSON.parse(result);
-        } catch (e) {
-          console.error('Failed to parse current artwork template result:', result);
+      // ?house=all: every house's current pictures (a house that does not answer is skipped)
+      const targets = wantsAllHouses(req) ? houses.getUsableHouses() : [req.house];
+      const settled = await Promise.allSettled(
+        targets.map((h) => haRequest('POST', '/template', { template }, h))
+      );
+      settled.forEach((outcome, i) => {
+        if (outcome.status !== 'fulfilled') {
+          if (targets.length === 1) throw outcome.reason;
+          console.error(`Recently displayed: house ${targets[i] && targets[i].id} did not answer:`, outcome.reason && outcome.reason.message);
+          return;
         }
-      } else if (Array.isArray(result)) {
-        haResult = result;
-      }
+        const result = outcome.value;
+        if (typeof result === 'string') {
+          try {
+            haResult = haResult.concat(JSON.parse(result));
+          } catch (e) {
+            console.error('Failed to parse current artwork template result:', result);
+          }
+        } else if (Array.isArray(result)) {
+          haResult = haResult.concat(result);
+        }
+      });
     } else {
       // Mock data for development
       haResult = [
