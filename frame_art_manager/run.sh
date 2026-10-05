@@ -52,17 +52,21 @@ if bashio::config.has_value 'ssh_private_key'; then
     
     # Create SSH config for the git remote host
     cat > /root/.ssh/config <<EOF
-Host ${GIT_HOST_ALIAS}
-    HostName github.com
+Host ${GIT_HOST_ALIAS} github.com
+    HostName ssh.github.com
+    Port 443
     User git
     IdentityFile /root/.ssh/id_ed25519
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
+    BatchMode yes
+    AddressFamily inet
+    ConnectTimeout 10
 EOF
     chmod 600 /root/.ssh/config
     
     # Add GitHub to known_hosts
-    ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null
+    #ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null
     
     bashio::log.info "✓ SSH key configured for ${GIT_HOST_ALIAS}"
 else
@@ -140,6 +144,11 @@ export FRAME_ART_PATH="${FRAME_ART_PATH}"
 export PORT="${PORT}"
 export FRAME_ART_HOME="${HOME_NAME}"
 export NODE_ENV="production"
+export GIT_TERMINAL_PROMPT="0"
+export GIT_ASKPASS="/bin/true"
+export SSH_ASKPASS="/bin/true"
+export DISPLAY=""
+export GIT_SSH_COMMAND="ssh -4 -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o BatchMode=yes -o StrictHostKeyChecking=no"
 
 # Change to app directory
 cd /app || bashio::exit.nok "Could not change to app directory"
