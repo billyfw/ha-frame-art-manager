@@ -16,7 +16,8 @@ alternatives) for supporting the second house in Maui.
   here.
 - **Library**: `git@github.com:billyfw/frame_art.git` — git + LFS (`library/`, `thumbs/`,
   `originals/` in LFS; `metadata.json` plain text). Managed by `app/git_helper.js`
-  (expected remote `billyfw/frame_art`, branch `main` hardcoded, pull --rebase
+  (expected remote `billyfw/frame_art`, which the add-on build patches to accept any
+  origin; branch `main` hardcoded, pull --rebase
   --autostash, "cloud wins" conflict resolution, semantic commit messages).
   Local dev checkout: `~/devprojects/ha-config/www/frame_art`.
 - **`~/devprojects/ha-config`**: Madrone HA config repo (the HA box is `ha.mad` /
@@ -63,13 +64,32 @@ FRAME_ART_PATH=~/devprojects/ha-config/www/frame_art NODE_ENV=development node s
 For a safe scratch library: APFS-clone the checkout (`cp -Rc`) and neuter pushes
 (`git remote set-url --push origin PUSH_DISABLED`).
 
+`npm test` defaults `FRAME_ART_PATH` to the real `ha-config/www/frame_art` checkout and the
+git suites clone the real library: run it with `FRAME_ART_PATH=<scratch repo>
+GIT_SSH_COMMAND=false` (network tests then skip; 107 pass, 15 skip on 2026-10-05).
+`app/node_modules` is committed (stale, despite .gitignore), so a fresh worktree lacks newer
+packages: add `NODE_PATH=<a full npm ci install>/node_modules`.
+
 ## Deployment
 
-- **Add-on channel (legacy, being retired per the plan)**: `do_release.sh [major|minor|
-  patch] ["msg"]` bumps `frame_art_manager/config.yaml`, commits, tags, pushes, then SSHes
-  to `ha.mad` and updates installed slug `e2a3b0cb_frame_art_manager`. The add-on maps
-  `config:rw`, serves ingress + **unauthenticated LAN port 8099** (known wart; goes away
-  with the migration).
+- **Add-on channel (public; Billy no longer runs it)**: neither house has the add-on
+  installed (checked live 2026-10-05), but the repo is public and other people install it
+  from the add-on store; their issues and PRs land here. The store builds from **main
+  HEAD** (no `image:` in config.yaml), so a push to main ships to their next install, and a
+  `config.yaml` version bump offers it as an update.
+  **Billy's rule (2026-10-05): helping them takes zero risk to his instance.** Their fixes
+  go only in the add-on-only files (`frame_art_manager/{Dockerfile,build.yaml,config.yaml,
+  run.sh}`), which never reach the Fly image (`fly/Dockerfile` copies only
+  `frame_art_manager/app/` and `fly/entrypoint.sh`); a change under `app/` or `fly/` for
+  them needs his explicit OK. Example: the add-on Dockerfile patches `expectedRemote` to ''
+  at build time (PR #3) instead of changing `git_helper.js`.
+  Base image HA 3.22 = Node 22.23.2 (3.19 had 20.15.1, which cannot `require()` the
+  ESM-only socks-proxy-agent: every add-on start crashed, issue #4).
+  **Never run `do_release.sh`**: after the bump, commit, tag and push it SSHes to `ha.mad`
+  and would reinstall and start the add-on there, a second writer to the library. Release
+  by hand: bump `version:` in `frame_art_manager/config.yaml`, commit `Release vX.Y.Z -
+  <msg>`, `git tag -a vX.Y.Z`, push main with the tag. The add-on maps `config:rw`, serves
+  ingress + **unauthenticated LAN port 8099**.
 - **Fly channel (target)**: `fly/` holds `Dockerfile`, `entrypoint.sh`, `fly.toml`.
   Machine `8e2d09c7123238` (lax) is **shared-cpu-1x / 512 MB + 256 MB swap since
   2026-09-02** (was 1 GB; measured steady RSS ~180 MB). `fly deploy` reconciles the
