@@ -56,7 +56,9 @@ House labels come from `HOUSES_JSON` names (Madrone, Maui).
   they named `/data/frame_art/library/<file>`, the integration takes `image_path` first, and
   every Show on TV at Madrone since the cutover died with "Art file not found" (HA answers a
   bare 500, the UI shows "Request failed with status code 500"). The add-on path still sends
-  them. `pokeHouses` never logs curl's error message: it is the command line, token included.
+  them. That call waits 120 s (`DISPLAY_TIMEOUT_MS`): HA holds the POST until the TV has the
+  picture, 33 s for the fireplace, and the 30 s house default would fail it on the clock.
+  `pokeHouses` never logs curl's error message: it is the command line, token included.
 - Startup: verify git → auto-pull → init dirs → `backfillSourceHashes()` (incremental).
 
 ## Dev & test

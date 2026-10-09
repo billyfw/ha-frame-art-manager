@@ -94,7 +94,13 @@ const MOCK_TV_TAGSET_ASSIGNMENTS = {
 // Helper for HA requests.
 // `house` (from req.house) selects the target home; when absent we fall back to
 // the Supervisor proxy, i.e. the legacy add-on deployment.
-const haRequest = async (method, endpoint, data = null, house = null) => {
+// HA holds a service POST open until the service returns (api/__init__.py shields the
+// blocking call), and display_image returns only after the TV has the picture: 33 s for
+// the fireplace on 2026-10-09 (connect, upload, 6 s settle, 8 s verify, cleanup). The
+// house default (30 s) would time out on the clock with the picture already showing.
+const DISPLAY_TIMEOUT_MS = 120000;
+
+const haRequest = async (method, endpoint, data = null, house = null, { timeout } = {}) => {
   if (!SUPERVISOR_TOKEN && !house && process.env.NODE_ENV === 'development') {
     // Mock responses for dev
     if (endpoint.includes('template')) {
@@ -160,7 +166,7 @@ const haRequest = async (method, endpoint, data = null, house = null) => {
         method,
         url: `${houseCfg.apiBase}${endpoint}`,
         headers: houseCfg.headers,
-        timeout: houseCfg.timeout,
+        timeout: timeout || houseCfg.timeout,
         httpAgent: houseCfg.httpAgent,
         httpsAgent: houseCfg.httpsAgent,
         proxy: houseCfg.proxy,
@@ -382,7 +388,9 @@ router.post('/display', requireHA, async (req, res) => {
       entity_id,
     });
 
-    await haRequest('POST', `/services/frame_art_shuffler/display_image`, payload, req.house);
+    await haRequest('POST', `/services/frame_art_shuffler/display_image`, payload, req.house, {
+      timeout: DISPLAY_TIMEOUT_MS,
+    });
 
     res.json({ success: true, message: 'Command sent to TV' });
   } catch (error) {
