@@ -50,6 +50,13 @@ House labels come from `HOUSES_JSON` names (Madrone, Maui).
 - HA coupling: service calls to `frame_art_shuffler.*` + a Jinja template POSTed to
   `/api/template` that scrapes entities by id suffix (`_current_artwork`, etc.) —
   brittle contract, works over remote HA REST with a token too.
+  **Show on TV sends the filename only when a house is set** (`display_payload.js`,
+  2026-10-09): the integration resolves it in its own library copy. `image_path` and
+  `image_url` are add-on-era fields that only make sense on a shared `/config/www`; from Fly
+  they named `/data/frame_art/library/<file>`, the integration takes `image_path` first, and
+  every Show on TV at Madrone since the cutover died with "Art file not found" (HA answers a
+  bare 500, the UI shows "Request failed with status code 500"). The add-on path still sends
+  them. `pokeHouses` never logs curl's error message: it is the command line, token included.
 - Startup: verify git → auto-pull → init dirs → `backfillSourceHashes()` (incremental).
 
 ## Dev & test
@@ -96,7 +103,8 @@ packages: add `NODE_PATH=<a full npm ci install>/node_modules`.
   machine to fly.toml's `[[vm]]` + `swap_size_mb`, so change size THERE, not only with
   `fly machine update`. If it ever OOM-restarts under a big LFS sync, go back to 1 GB.
   Deploy with `fly deploy --remote-only -c fly/fly.toml --dockerfile fly/Dockerfile`
-  (no local Docker on this Mac). Tailnet-only: no `[http_service]`, no public IPs; UI at
+  from the repo root (no local Docker; on dev flyctl lives at `~/.fly/bin/flyctl`, logged in
+  as Billy since 2026-10-04). Tailnet-only: no `[http_service]`, no public IPs; UI at
   `https://frame.tail9ddff9.ts.net`. Machine must stay always-on (auto-stop can't wake on
   tailnet traffic).
 

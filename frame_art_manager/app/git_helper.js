@@ -769,7 +769,8 @@ class GitHelper {
           args.unshift('--proxy', process.env.TAILSCALE_PROXY);
         }
         execFile('curl', args, (err, stdout) => {
-          if (err) console.warn(`pokeHouses: ${house.id} unreachable (timer will catch up):`, err.message);
+          // err.message is the whole curl command line, the bearer token included: never log it.
+          if (err) console.warn(`pokeHouses: ${house.id} unreachable (timer will catch up): curl exit ${err.code}`);
           else console.log(`pokeHouses: ${house.id} -> HTTP ${stdout}`);
         });
       }, Number(process.env.POKE_DELAY_MS || 15000));
