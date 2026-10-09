@@ -20,6 +20,7 @@ const HA_API_BASE = process.env.HA_URL || 'http://supervisor/core/api';
 // go straight to each house's HA REST API with a long-lived token. The
 // Supervisor path below remains for the legacy add-on deployment.
 const houses = require('../houses');
+const { displayPayload } = require('../display_payload');
 
 // Middleware: attach the target house (?house=<id>, default first) and ensure
 // we have SOME way to reach Home Assistant.
@@ -369,25 +370,17 @@ router.post('/display', requireHA, async (req, res) => {
   }
 
   try {
-    // Construct the path/URL to the image
-    const imagePath = path.join(req.frameArtPath, 'library', filename);
-    const relativePath = path.relative('/config/www', imagePath);
-    const imageUrl = `/local/${relativePath}`;
-
-    const payload = {
-      image_path: imagePath,
-      image_url: imageUrl,
-      filename: filename
-    };
-
-    if (matte) payload.matte = matte;
-    if (filter) payload.filter = filter;
-
-    if (device_id) {
-      payload.device_id = device_id;
-    } else {
-      payload.entity_id = entity_id;
-    }
+    // Central deployment: the filename only, the house resolves it in its own library
+    // (display_payload.js says why). Add-on deployment: the shared-disk fields as before.
+    const payload = displayPayload({
+      house: req.house,
+      frameArtPath: req.frameArtPath,
+      filename,
+      matte,
+      filter,
+      device_id,
+      entity_id,
+    });
 
     await haRequest('POST', `/services/frame_art_shuffler/display_image`, payload, req.house);
 
