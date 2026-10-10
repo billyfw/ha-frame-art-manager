@@ -615,6 +615,23 @@ function getTVStatusData() {
 }
 
 /**
+ * The text for a home that did not answer: "<Home>: unreachable (<its displays>)". The displays
+ * are the ones the manager saw the last time that home answered (none listed until it has
+ * answered once since the manager started). More than three read "a, b, c, +N more" so the
+ * pill stays one line. `cls` is 'pill' (desktop hover) or 'bar' (mobile).
+ */
+function unreachableHouseText(house, cls) {
+  const names = Array.isArray(house.displays) ? house.displays : [];
+  const shown = names.slice(0, 3);
+  const rest = names.length - shown.length;
+  const listed = shown.map(escapeHtml).join(', ') + (rest > 0 ? ', +' + rest + ' more' : '');
+  const namePart = '<span class="' + cls + '-tv-name">' + escapeHtml(house.name || house.id) + '</span>';
+  const statePart = '<span class="' + cls + '-tagset">unreachable</span>';
+  const listPart = listed ? ' (<span class="' + cls + '-image">' + listed + '</span>)' : '';
+  return namePart + ': ' + statePart + listPart;
+}
+
+/**
  * Render TV status dots in both desktop and mobile containers
  */
 function renderTVStatusDots() {
@@ -622,8 +639,11 @@ function renderTVStatusDots() {
   const mobileContainer = document.getElementById('tv-status-container-mobile');
   
   const tvStatus = getTVStatusData();
+  // A home that did not answer gets a red marker after the display dots: its displays are
+  // not in tvStatus, the manager never got that list.
+  const unreachable = (allHouses || []).filter(h => !h.ok);
   
-  if (tvStatus.length === 0) {
+  if (tvStatus.length === 0 && unreachable.length === 0) {
     if (desktopContainer) desktopContainer.innerHTML = '';
     if (mobileContainer) mobileContainer.innerHTML = '';
     return;
@@ -678,8 +698,16 @@ function renderTVStatusDots() {
     return '<div class="tv-status-bar ' + statusClass + '" data-tv-id="' + tv.tvId + '" data-filename="' + (tv.currentImage || '') + '">' + barContent + '</div>';
   }).join('');
   
-  if (desktopContainer) desktopContainer.innerHTML = dotsHtml;
-  if (mobileContainer) mobileContainer.innerHTML = barsHtml;
+  // Red markers for the homes that did not answer, after the display dots.
+  const unreachableDotsHtml = unreachable.map(h =>
+    '<div class="tv-status-dot unreachable" title="' + escapeHtml(h.name || h.id) + ' unreachable"><div class="tv-status-pill">' + unreachableHouseText(h, 'pill') + '</div></div>'
+  ).join('');
+  const unreachableBarsHtml = unreachable.map(h =>
+    '<div class="tv-status-bar unreachable">' + unreachableHouseText(h, 'bar') + '</div>'
+  ).join('');
+  
+  if (desktopContainer) desktopContainer.innerHTML = dotsHtml + unreachableDotsHtml;
+  if (mobileContainer) mobileContainer.innerHTML = barsHtml + unreachableBarsHtml;
   
   // Add click listeners for desktop dots
   document.querySelectorAll('.tv-status-dot').forEach(dot => {
@@ -5059,6 +5087,11 @@ async function loadTVs() {
         loadTagsForFilter({ skipRender: true });
       }
       // Update TV status dots
+      renderTVStatusDots();
+    } else if (Array.isArray(data.houses)) {
+      // No home answered: nothing to list, every home gets the unreachable marker.
+      allTVs = [];
+      allHouses = data.houses;
       renderTVStatusDots();
     }
   } catch (error) {

@@ -776,6 +776,13 @@ body {
   background: #666;
 }
 
+/* A home that did not answer: red, nothing to click */
+.tv-status-dot.unreachable {
+  background: #e53935;
+  box-shadow: 0 0 4px rgba(229, 57, 53, 0.5);
+  cursor: default;
+}
+
 .tv-status-dot:hover {
   transform: scale(1.1);
 }
@@ -810,6 +817,10 @@ body {
 
 .tv-status-dot.off .tv-status-pill {
   background: #444;
+}
+
+.tv-status-dot.unreachable .tv-status-pill {
+  background: #c62828;
 }
 
 .tv-status-dot:hover .tv-status-pill,
@@ -3432,6 +3443,11 @@ body.dropdown-open .image-card:hover {
 
   .tv-status-bar.off {
     background: #444;
+  }
+
+  .tv-status-bar.unreachable {
+    background: #c62828;
+    cursor: default;
   }
 
   .tv-status-bar .bar-tv-name {
