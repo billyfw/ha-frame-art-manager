@@ -21,6 +21,7 @@ const HA_API_BASE = process.env.HA_URL || 'http://supervisor/core/api';
 // Supervisor path below remains for the legacy add-on deployment.
 const houses = require('../houses');
 const { displayPayload } = require('../display_payload');
+const lastDisplays = require('../last_displays');
 
 // Middleware: attach the target house (?house=<id>, default first) and ensure
 // we have SOME way to reach Home Assistant.
@@ -308,8 +309,9 @@ function wantsAllHouses(req) {
 // ?house=all (2026-10-04): every house's displays in one list. Each display carries `house`,
 // `house_name` and its plain `device_name`; with more than one house its `name` reads
 // "<device> (<house>)". Tagsets: `tagsets_by_house`, plus `tagsets` = their union (first
-// house wins on a name clash). A house that does not answer is reported in `houses` and the
-// rest still list.
+// house wins on a name clash). A house that does not answer is reported in `houses` with the
+// displays it had the last time it answered (`displays`, last_displays.js) and the rest still
+// list; the page marks it with a red dot.
 router.get('/tvs', requireHA, async (req, res) => {
   try {
     if (wantsAllHouses(req)) {
@@ -324,10 +326,17 @@ router.get('/tvs', requireHA, async (req, res) => {
         const house = all[i];
         if (outcome.status !== 'fulfilled') {
           console.error(`TV list: house ${house.id} did not answer:`, outcome.reason && outcome.reason.message);
-          houseStatus.push({ id: house.id, name: house.name, ok: false, error: outcome.reason && outcome.reason.message });
+          houseStatus.push({
+            id: house.id,
+            name: house.name,
+            ok: false,
+            error: outcome.reason && outcome.reason.message,
+            displays: lastDisplays.get(house.id),
+          });
           return;
         }
         houseStatus.push({ id: house.id, name: house.name, ok: true });
+        lastDisplays.remember(house.id, outcome.value.tvs);
         tagsetsByHouse[house.id] = outcome.value.tagsets;
         for (const [name, def] of Object.entries(outcome.value.tagsets)) {
           if (!(name in tagsets)) tagsets[name] = def;

@@ -34,7 +34,10 @@ home (a rename only where the old name exists), a delete to every home that has 
 selecting a tagset for a display first copies it into that display's home if missing
 (`ensureTagsetInHouse`). Statistics, display logs and recency settings stay per home: the `house`
 cookie, chosen by the Home picker on the Statistics header and the Recency tab (house-switcher.js).
-House labels come from `HOUSES_JSON` names (Madrone, Maui).
+House labels come from `HOUSES_JSON` names (Madrone, Maui). **A home that does not answer is a red
+dot after the display dots** (2026-10-10): its hover reads "<Home>: unreachable (<its displays>)",
+the displays as the manager last saw them (`last_displays.js`, in memory: after a restart the names
+come back with that home's first answer). With no home answering the row is red dots only.
 
 ## Key backend facts
 
