@@ -62,6 +62,17 @@ come back with that home's first answer). With no home answering the row is red 
   them. That call waits 120 s (`DISPLAY_TIMEOUT_MS`): HA holds the POST until the TV has the
   picture, 33 s for the fireplace, and the 30 s house default would fail it on the clock.
   `pokeHouses` never logs curl's error message: it is the command line, token included.
+- **A failed push makes every house stale, and only the Fly log says so** (2026-10-20): the
+  machine's crash restart on 2026-10-16 ran the entrypoint's `ssh-keyscan github.com ... || true`
+  before the network was up, `/root/.ssh/known_hosts` stayed empty, and for four days the push
+  sweep logged "push failed" once a minute while three uploads sat as unpushed commits. The
+  houses' `library_sync` read "ok" the whole time (GitHub had nothing new), and Show on TV of
+  one of those pictures at Madrone died with "Art file not found". The entrypoint now writes
+  GitHub's published host keys (api.github.com/meta) instead of scanning. The UI's git badge
+  ("↑ N ahead") is the only other signal; the system-health-monitor checks (`frame-art-manager`
+  health, `frame-art-library` mirror freshness) cannot see it. By hand:
+  `fly ssh console -C "git -C /data/frame_art status -sb"`; a stuck push is also a
+  "Push sweep: push failed" line a minute in `fly logs`.
 - Startup: verify git → auto-pull → init dirs → `backfillSourceHashes()` (incremental).
 
 ## Dev & test
