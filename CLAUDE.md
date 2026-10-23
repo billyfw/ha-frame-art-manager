@@ -38,6 +38,12 @@ House labels come from `HOUSES_JSON` names (Madrone, Maui). **A home that does n
 dot after the display dots** (2026-10-10): its hover reads "<Home>: unreachable (<its displays>)",
 the displays as the manager last saw them (`last_displays.js`, in memory: after a restart the names
 come back with that home's first answer). With no home answering the row is red dots only.
+**The displayed sorts rank a lit screen's picture above a dark screen's** (Billy, 2026-10-22):
+`/api/ha/recently-displayed` tags each showing-now entry with the display's `screen_on` (the same device's
+`_screen_on` binary sensor; `null` when it has none), and `showingNowRank` in app.js puts now-on-a-lit-screen
+first, now-on-a-dark-screen next, then everything else by last displayed time; the status label reads "Now,
+screen off" for a dark one. Before, every showing-now picture tied at "now" and the added-date tiebreak put
+Madrone's dark TVs beside Maui's lit displays.
 
 ## Key backend facts
 
