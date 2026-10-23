@@ -132,6 +132,14 @@ packages: add `NODE_PATH=<a full npm ci install>/node_modules`.
 
 ## Gotchas
 
+- **Library images larger than the panel (2026-10-23).** 280 of the 665 library files are larger than 3840x2160
+  (216 are 4032x2268 iPhone shots, some 5712x3213). Madrone's 2021/2022 Frames take them; the second house Great Room's
+  2026 Frame (QN85LS03H) hangs its art app on such an upload and drops to its Art Mode menu, where the art
+  channel goes silent (ha-lau-config `docs/incidents.md` 2026-10-22). The shuffler shrinks uploads to fit the
+  panel since 0.4.3 (`_fit_to_panel`), so the manager needs no change for correctness. Open option for the owner:
+  normalize the library to 3840x2160 at import (and once for the existing files) to keep the library and both
+  houses' syncs smaller; that changes file hashes and names, so it is a migration, not a quick edit.
+
 - zsh eats bare `=` words (`echo ===` fails) — quote separators in shell commands.
 - `metadata.json` is the merge-conflict hotspot; the migration makes this repo's instance
   the ONLY writer. Never add a second writer.
