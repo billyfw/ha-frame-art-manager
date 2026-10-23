@@ -480,16 +480,29 @@ router.get('/recently-displayed', requireHA, async (req, res) => {
     
     // Query HA for all current_artwork sensors
     const template = `
-      {% set ns = namespace(result=[]) %}
+      {% set ns = namespace(result=[], screen_on=none) %}
       {% for state in states.sensor %}
         {% if state.entity_id.endswith('_current_artwork') and state.attributes.get('device_class') is none %}
           {% set device_id = device_id(state.entity_id) %}
           {% if device_id %}
             {% set device_name = device_attr(device_id, 'name') %}
+            {# The display's screen state, from the same device's _screen_on binary sensor (none when unknown) #}
+            {% set ns.screen_on = none %}
+            {% for entity in device_entities(device_id) %}
+              {% if entity.endswith('_screen_on') %}
+                {% set screen_state = states(entity) %}
+                {% if screen_state == 'on' %}
+                  {% set ns.screen_on = true %}
+                {% elif screen_state == 'off' %}
+                  {% set ns.screen_on = false %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
             {% set ns.result = ns.result + [{
               'device_id': device_id,
               'tv_name': device_name,
-              'filename': state.state
+              'filename': state.state,
+              'screen_on': ns.screen_on
             }] %}
           {% endif %}
         {% endif %}
@@ -524,12 +537,13 @@ router.get('/recently-displayed', requireHA, async (req, res) => {
     } else {
       // Mock data for development
       haResult = [
-        { device_id: 'mock_device_1', tv_name: 'Living Room Frame', filename: 'sunset-beach-abc123.jpg' },
-        { device_id: 'mock_device_2', tv_name: 'Office Frame', filename: 'mountain-view-def456.jpg' }
+        { device_id: 'mock_device_1', tv_name: 'Living Room Frame', filename: 'sunset-beach-abc123.jpg', screen_on: true },
+        { device_id: 'mock_device_2', tv_name: 'Office Frame', filename: 'mountain-view-def456.jpg', screen_on: false }
       ];
     }
     
-    // Build current images map: filename -> [{ tv_id, tv_name, time: 'now' }]
+    // Build current images map: filename -> [{ tv_id, tv_name, time: 'now', screen_on }]
+    // screen_on: true (lit), false (dark) or null (unknown); the gallery ranks a lit screen's picture above a dark one's
     for (const item of haResult) {
       if (item.filename && item.filename !== 'Unknown' && item.filename !== 'unknown') {
         if (!currentImages[item.filename]) {
@@ -539,7 +553,8 @@ router.get('/recently-displayed', requireHA, async (req, res) => {
           tv_id: item.device_id,
           tv_name: item.tv_name,
           time: 'now',
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          screen_on: item.screen_on === true ? true : (item.screen_on === false ? false : null)
         });
       }
     }

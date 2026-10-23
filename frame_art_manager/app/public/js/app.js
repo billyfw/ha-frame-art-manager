@@ -354,6 +354,20 @@ async function fetchRecentlyDisplayed() {
   }
 }
 
+/**
+ * How a picture that some display shows right now ranks in the displayed sorts:
+ * 2 when at least one of those screens is lit, 1 when every such screen is dark, 0 when no display shows it.
+ * A lit screen's picture sorts above a dark screen's (the owner, 2026-10-22); a display whose screen state is
+ * unknown (older integration, no _screen_on sensor) counts as lit, as before.
+ * @param {Array} entries - recentlyDisplayedData[filename]
+ * @returns {number} 0, 1 or 2
+ */
+function showingNowRank(entries) {
+  const nowEntries = (entries || []).filter(e => e.time === 'now');
+  if (nowEntries.length === 0) return 0;
+  return nowEntries.some(e => e.screen_on !== false) ? 2 : 1;
+}
+
 // Last displayed timestamps for sorting (filename -> timestamp)
 let lastDisplayedTimes = null; // null = not fetched yet, {} = fetched but empty
 
@@ -3199,7 +3213,8 @@ function getLastDisplayInfo(filename) {
   const recentEntries = recentlyDisplayedData[filename] || [];
   const currentlyDisplaying = recentEntries.find(entry => entry.time === 'now');
   if (currentlyDisplaying) {
-    return { timeAgo: 'Now', tvName: currentlyDisplaying.tv_name || 'Unknown TV' };
+    const timeAgo = currentlyDisplaying.screen_on === false ? 'Now, screen off' : 'Now';
+    return { timeAgo, tvName: currentlyDisplaying.tv_name || 'Unknown TV' };
   }
   
   // Fall back to analytics data for historical display info
@@ -3583,7 +3598,8 @@ function renderGallery(filter = '') {
       return sortAscending ? comparison : -comparison;
     });
   } else if (recentlyDisplayedFilterActive) {
-    // Sort by most recent display time (Now first, then by timestamp)
+    // Sort by most recent display time (Now first, a lit screen's picture above a dark one's, then by timestamp)
+    const sortNowBase = Date.now();
     filteredImages.sort((a, b) => {
       const [filenameA] = a;
       const [filenameB] = b;
@@ -3594,9 +3610,9 @@ function renderGallery(filter = '') {
       // Get most recent timestamp for each image
       const getMostRecentTimestamp = (entries) => {
         if (entries.length === 0) return 0;
-        // 'now' entries get current timestamp (highest priority)
-        const hasNow = entries.some(e => e.time === 'now');
-        if (hasNow) return Date.now();
+        // 'now' entries rank first: a lit screen above a dark one (showingNowRank)
+        const nowRank = showingNowRank(entries);
+        if (nowRank) return sortNowBase + nowRank;
         // Otherwise use highest timestamp
         return Math.max(...entries.map(e => e.timestamp || 0));
       };
@@ -3609,6 +3625,7 @@ function renderGallery(filter = '') {
     });
   } else {
     // Standard sort modes: "name", "date", "modified", or "displayed" (from dropdown)
+    const sortNowBase = Date.now();
     filteredImages.sort((a, b) => {
       const [filenameA, dataA] = a;
       const [filenameB, dataB] = b;
@@ -3626,12 +3643,12 @@ function renderGallery(filter = '') {
         comparison = dateA - dateB; // older first when ascending
       } else if (sortOrder === 'displayed') {
         // Sort by last displayed time
-        // Images currently displaying (time: 'now') get Date.now() as their timestamp
-        // Secondary sort: added date, then filename for images with same/no display time
-        const isCurrentlyDisplayingA = recentlyDisplayedData[filenameA]?.some(d => d.time === 'now');
-        const isCurrentlyDisplayingB = recentlyDisplayedData[filenameB]?.some(d => d.time === 'now');
-        const timeA = isCurrentlyDisplayingA ? Date.now() : (lastDisplayedTimes?.[filenameA] || 0);
-        const timeB = isCurrentlyDisplayingB ? Date.now() : (lastDisplayedTimes?.[filenameB] || 0);
+        // Images currently displaying (time: 'now') rank first, a lit screen's picture above a dark one's
+        // (showingNowRank); secondary sort: added date, then filename for images with same/no display time
+        const nowRankA = showingNowRank(recentlyDisplayedData[filenameA]);
+        const nowRankB = showingNowRank(recentlyDisplayedData[filenameB]);
+        const timeA = nowRankA ? sortNowBase + nowRankA : (lastDisplayedTimes?.[filenameA] || 0);
+        const timeB = nowRankB ? sortNowBase + nowRankB : (lastDisplayedTimes?.[filenameB] || 0);
         comparison = timeA - timeB;
         
         // If both have same display time (or both never displayed), use added date as tiebreaker
