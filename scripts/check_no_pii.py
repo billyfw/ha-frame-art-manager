@@ -45,7 +45,8 @@ ALLOWED_EMAILS = {
     "mjg59@srcf.ucam.org": "author credit in the vendored samsungtvws code",
 }
 ALLOWED_EMAIL_DOMAINS = ("example.com", "example.org", "example.net", "homeassistant.local", "fly.io")  # RFC 2606 and role addresses
-DOC_MACS = {"aa:bb:cc:dd:ee:ff", "aa:bb:cc:dd:ee:01", "a1:b2:c3:d4:e5:f6", "ff:ff:ff:ff:ff:ff", "00:11:22:33:44:55", "ff:ee:dd:cc:bb:aa"}
+DOC_MACS = {"aa:bb:cc:dd:ee:ff", "aa:bb:cc:dd:ee:01", "a1:b2:c3:d4:e5:f6", "ff:ff:ff:ff:ff:ff", "00:11:22:33:44:55", "ff:ee:dd:cc:bb:aa",
+            "11:22:33:44:55:66", "22:33:44:55:66:77", "77:66:55:44:33:22"}  # the test fixtures' made-up addresses
 RULES = {
     "email": re.compile(r"(?<![\w.+-])[\w+][\w.+-]*@[\w-]+(?:\.[\w-]+)+"),  # no leading punctuation: `-git@github.com` is a flag plus a URL
     "mac-address": re.compile(r"\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b"),
@@ -77,9 +78,10 @@ def scan_text(text: str, where: str, markers: list[str], findings: list[str], *,
             for rule, rx in RULES.items():
                 for m in rx.finditer(line):
                     v = m.group(0)
+                    domain = v.lower().rsplit("@", 1)[-1]
                     if rule == "email" and (v in ALLOWED_IDENTITIES or v in ALLOWED_EMAILS
-                                            or v.lower().endswith(tuple("@" + d for d in ALLOWED_EMAIL_DOMAINS))
-                                            or v.lower().rsplit("@", 1)[-1] == "example"):
+                                            or domain == "example"
+                                            or any(domain == d or domain.endswith("." + d) for d in ALLOWED_EMAIL_DOMAINS)):
                         continue
                     if rule == "mac-address" and v.lower() in DOC_MACS:
                         continue
