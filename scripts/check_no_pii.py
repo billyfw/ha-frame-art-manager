@@ -89,6 +89,8 @@ def scan_text(text: str, where: str, markers: list[str], findings: list[str], *,
                         continue
                     if rule == "long-secret" and v.startswith(("iVBORw0KGgo", "/9j/", "R0lGOD")):
                         continue  # base64 PNG, JPEG or GIF bytes in a fixture, not a token
+                    if rule == "long-secret" and v.startswith(("AAAAB3NzaC1", "AAAAC3NzaC1", "AAAAE2VjZHNh")):
+                        continue  # an ssh PUBLIC key (rsa, ed25519, ecdsa), e.g. a known_hosts line; private keys are PEM
                     findings.append(f"{rule}: {where} line {n}: {mask(v)}")
         low = line.lower()
         for mk in markers:
