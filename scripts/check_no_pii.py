@@ -43,6 +43,8 @@ ALLOWED_EMAILS = {
     "xchwarze@gmail.com": "author credit of the vendored samsungtvws library",
     "n.waterton@outlook.com": "author credit of the vendored samsungtvws art code",
     "mjg59@srcf.ucam.org": "author credit in the vendored samsungtvws code",
+    "github@scottconnor.com": "an outside contributor credited in two commit messages; their own public address",
+    "root@ha.mad": "an ssh target in an old release script, not a mailbox",
 }
 ALLOWED_EMAIL_DOMAINS = ("example.com", "example.org", "example.net", "homeassistant.local", "fly.io")  # RFC 2606 and role addresses
 DOC_MACS = {"aa:bb:cc:dd:ee:ff", "aa:bb:cc:dd:ee:01", "a1:b2:c3:d4:e5:f6", "ff:ff:ff:ff:ff:ff", "00:11:22:33:44:55", "ff:ee:dd:cc:bb:aa",
@@ -85,6 +87,8 @@ def scan_text(text: str, where: str, markers: list[str], findings: list[str], *,
                         continue
                     if rule == "mac-address" and v.lower() in DOC_MACS:
                         continue
+                    if rule == "long-secret" and v.startswith(("iVBORw0KGgo", "/9j/", "R0lGOD")):
+                        continue  # base64 PNG, JPEG or GIF bytes in a fixture, not a token
                     findings.append(f"{rule}: {where} line {n}: {mask(v)}")
         low = line.lower()
         for mk in markers:
