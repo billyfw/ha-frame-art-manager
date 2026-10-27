@@ -10765,3 +10765,237 @@ body.dropdown-open .image-card:hover {
     font-size: 11px;
   }
 }
+/* First-run library setup (js/library-setup.js) */
+body.library-setup-open {
+  overflow: hidden;
+}
+
+.library-setup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 32px 16px;
+}
+
+.library-setup-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 680px;
+  padding: 28px 30px;
+}
+
+.library-setup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.library-setup-header h2 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+.library-setup-intro {
+  color: #4a5568;
+  margin-bottom: 18px;
+}
+
+.library-setup-intro .path-code {
+  padding: 2px 6px;
+  word-break: break-all;
+}
+
+.library-setup-blocked {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  color: #6b4e00;
+}
+
+.library-setup-blocked code {
+  display: block;
+  margin-top: 6px;
+  word-break: break-all;
+}
+
+.library-setup-steps {
+  list-style: none;
+  counter-reset: setup-step;
+  margin: 0;
+  padding: 0;
+}
+
+.library-setup-steps > li {
+  counter-increment: setup-step;
+  position: relative;
+  padding: 0 0 20px 42px;
+}
+
+.library-setup-steps > li::before {
+  content: counter(setup-step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #3498db;
+  color: white;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.library-setup-steps h4 {
+  margin: 2px 0 6px;
+  color: #2c3e50;
+}
+
+.library-setup-steps p {
+  color: #4a5568;
+  margin-bottom: 8px;
+}
+
+.library-setup-card .btn-small {
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+.library-setup-card .btn-secondary {
+  border: 1px solid #cbd5e0;
+}
+
+.library-setup-link {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.library-setup-link.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.library-setup-input {
+  width: 100%;
+  max-width: 360px;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e0;
+  border-radius: 5px;
+  font-size: 1rem;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.library-setup-field-error {
+  color: #c0392b;
+  font-size: 0.9rem;
+  min-height: 1.2em;
+  margin-top: 4px;
+}
+
+.library-setup-key {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.library-setup-key textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  padding: 8px;
+  border: 1px solid #d1e8f1;
+  border-radius: 4px;
+  background: #f8fafc;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.library-setup-note {
+  font-size: 0.9rem;
+}
+
+.library-setup-result {
+  margin-top: 10px;
+  font-size: 0.95rem;
+}
+
+.library-setup-result:empty {
+  display: none;
+}
+
+.library-setup-result-pending,
+.library-setup-result-success,
+.library-setup-result-warning,
+.library-setup-result-error {
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.library-setup-result-pending {
+  background: #e8f4f8;
+  color: #2c3e50;
+}
+
+.library-setup-result-success {
+  background: #e6f6ec;
+  color: #1e7b45;
+}
+
+.library-setup-result-warning {
+  background: #fff3cd;
+  color: #6b4e00;
+}
+
+.library-setup-result-error {
+  background: #fdecea;
+  color: #a93226;
+}
+
+.library-setup-result pre {
+  margin-top: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+#library-setup-reload {
+  margin-top: 10px;
+}
+
+.library-setup-footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #e1e4e8;
+  padding-top: 14px;
+}
+
+.library-setup-settings-text {
+  color: #4a5568;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 600px) {
+  .library-setup-card {
+    padding: 20px 16px;
+  }
+
+  .library-setup-steps > li {
+    padding-left: 38px;
+  }
+}
