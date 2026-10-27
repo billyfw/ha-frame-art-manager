@@ -41,9 +41,52 @@ The web interface has 4 main areas:
 
 Set the **Home** field to a nickname like `Madrone` so future automations can tell which location this add-on instance belongs to. The value is optional today but is passed to the backend for upcoming features.
 
-### Git Sync (Optional)
+### Connecting Your Art Library to GitHub (First Run)
 
-To enable Git synchronization of your frame art library:
+The library (images, thumbnails and `metadata.json`) lives in a private GitHub repository,
+which backs it up and keeps every copy in sync. Images are stored with Git LFS. The add-on
+sets this up from its web UI; no terminal or SSH commands are needed.
+
+When the library folder (`frame_art_path`) is empty and not yet a git repository, opening
+the web UI shows **Connect your art library**:
+
+1. **Create a private repository** on GitHub (the link opens
+   `https://github.com/new?name=frame_art&visibility=private`). Leave it empty: no README,
+   no license. To share an existing Frame Art library instead, use its repository.
+2. **Enter the repository** as `owner/name`, for example `your-user/frame_art`.
+3. **Add the add-on's key as a deploy key.** Copy the public key shown on the screen, open
+   the repository's deploy keys page (the link goes to
+   `https://github.com/<owner>/<repo>/settings/keys/new`), paste it, give it a title and
+   check **Allow write access**. Without write access the add-on can download the library
+   but cannot save your changes.
+4. **Test connection.** The test tells you whether GitHub accepts the key, whether the key
+   can write, and whether the repository is empty or already holds a library.
+5. **Connect library.**
+   - Empty repository: the add-on creates a new library in the folder (`.gitattributes` for
+     Git LFS and an empty `metadata.json`) and pushes it to the `main` branch.
+   - Repository with a library: the add-on downloads it into the folder (the `main` branch,
+     then the images through Git LFS; a large library can take a while).
+
+Sync works as soon as setup finishes; the page reloads into the gallery. **Set up later**
+closes the screen; **Advanced → Settings → Library Sync** opens it again.
+
+Setup never overwrites anything. It only runs when the folder is missing, empty, or holds
+just the empty folders and `metadata.json` the add-on creates at startup. A folder that is
+already a git repository never sees the screen and is left exactly as it is. A folder with
+other files (for example images added before connecting) is refused: move them out, or
+point `frame_art_path` at an empty folder, then run setup again.
+
+#### The generated key
+
+When `ssh_private_key` is empty, the add-on generates an ed25519 key on first start and keeps
+it in its private data folder (`/data/ssh/id_ed25519`), so it survives restarts and updates.
+Only the public half is ever shown. Removing the deploy key on GitHub revokes the add-on's
+access. Uninstalling the add-on deletes the key; a reinstall generates a new one, which then
+needs adding as a deploy key again.
+
+### Using Your Own SSH Key (Existing Setups)
+
+The `ssh_private_key` option still works and takes precedence over the generated key:
 
 1. Go to **Settings** → **Add-ons** → **Frame Art Manager** → **Configuration**
 2. Paste your SSH private key in the `ssh_private_key` field
@@ -55,6 +98,9 @@ To enable Git synchronization of your frame art library:
 - Copy the entire output including `-----BEGIN` and `-----END` lines
 
 **Note**: The private key is stored securely in the add-on's configuration and is never exposed in logs.
+
+Either key is used over SSH on port 443 (`ssh.github.com`), which works on networks that
+block port 22.
 
 ## Storage Location
 
