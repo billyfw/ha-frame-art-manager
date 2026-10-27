@@ -2,7 +2,8 @@
 // Talks to routes/setup.js. Shown on its own only when the library folder is not a
 // git repo and holds nothing but the app's startup skeleton; a folder that is already
 // a repo never sees it. Advanced > Settings > Library Sync opens it any time the
-// library is not connected, including one that has been used without sync.
+// library is not connected, including one that has been used without sync, and
+// offers Disconnect while it is.
 (function () {
   const SETUP_API = 'api/setup';
   const DISMISS_KEY = 'frameArt.librarySetupDismissed';
@@ -253,7 +254,41 @@
   function renderSettingsEntry() {
     const section = el('library-sync-setup-section');
     if (!section) return;
-    section.classList.toggle('hidden', !status.needsSetup);
+    section.classList.remove('hidden');
+    el('library-sync-disconnected').classList.toggle('hidden', !status.needsSetup);
+    el('library-sync-connected').classList.toggle('hidden', status.needsSetup);
+    el('library-sync-repo').textContent = status.repo || status.origin || 'a repository';
+  }
+
+  function setDisconnectBusy(busy) {
+    ['library-sync-keep-btn', 'library-sync-clear-btn', 'library-sync-cancel-btn'].forEach((id) => {
+      el(id).disabled = busy;
+    });
+  }
+
+  async function disconnect(mode) {
+    const repo = status.repo || 'this repository';
+    const question = mode === 'clear'
+      ? `Disconnect from ${repo} and remove every image from this add-on?\n\n` +
+        'This is only done if everything is already on GitHub. The images stay in the repository.'
+      : `Disconnect from ${repo}?\n\nThe library stays here and keeps working, without sync.`;
+    if (!window.confirm(question)) return;
+
+    const result = el('library-sync-disconnect-result');
+    setDisconnectBusy(true);
+    setResult(result, 'pending', mode === 'clear' ? 'Checking that everything is on GitHub…' : 'Disconnecting…');
+    try {
+      const { response, data } = await postJson('disconnect', { mode });
+      if (response.ok && data.success) {
+        setResult(result, 'success', `${data.message} Reloading…`);
+        setTimeout(() => window.location.reload(), 1500);
+        return;
+      }
+      setResult(result, 'error', data.message || 'Disconnecting failed.');
+    } catch (error) {
+      setResult(result, 'error', `Disconnecting failed: ${error.message}`);
+    }
+    setDisconnectBusy(false);
   }
 
   function bind() {
@@ -279,6 +314,18 @@
     };
     el('library-setup-later').addEventListener('click', later);
     el('library-setup-close').addEventListener('click', later);
+    const panel = el('library-sync-disconnect-panel');
+    el('library-sync-disconnect-btn').addEventListener('click', () => {
+      setResult(el('library-sync-disconnect-result'), '', '');
+      panel.classList.remove('hidden');
+      el('library-sync-disconnect-btn').classList.add('hidden');
+    });
+    el('library-sync-cancel-btn').addEventListener('click', () => {
+      panel.classList.add('hidden');
+      el('library-sync-disconnect-btn').classList.remove('hidden');
+    });
+    el('library-sync-keep-btn').addEventListener('click', () => disconnect('keep'));
+    el('library-sync-clear-btn').addEventListener('click', () => disconnect('clear'));
     const openBtn = el('open-library-setup-btn');
     if (openBtn) {
       openBtn.addEventListener('click', async () => {

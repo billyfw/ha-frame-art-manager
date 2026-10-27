@@ -10978,6 +10978,33 @@ body.library-setup-open {
   padding-top: 14px;
 }
 
+.library-sync-disconnect {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid #e1e4e8;
+  border-radius: 8px;
+  background: white;
+}
+
+.library-sync-disconnect > p {
+  color: #4a5568;
+  margin-bottom: 12px;
+}
+
+.library-sync-option {
+  margin-bottom: 14px;
+}
+
+.library-sync-option p {
+  color: #4a5568;
+  font-size: 0.9rem;
+  margin-top: 6px;
+}
+
+#library-sync-disconnect-panel .btn-secondary {
+  border: 1px solid #cbd5e0;
+}
+
 .library-setup-settings-text {
   color: #4a5568;
   margin-bottom: 12px;

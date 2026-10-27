@@ -18,6 +18,11 @@ const path = require('path');
  * and only a folder holding nothing beyond the startup skeleton (empty library/,
  * thumbs/, originals/ and an image-less metadata.json) can receive a clone. User
  * input reaches git only as an argument array, never through a shell.
+ *
+ * Disconnecting (disconnectLibrary) is the way back: it removes the folder's .git
+ * and either keeps the library files (to start over in a new, empty repository)
+ * or, only once everything is confirmed on the remote, empties the folder (to
+ * download a different repository's library).
  */
 
 const REPO_PATTERN = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
@@ -35,6 +40,9 @@ const GITATTRIBUTES = [
 ].join('\n');
 // Desktop clutter that must not end up in a new library's history.
 const GITIGNORE = ['.DS_Store', '._*', 'Thumbs.db', ''].join('\n');
+// Files setup writes into a new library; left behind by a disconnect, unchanged, they
+// do not count as the user's files.
+const GENERATED_FILES = { '.gitattributes': GITATTRIBUTES, '.gitignore': GITIGNORE };
 const COMMIT_NAME = 'Frame Art Manager';
 const COMMIT_EMAIL = 'frame-art-manager@homeassistant.local';
 
@@ -104,7 +112,9 @@ async function isEmptyMetadata(filePath) {
  * Look at the library folder without changing it.
  * @returns {Promise<{exists: boolean, isRepo: boolean, userFiles: string[], skeleton: string[], imageCount: number}>}
  *   userFiles:  entries that are not part of the app's startup skeleton.
- *   skeleton:   skeleton entries present (safe to remove before a clone).
+ *   skeleton:   skeleton entries present (safe to remove before a clone): the startup
+ *               folders when empty, an image-less metadata.json, and the .gitattributes /
+ *               .gitignore setup writes, when unchanged.
  *   imageCount: entries in library/.
  */
 async function inspectLibraryFolder(frameArtPath) {
@@ -138,6 +148,11 @@ async function inspectLibraryFolder(frameArtPath) {
       continue;
     }
     if (entry.isFile() && entry.name === METADATA_FILE && await isEmptyMetadata(fullPath)) {
+      result.skeleton.push(entry.name);
+      continue;
+    }
+    if (entry.isFile() && GENERATED_FILES[entry.name] !== undefined &&
+        await fs.readFile(fullPath, 'utf8').catch(() => null) === GENERATED_FILES[entry.name]) {
       result.skeleton.push(entry.name);
       continue;
     }
@@ -371,11 +386,8 @@ async function initializeNewLibrary(frameArtPath, remoteUrl, imageCount, onStep)
     await fs.mkdir(path.join(frameArtPath, dir), { recursive: true });
   }
   // LFS must be configured before the first `git add`, or images go in as plain blobs.
-  if (!await writeNewFile(attributesPath, GITATTRIBUTES)) {
-    const error = new Error('The library folder already has a .gitattributes file. Move it out of the folder and run setup again.');
-    error.code = 'FOLDER_CONFLICT';
-    throw error;
-  }
+  // An existing .gitattributes (a library disconnected from its old repository) is kept.
+  const createdAttributes = await writeNewFile(attributesPath, GITATTRIBUTES);
   const createdIgnore = await writeNewFile(ignorePath, GITIGNORE);
   try {
     if (!await pathExists(metadataPath)) {
@@ -400,7 +412,7 @@ async function initializeNewLibrary(frameArtPath, remoteUrl, imageCount, onStep)
   } catch (error) {
     // Undo only what this function created (never the user's files), so setup can be retried.
     await fs.rm(gitDir, { recursive: true, force: true });
-    await fs.rm(attributesPath, { force: true });
+    if (createdAttributes) await fs.rm(attributesPath, { force: true });
     if (createdIgnore) await fs.rm(ignorePath, { force: true });
     throw error;
   }
@@ -409,14 +421,14 @@ async function initializeNewLibrary(frameArtPath, remoteUrl, imageCount, onStep)
 
 /** Remote has commits: clone it into the (skeleton-only) folder, then fetch LFS files. */
 async function cloneLibrary(frameArtPath, remoteUrl, skeleton, onStep) {
-  // Only the app's own startup skeleton is removed: rmdir fails on a non-empty
-  // directory, and metadata.json was checked to hold no images or tags.
+  // Only the skeleton is removed: rmdir fails on a non-empty directory, metadata.json
+  // was checked to hold no images or tags, the other files to be setup's own.
   for (const entry of skeleton) {
     const target = path.join(frameArtPath, entry);
-    if (entry === METADATA_FILE) {
-      await fs.unlink(target);
-    } else {
+    if (SKELETON_DIRS.includes(entry)) {
       await fs.rmdir(target);
+    } else {
+      await fs.unlink(target);
     }
   }
 
@@ -473,9 +485,83 @@ async function getOriginUrl(frameArtPath) {
   }
 }
 
+/** owner/name of a GitHub remote URL (ssh, scp-style or https), or null. */
+function repoNameFromUrl(url) {
+  const match = /[:/]([A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}?)(?:\.git)?\/?$/.exec(url || '');
+  return match ? match[1] : null;
+}
+
+/**
+ * Is everything in the library on the remote? Fetches first, so a "yes" means the
+ * remote has every commit here and there is nothing uncommitted.
+ * @returns {Promise<{safe: boolean, message: string|null}>}
+ */
+async function checkEverythingPushed(frameArtPath) {
+  try {
+    await runGit(['fetch', '--quiet', 'origin', BRANCH], { cwd: frameArtPath });
+  } catch (error) {
+    return { safe: false, message: `Could not reach the repository to confirm the library is backed up (${gitErrorDetail(error)}).` };
+  }
+  const status = await runGit(['status', '--porcelain'], { cwd: frameArtPath });
+  if (status.stdout.trim()) {
+    return { safe: false, message: 'The library has changes that are not synced yet. Sync first, then disconnect.' };
+  }
+  try {
+    const { stdout } = await runGit(['rev-list', '--count', `origin/${BRANCH}..HEAD`], { cwd: frameArtPath });
+    if (Number(stdout.trim()) > 0) {
+      return { safe: false, message: 'The library has commits that are not on GitHub yet. Sync first, then disconnect.' };
+    }
+  } catch (error) {
+    return { safe: false, message: `Could not compare the library with the repository (${gitErrorDetail(error)}).` };
+  }
+  return { safe: true, message: null };
+}
+
+/**
+ * Stop syncing the library folder with its repository. Nothing on the remote changes.
+ *   mode 'keep':  remove .git only; the library keeps working without sync and can be
+ *                 connected to a new, empty repository (a fresh first commit).
+ *   mode 'clear': also remove the library files, only once checkEverythingPushed()
+ *                 confirms the remote has all of them; the folder can then download
+ *                 any repository's library. The caller recreates the startup folders.
+ * error.code: NOT_CONNECTED, NOT_BACKED_UP, INVALID_MODE.
+ */
+async function disconnectLibrary({ frameArtPath, mode }) {
+  if (mode !== 'keep' && mode !== 'clear') {
+    const error = new Error('Choose whether to keep or remove the library files.');
+    error.code = 'INVALID_MODE';
+    throw error;
+  }
+  const inspection = await inspectLibraryFolder(frameArtPath);
+  if (!inspection.isRepo) {
+    const error = new Error('The library is not connected to a repository.');
+    error.code = 'NOT_CONNECTED';
+    throw error;
+  }
+  if (mode === 'clear') {
+    const check = await checkEverythingPushed(frameArtPath);
+    if (!check.safe) {
+      const error = new Error(`${check.message} Nothing was changed.`);
+      error.code = 'NOT_BACKED_UP';
+      throw error;
+    }
+  }
+
+  // .git goes first: if removing the files then fails part way, no repository is left
+  // for a sync to commit those deletions to and push them.
+  await fs.rm(path.join(frameArtPath, '.git'), { recursive: true, force: true });
+  if (mode === 'clear') {
+    for (const entry of await fs.readdir(frameArtPath)) {
+      await fs.rm(path.join(frameArtPath, entry), { recursive: true, force: true });
+    }
+  }
+  return { mode };
+}
+
 module.exports = {
   REPO_PATTERN,
   GITATTRIBUTES,
+  GITIGNORE,
   MERGE_REFUSED,
   validateRepoName,
   remoteUrlFor,
@@ -490,6 +576,9 @@ module.exports = {
   checkConnection,
   connectLibrary,
   getOriginUrl,
+  repoNameFromUrl,
+  checkEverythingPushed,
+  disconnectLibrary,
   isSetupInProgress,
   beginSetup,
   endSetup

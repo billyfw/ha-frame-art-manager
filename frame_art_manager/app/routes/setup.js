@@ -19,11 +19,13 @@ router.get('/status', async (req, res) => {
     const inspection = await setup.inspectLibraryFolder(req.frameArtPath);
     const state = setup.describeSetupState(inspection);
     const keySource = setup.keySource();
+    const origin = inspection.isRepo ? await setup.getOriginUrl(req.frameArtPath) : null;
     res.json({
       success: true,
       frameArtPath: req.frameArtPath,
       isRepo: inspection.isRepo,
-      origin: inspection.isRepo ? await setup.getOriginUrl(req.frameArtPath) : null,
+      origin,
+      repo: setup.repoNameFromUrl(origin),
       needsSetup: state.needsSetup,
       canConnect: state.canConnect,
       hasLocalFiles: state.hasLocalFiles,
@@ -139,6 +141,42 @@ router.post('/connect', async (req, res) => {
     }
   } finally {
     if (!started) release();
+  }
+});
+
+// POST /api/setup/disconnect {mode: 'keep'|'clear'} - stop syncing with the repository
+router.post('/disconnect', async (req, res) => {
+  const mode = req.body && req.body.mode;
+  if (!setup.beginSetup()) {
+    return res.status(409).json({ success: false, message: 'Library setup is running; try again when it finishes.' });
+  }
+  if (!await GitHelper.acquireSyncLock()) {
+    setup.endSetup();
+    return res.status(409).json({ success: false, message: 'A sync is running; try again in a moment.' });
+  }
+  try {
+    const repo = setup.repoNameFromUrl(await setup.getOriginUrl(req.frameArtPath));
+    await setup.disconnectLibrary({ frameArtPath: req.frameArtPath, mode });
+    connectJob = null;
+    // Recreate the startup folders (and metadata.json) after a 'clear'.
+    if (typeof req.app.locals.initializeLibraryFolder === 'function') {
+      await req.app.locals.initializeLibraryFolder();
+    }
+    console.log(`Library disconnected from ${repo || 'its repository'} (${mode === 'clear' ? 'library files removed' : 'library files kept'})`);
+    res.json({
+      success: true,
+      mode,
+      message: mode === 'clear'
+        ? `Disconnected from ${repo || 'the repository'} and emptied the library folder.`
+        : `Disconnected from ${repo || 'the repository'}. The library stays here, without sync.`
+    });
+  } catch (error) {
+    const known = { NOT_CONNECTED: 409, NOT_BACKED_UP: 409, INVALID_MODE: 400 };
+    if (!known[error.code]) console.error('Library disconnect failed:', error.message);
+    res.status(known[error.code] || 500).json({ success: false, state: error.code, message: error.message });
+  } finally {
+    GitHelper.releaseSyncLock();
+    setup.endSetup();
   }
 });
 

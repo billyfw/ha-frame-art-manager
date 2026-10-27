@@ -188,6 +188,32 @@ async function run() {
     assert.deepStrictEqual(fs.readdirSync(dir), ['.git']);
   });
 
+  await test('reads owner/name from a remote URL', () => {
+    assert.strictEqual(setup.repoNameFromUrl('git@github.com:someone/frame_art.git'), 'someone/frame_art');
+    assert.strictEqual(setup.repoNameFromUrl('git@github-owner:someone/frame_art.git'), 'someone/frame_art');
+    assert.strictEqual(setup.repoNameFromUrl('https://github.com/someone/frame_art'), 'someone/frame_art');
+    assert.strictEqual(setup.repoNameFromUrl(null), null);
+  });
+
+  await test('setup\'s own .gitattributes and .gitignore count as empty; edited ones do not', async () => {
+    const dir = tempDir('generated');
+    makeSkeleton(dir);
+    fs.writeFileSync(path.join(dir, '.gitattributes'), setup.GITATTRIBUTES);
+    fs.writeFileSync(path.join(dir, '.gitignore'), setup.GITIGNORE);
+    let inspection = await setup.inspectLibraryFolder(dir);
+    assert.deepStrictEqual(inspection.userFiles, []);
+    fs.appendFileSync(path.join(dir, '.gitignore'), 'notes/\n');
+    inspection = await setup.inspectLibraryFolder(dir);
+    assert.deepStrictEqual(inspection.userFiles, ['.gitignore']);
+  });
+
+  await test('disconnecting refuses a folder that is not connected, and an unknown mode', async () => {
+    const dir = tempDir('not-connected');
+    makeSkeleton(dir);
+    await assert.rejects(setup.disconnectLibrary({ frameArtPath: dir, mode: 'keep' }), e => e.code === 'NOT_CONNECTED');
+    await assert.rejects(setup.disconnectLibrary({ frameArtPath: dir, mode: 'everything' }), e => e.code === 'INVALID_MODE');
+  });
+
   // --- git error states -------------------------------------------------------
   await test('git failures map to clear states', () => {
     const err = (stderr, extra = {}) => ({ stderr, ...extra });
@@ -321,6 +347,62 @@ async function run() {
       await assert.rejects(setup.connectLibrary({ frameArtPath: dir, remoteUrl: path.join(root, 'missing.git'), remoteState: 'empty' }));
       assert.deepStrictEqual(fs.readdirSync(dir).sort(), ['library', 'metadata.json', 'originals', 'thumbs']);
       assert.strictEqual(fs.readFileSync(path.join(dir, 'library', 'a.jpg'), 'utf8'), 'bytes');
+    });
+
+    // A library connected to remote2 ('used', 1 image) moves on: keep, then a new repository.
+    await test('disconnect and keep: the library stays, unsynced, and the remote is unchanged', async () => {
+      const dir = path.join(root, 'used');
+      const remote2 = path.join(root, 'remote2.git');
+      const remoteHead = git(['rev-parse', 'main'], remote2);
+      await setup.disconnectLibrary({ frameArtPath: dir, mode: 'keep' });
+      assert.ok(!fs.existsSync(path.join(dir, '.git')));
+      assert.strictEqual(fs.readFileSync(path.join(dir, 'library', 'sunset-1a2b3c4d.jpg'), 'utf8'), 'library image bytes');
+      assert.strictEqual(git(['rev-parse', 'main'], remote2), remoteHead);
+      assert.deepStrictEqual(setup.describeSetupState(await setup.inspectLibraryFolder(dir)), { needsSetup: true, canConnect: true, hasLocalFiles: true });
+    });
+
+    await test('a kept library starts over in a new, empty repository', async () => {
+      const dir = path.join(root, 'used');
+      const remote4 = path.join(root, 'remote4.git');
+      git(['init', '-q', '--bare', remote4], root);
+      const check = await setup.checkConnection(dir, remote4);
+      assert.strictEqual(check.ok, true, check.detail);
+      const result = await setup.connectLibrary({ frameArtPath: dir, remoteUrl: remote4, remoteState: 'empty' });
+      assert.strictEqual(result.action, 'initialized');
+      assert.strictEqual(git(['remote', 'get-url', 'origin'], dir), remote4);
+      assert.strictEqual(git(['rev-list', '--count', 'main'], remote4), '1');
+      assert.ok(git(['ls-tree', '-r', '--name-only', 'main'], remote4).includes('library/sunset-1a2b3c4d.jpg'));
+    });
+
+    await test('disconnect and remove is refused while anything is not on the remote', async () => {
+      const dir = path.join(root, 'used');
+      fs.writeFileSync(path.join(dir, 'library', 'new-unsynced.jpg'), 'new bytes');
+      await assert.rejects(setup.disconnectLibrary({ frameArtPath: dir, mode: 'clear' }), e => e.code === 'NOT_BACKED_UP');
+      assert.ok(fs.existsSync(path.join(dir, '.git')));
+      git(['add', '-A'], dir);
+      git(['commit', '-q', '-m', 'add new-unsynced'], dir);
+      await assert.rejects(setup.disconnectLibrary({ frameArtPath: dir, mode: 'clear' }), e => e.code === 'NOT_BACKED_UP');
+      assert.strictEqual(fs.readFileSync(path.join(dir, 'library', 'new-unsynced.jpg'), 'utf8'), 'new bytes');
+    });
+
+    await test('disconnect and remove empties the folder once the remote has everything', async () => {
+      const dir = path.join(root, 'used');
+      git(['push', '-q', 'origin', 'main'], dir);
+      const result = await setup.disconnectLibrary({ frameArtPath: dir, mode: 'clear' });
+      assert.strictEqual(result.mode, 'clear');
+      assert.deepStrictEqual(fs.readdirSync(dir), []);
+      assert.ok(git(['ls-tree', '-r', '--name-only', 'main'], path.join(root, 'remote4.git')).includes('library/new-unsynced.jpg'));
+    });
+
+    await test('an emptied folder can download a different library', async () => {
+      const dir = path.join(root, 'used');
+      makeSkeleton(dir); // what the server recreates after a disconnect
+      const check = await setup.checkConnection(dir, remote);
+      assert.strictEqual(check.ok, true, check.detail);
+      assert.strictEqual(check.state, 'has_content');
+      const result = await setup.connectLibrary({ frameArtPath: dir, remoteUrl: remote, remoteState: 'has_content' });
+      assert.strictEqual(result.action, 'cloned');
+      assert.strictEqual(git(['remote', 'get-url', 'origin'], dir), remote);
     });
 
     await test('a repository without a main branch is refused', async () => {

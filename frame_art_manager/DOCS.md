@@ -81,6 +81,24 @@ Setup never moves, replaces or deletes your files. A folder that is already a gi
 repository never sees the screen and is left exactly as it is. If connecting fails, setup
 removes only what it added (`.git`, `.gitattributes`, `.gitignore`), so you can try again.
 
+#### Changing or Disconnecting the Repository
+
+**Advanced → Settings → Library Sync** shows the repository the library syncs with.
+**Disconnect…** stops syncing with it; nothing is changed or deleted on GitHub. Choose what
+happens to the library on this add-on:
+
+- **Keep the images here**: the library keeps working, without sync. To move it to another
+  repository, create a new, empty one and run **Set up GitHub sync**: the library is
+  uploaded there as a fresh start, and its history stays in the old repository.
+- **Remove the images from this add-on**: empties the library folder so you can download a
+  different repository's library (or the same one again) with **Set up GitHub sync**. The
+  add-on first fetches from the repository and refuses if anything here is not on GitHub
+  yet (sync first). Until a library is downloaded again, this add-on has no images.
+
+GitHub allows a deploy key on one repository only. Before adding the add-on's key to a
+different repository, delete it from the old one (**Settings → Deploy keys** on GitHub);
+otherwise GitHub answers "Key is already in use".
+
 #### The generated key
 
 When `ssh_private_key` is empty, the add-on generates an ed25519 key on first start and keeps

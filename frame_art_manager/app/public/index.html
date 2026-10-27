@@ -378,11 +378,31 @@
               <code id="advanced-path-value" class="path-code">Loading...</code>
             </div>
           </div>
-          <!-- Shown by js/library-setup.js only while the library folder is not a git repo -->
+          <!-- Filled in by js/library-setup.js: set up sync, or disconnect from the repository -->
           <div id="library-sync-setup-section" class="subsection hidden">
             <h3>Library Sync</h3>
-            <p class="library-setup-settings-text">This library is not connected to a GitHub repository yet, so it is not backed up or synced.</p>
-            <button type="button" id="open-library-setup-btn" class="btn-primary btn-small">Set up GitHub sync</button>
+            <div id="library-sync-disconnected" class="hidden">
+              <p class="library-setup-settings-text">This library is not connected to a GitHub repository, so it is not backed up or synced.</p>
+              <button type="button" id="open-library-setup-btn" class="btn-primary btn-small">Set up GitHub sync</button>
+            </div>
+            <div id="library-sync-connected" class="hidden">
+              <p class="library-setup-settings-text">Synced with <code id="library-sync-repo" class="path-code"></code></p>
+              <button type="button" id="library-sync-disconnect-btn" class="btn-secondary btn-small">Disconnect…</button>
+              <div id="library-sync-disconnect-panel" class="library-sync-disconnect hidden">
+                <p>Disconnecting stops syncing with this repository. Nothing is changed or deleted on GitHub. Choose what happens to the library here:</p>
+                <div class="library-sync-option">
+                  <button type="button" id="library-sync-keep-btn" class="btn-secondary btn-small">Keep the images here</button>
+                  <p>The library keeps working on this add-on, without sync. Use this to move it to a new, empty repository: Set up GitHub sync uploads it there as a fresh start, and its history stays in the old repository.</p>
+                </div>
+                <div class="library-sync-option">
+                  <button type="button" id="library-sync-clear-btn" class="btn-danger btn-small">Remove the images from this add-on</button>
+                  <p>Only once everything is on GitHub (checked first). Empties the library folder so you can download a different repository's library, or this one again. Until then this add-on has no images.</p>
+                </div>
+                <p class="library-setup-note">GitHub allows a deploy key on one repository only: to use this add-on's key with a different repository, first delete it from this one's deploy keys.</p>
+                <button type="button" id="library-sync-cancel-btn" class="btn-secondary btn-small">Cancel</button>
+                <div id="library-sync-disconnect-result" class="library-setup-result" aria-live="polite"></div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1312,6 +1332,7 @@
             <button type="button" id="library-setup-copy" class="btn-secondary btn-small">Copy</button>
           </div>
           <p id="library-setup-key-note" class="library-setup-note"></p>
+          <p class="library-setup-note">If GitHub says the key is already in use, it is still a deploy key on another repository: delete it there first.</p>
           <a id="library-setup-keys-link" class="btn-secondary btn-small library-setup-link disabled" aria-disabled="true" target="_blank" rel="noopener noreferrer">Open deploy keys on GitHub ↗</a>
         </li>
         <li>
