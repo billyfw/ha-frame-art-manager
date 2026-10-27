@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const GitHelper = require('../git_helper');
 const setup = require('../library_setup');
+const { getSyncLogs } = require('./sync');
 
 // The one connect job this process runs (clone or new library). Polled through
 // GET /status, because a clone with LFS can outlast an ingress request.
@@ -37,6 +38,57 @@ router.get('/status', async (req, res) => {
     });
   } catch (error) {
     console.error('Setup status failed:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// The GitHub check opens an ssh connection: one at a time, and a fresh answer is
+// shared for a few seconds, since the setup screen re-checks while it waits for the key.
+const GITHUB_CHECK_REUSE_MS = 4000;
+let githubCheck = null; // { promise, at }
+
+function checkGithub(force) {
+  const now = Date.now();
+  if (githubCheck && (!githubCheck.at || (!force && now - githubCheck.at < GITHUB_CHECK_REUSE_MS))) {
+    return githubCheck.promise;
+  }
+  const entry = { at: null };
+  entry.promise = setup.checkGithubConnection().finally(() => { entry.at = Date.now(); });
+  githubCheck = entry;
+  return entry.promise;
+}
+
+// GET /api/setup/connection[?repo=owner/name][&fresh=1] - the GitHub connection, before or after setup:
+// the key in use, whether GitHub is reachable and knows the key (and which repository a
+// deploy key is on), whether that fits the library's repository (or ?repo, the one typed
+// into setup), and for a connected library how its sync stands.
+router.get('/connection', async (req, res) => {
+  try {
+    const inspection = await setup.inspectLibraryFolder(req.frameArtPath);
+    const origin = inspection.isRepo ? await setup.getOriginUrl(req.frameArtPath) : null;
+    const libraryRepo = setup.repoNameFromUrl(origin);
+    const typed = req.query.repo ? setup.validateRepoName(String(req.query.repo)) : null;
+    const repo = libraryRepo || (typed && typed.valid ? typed.repo : null);
+
+    const github = await checkGithub(req.query.fresh === '1');
+    let sync = null;
+    if (inspection.isRepo) {
+      const health = await setup.getSyncHealth(req.frameArtPath);
+      const log = setup.summarizeSyncLog(await getSyncLogs().catch(() => []));
+      sync = { ...health, lastSuccessfulSync: log.lastSuccess, failure: log.failure };
+    }
+    res.json({
+      success: true,
+      keySource: setup.keySource(),
+      isRepo: inspection.isRepo,
+      repo: libraryRepo,
+      github,
+      keyMatch: setup.describeKeyMatch(github, repo),
+      sync,
+      checkedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('GitHub connection check failed:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });

@@ -11005,6 +11005,78 @@ body.library-setup-open {
   border: 1px solid #cbd5e0;
 }
 
+.github-connection {
+  border: 1px solid #e1e4e8;
+  border-radius: 8px;
+  background: white;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+}
+
+.github-connection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.github-connection-header h4 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+#library-sync-check-btn,
+.library-setup-card .github-connection .btn-secondary {
+  border: 1px solid #cbd5e0;
+}
+
+.github-connection-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.github-connection-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 4px 0;
+  color: #4a5568;
+  font-size: 0.95rem;
+}
+
+.github-connection-row strong {
+  color: #2c3e50;
+}
+
+.github-connection-icon {
+  flex: 0 0 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: white;
+  background: #a0aec0;
+}
+
+.github-connection-ok .github-connection-icon { background: #27ae60; }
+.github-connection-warn .github-connection-icon { background: #f0ad4e; }
+.github-connection-error .github-connection-icon { background: #e74c3c; }
+.github-connection-pending .github-connection-icon { background: #3498db; }
+.github-connection-info .github-connection-icon { background: #cbd5e0; color: #4a5568; }
+
+.github-connection-row pre {
+  margin-top: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
 .library-setup-settings-text {
   color: #4a5568;
   margin-bottom: 12px;

@@ -225,6 +225,52 @@ async function run() {
     assert.strictEqual(setup.classifyGitError(err('fatal: something else')), 'error');
   });
 
+  // --- GitHub connection ------------------------------------------------------
+  await test('GitHub greetings tell a deploy key, an account key, an unknown key and no network apart', async () => {
+    const deploy = setup.parseGithubGreeting({ output: "Hi someone/frame_art! You've successfully authenticated, but GitHub does not provide shell access." });
+    assert.deepStrictEqual([deploy.reachable, deploy.recognized, deploy.state, deploy.identity], [true, true, 'deploy_key', 'someone/frame_art']);
+    const account = setup.parseGithubGreeting({ output: "Hi someone! You've successfully authenticated, but GitHub does not provide shell access." });
+    assert.deepStrictEqual([account.recognized, account.state, account.identity], [true, 'account_key', 'someone']);
+    const unknown = setup.parseGithubGreeting({ output: 'git@github.com: Permission denied (publickey).' });
+    assert.deepStrictEqual([unknown.reachable, unknown.recognized, unknown.state], [true, false, 'not_recognized']);
+    const offline = setup.parseGithubGreeting({ output: 'ssh: Could not resolve hostname ssh.github.com: Name does not resolve' });
+    assert.deepStrictEqual([offline.reachable, offline.state], [false, 'network']);
+    assert.ok(offline.detail.includes('Could not resolve hostname'));
+    assert.strictEqual(setup.parseGithubGreeting({ output: '', timedOut: true }).state, 'network');
+    assert.strictEqual(setup.parseGithubGreeting({ missing: true }).state, 'no_ssh');
+    assert.strictEqual(setup.parseGithubGreeting({ output: 'something odd' }).state, 'error');
+    const checked = await setup.checkGithubConnection({ run: async () => ({ output: 'Permission denied (publickey).' }) });
+    assert.strictEqual(checked.state, 'not_recognized');
+  });
+
+  await test('a deploy key on another repository is a mismatch; an account key is not', () => {
+    const deploy = setup.parseGithubGreeting({ output: "Hi someone/old_art! You've successfully authenticated" });
+    assert.strictEqual(setup.describeKeyMatch(deploy, 'someone/old_art').ok, true);
+    assert.strictEqual(setup.describeKeyMatch(deploy, 'Someone/Old_Art').ok, true);
+    const mismatch = setup.describeKeyMatch(deploy, 'someone/new_art');
+    assert.strictEqual(mismatch.ok, false);
+    assert.ok(mismatch.message.includes('someone/old_art') && mismatch.message.includes('someone/new_art'));
+    const account = setup.parseGithubGreeting({ output: "Hi someone! You've successfully authenticated" });
+    assert.strictEqual(setup.describeKeyMatch(account, 'someone/new_art').ok, true);
+    assert.strictEqual(setup.describeKeyMatch(deploy, null).ok, true);
+  });
+
+  await test('the sync log reports a failure only while no sync has worked since', () => {
+    const entry = (timestamp, status, extra = {}) => ({ timestamp, operation: 'full-sync', status, ...extra });
+    // newest first, like routes/sync.js writes it
+    const failing = setup.summarizeSyncLog([
+      entry('2026-10-20T10:02:00Z', 'failure', { error: 'push failed' }),
+      { timestamp: '2026-10-20T10:01:30Z', operation: 'sync-check', status: 'failure' },
+      entry('2026-10-20T10:01:00Z', 'failure', { error: 'older' }),
+      entry('2026-10-20T09:00:00Z', 'success')
+    ]);
+    assert.strictEqual(failing.lastSuccess, '2026-10-20T09:00:00Z');
+    assert.deepStrictEqual(failing.failure, { timestamp: '2026-10-20T10:02:00Z', message: 'push failed' });
+    const recovered = setup.summarizeSyncLog([entry('2026-10-20T11:00:00Z', 'warning'), entry('2026-10-20T10:00:00Z', 'failure')]);
+    assert.strictEqual(recovered.failure, null);
+    assert.deepStrictEqual(setup.summarizeSyncLog(undefined), { lastSuccess: null, failure: null });
+  });
+
   // --- end to end against local bare repositories -----------------------------
   if (!hasGitLfs()) {
     skip('checkRemote and connectLibrary against local repositories', 'git-lfs not installed');
@@ -261,6 +307,29 @@ async function run() {
       assert.strictEqual(git(['show', 'main:.gitattributes'], remote), setup.GITATTRIBUTES.trim());
       assert.ok(git(['config', '--get', 'user.email'], dir), 'commit identity configured for later syncs');
       assert.strictEqual(git(['rev-parse', '--abbrev-ref', 'main@{upstream}'], dir), 'origin/main');
+    });
+
+    await test('sync health counts what is not on the remote yet, and when this copy last pushed', async () => {
+      const dir = path.join(root, 'first');
+      const pushed = await setup.getSyncHealth(dir);
+      assert.strictEqual(pushed.ahead, 0);
+      assert.strictEqual(pushed.uncommitted, 0);
+      assert.ok(pushed.lastPush && !Number.isNaN(Date.parse(pushed.lastPush)), 'push time read from the reflog');
+      assert.strictEqual(pushed.lastFetch, null, 'never fetched');
+
+      const work = path.join(root, 'health-work');
+      git(['clone', '-q', remote, work], root);
+      git(['-c', 'user.name=Test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', 'local only'], work);
+      fs.writeFileSync(path.join(work, 'notes.txt'), 'x');
+      git(['fetch', '-q', 'origin'], work);
+      const behind = await setup.getSyncHealth(work);
+      assert.strictEqual(behind.ahead, 1);
+      assert.strictEqual(behind.uncommitted, 1);
+      assert.strictEqual(behind.lastPush, null, 'a clone has not pushed');
+      assert.ok(behind.lastFetch);
+
+      const notRepo = await setup.getSyncHealth(tempDir('health-none'));
+      assert.deepStrictEqual(notRepo, { ahead: null, uncommitted: null, lastPush: null, lastFetch: null });
     });
 
     await test('checkRemote reports a repository with a library', async () => {

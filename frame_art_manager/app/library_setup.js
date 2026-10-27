@@ -558,6 +558,141 @@ async function disconnectLibrary({ frameArtPath, mode }) {
   return { mode };
 }
 
+const GITHUB_STATES = {
+  deploy_key: 'GitHub recognizes the key: it is a deploy key on this repository.',
+  account_key: 'GitHub recognizes the key: it belongs to this GitHub account, so it reaches every repository the account can.',
+  not_recognized: 'GitHub is reachable but does not know this key yet. Add it to the repository as a deploy key (with "Allow write access" checked).',
+  network: 'Could not reach GitHub (ssh.github.com, port 443). Check the network connection of Home Assistant.',
+  no_ssh: 'The ssh client is not available, so GitHub cannot be checked.',
+  error: 'GitHub answered in an unexpected way.'
+};
+
+/**
+ * Read the answer to `ssh -T git@github.com`. GitHub greets a key it knows by what the
+ * key belongs to: "Hi owner/repo! ..." for a deploy key, "Hi user! ..." for an account
+ * key. It refuses an unknown key with "Permission denied (publickey)".
+ * @returns {{reachable: boolean, recognized: boolean, state: string, identity: string|null, message: string, detail?: string}}
+ *   identity: owner/repo for a deploy key, the user name for an account key.
+ */
+function parseGithubGreeting({ output = '', timedOut = false, missing = false } = {}) {
+  const text = String(output);
+  const result = (state, reachable, recognized, identity = null) => {
+    const parsed = { reachable, recognized, state, identity, message: GITHUB_STATES[state] };
+    if (!recognized && state !== 'not_recognized') {
+      parsed.detail = text.trim().split('\n').map(line => line.trim()).filter(Boolean).slice(-3).join('\n').slice(0, 400);
+    }
+    return parsed;
+  };
+  if (missing) return result('no_ssh', false, false);
+  const greeting = /Hi ([^!\s]+)! You've successfully authenticated/.exec(text);
+  if (greeting) {
+    const identity = greeting[1];
+    return result(identity.includes('/') ? 'deploy_key' : 'account_key', true, true, identity);
+  }
+  if (/Permission denied \(publickey/i.test(text)) return result('not_recognized', true, false);
+  if (timedOut || /Could not resolve hostname|Connection timed out|Operation timed out|Network is unreachable|Connection refused|Connection closed|No route to host|kex_exchange_identification/i.test(text)) {
+    return result('network', false, false);
+  }
+  return result('error', false, false);
+}
+
+/** Run `ssh -T git@github.com` with the add-on's ssh config (run.sh: port 443, the add-on's key). */
+function runGithubGreeting() {
+  return new Promise((resolve) => {
+    execFile('ssh', ['-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', 'git@github.com'], {
+      timeout: 20 * 1000,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }
+    }, (error, stdout, stderr) => {
+      // GitHub answers a recognized key with exit status 1 (no shell access), so the
+      // exit status says nothing; the greeting does.
+      resolve({
+        output: `${stdout || ''}\n${stderr || ''}`,
+        timedOut: Boolean(error && error.killed),
+        missing: Boolean(error && error.code === 'ENOENT')
+      });
+    });
+  });
+}
+
+/**
+ * Can this add-on reach GitHub, and does GitHub know its key? Needs no repository,
+ * so it runs before setup, and it tells which repository a deploy key is on.
+ */
+async function checkGithubConnection({ run = runGithubGreeting } = {}) {
+  return parseGithubGreeting(await run());
+}
+
+/**
+ * Does the key GitHub recognized fit the repository the library uses (or the one typed
+ * into setup)? A deploy key works for its own repository only.
+ * @returns {{ok: boolean, message: string|null}}
+ */
+function describeKeyMatch(github, repo) {
+  if (!github || !github.recognized || !repo) return { ok: true, message: null };
+  if (github.state === 'deploy_key' && github.identity.toLowerCase() !== repo.toLowerCase()) {
+    return {
+      ok: false,
+      message: `This add-on's key is a deploy key on ${github.identity}, not on ${repo}. ` +
+        `GitHub allows a deploy key on one repository only: delete it from ${github.identity}'s deploy keys, then add it to ${repo}.`
+    };
+  }
+  return { ok: true, message: null };
+}
+
+/** Seconds-since-epoch inside a reflog selector such as "origin/main@{1793104827}". */
+function reflogTime(selector) {
+  const match = /@\{(\d+)\}/.exec(selector || '');
+  return match ? new Date(Number(match[1]) * 1000).toISOString() : null;
+}
+
+/**
+ * Local facts about a connected library's sync, without contacting GitHub:
+ *   ahead:       commits here that are not on GitHub yet
+ *   uncommitted: changed files not committed yet
+ *   lastPush:    the last push from this add-on (reflog of origin/main)
+ *   lastFetch:   the last time this add-on fetched from GitHub (FETCH_HEAD)
+ * A value that cannot be read is null.
+ */
+async function getSyncHealth(frameArtPath) {
+  const health = { ahead: null, uncommitted: null, lastPush: null, lastFetch: null };
+  const local = { cwd: frameArtPath, timeout: 15000 };
+  try {
+    const { stdout } = await runGit(['rev-list', '--count', `origin/${BRANCH}..HEAD`], local);
+    health.ahead = Number(stdout.trim());
+  } catch { /* no origin/main yet */ }
+  try {
+    const { stdout } = await runGit(['status', '--porcelain'], local);
+    health.uncommitted = stdout.split('\n').filter(Boolean).length;
+  } catch { /* not readable */ }
+  try {
+    const { stdout } = await runGit(['reflog', 'show', '--date=unix', '--format=%gd%x09%gs', '-n', '200', `refs/remotes/origin/${BRANCH}`], local);
+    const push = stdout.split('\n').find(line => line.split('\t')[1] === 'update by push');
+    health.lastPush = push ? reflogTime(push.split('\t')[0]) : null;
+  } catch { /* no reflog */ }
+  try {
+    health.lastFetch = (await fs.stat(path.join(frameArtPath, '.git', 'FETCH_HEAD'))).mtime.toISOString();
+  } catch { /* never fetched */ }
+  return health;
+}
+
+/**
+ * The newest sync failure from the sync log (routes/sync.js, newest first), only when
+ * no sync has succeeded since: a failure that a later sync fixed is not news.
+ * @returns {{lastSuccess: string|null, failure: {timestamp: string, message: string}|null}}
+ */
+function summarizeSyncLog(entries) {
+  const syncs = (Array.isArray(entries) ? entries : []).filter(entry => entry && entry.operation === 'full-sync');
+  const success = syncs.find(entry => entry.status === 'success' || entry.status === 'warning');
+  const failure = syncs.find(entry => entry.status === 'failure');
+  const failureIsCurrent = failure && (!success || new Date(failure.timestamp) > new Date(success.timestamp));
+  return {
+    lastSuccess: success ? success.timestamp : null,
+    failure: failureIsCurrent
+      ? { timestamp: failure.timestamp, message: String(failure.error || failure.message || 'Sync failed').slice(0, 300) }
+      : null
+  };
+}
+
 module.exports = {
   REPO_PATTERN,
   GITATTRIBUTES,
@@ -579,6 +714,11 @@ module.exports = {
   repoNameFromUrl,
   checkEverythingPushed,
   disconnectLibrary,
+  parseGithubGreeting,
+  checkGithubConnection,
+  describeKeyMatch,
+  getSyncHealth,
+  summarizeSyncLog,
   isSetupInProgress,
   beginSetup,
   endSetup

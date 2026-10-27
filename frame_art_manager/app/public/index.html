@@ -381,6 +381,13 @@
           <!-- Filled in by js/library-setup.js: set up sync, or disconnect from the repository -->
           <div id="library-sync-setup-section" class="subsection hidden">
             <h3>Library Sync</h3>
+            <div class="github-connection" aria-live="polite">
+              <div class="github-connection-header">
+                <h4>GitHub connection</h4>
+                <button type="button" id="library-sync-check-btn" class="btn-secondary btn-small">Check again</button>
+              </div>
+              <ul id="library-sync-connection" class="github-connection-list"></ul>
+            </div>
             <div id="library-sync-disconnected" class="hidden">
               <p class="library-setup-settings-text">This library is not connected to a GitHub repository, so it is not backed up or synced.</p>
               <button type="button" id="open-library-setup-btn" class="btn-primary btn-small">Set up GitHub sync</button>
@@ -1313,6 +1320,14 @@
       </p>
       <div id="library-setup-existing" class="library-setup-existing hidden"></div>
 
+      <div class="github-connection" aria-live="polite">
+        <div class="github-connection-header">
+          <h4>GitHub connection</h4>
+          <button type="button" id="library-setup-check-btn" class="btn-secondary btn-small">Check again</button>
+        </div>
+        <ul id="library-setup-connection" class="github-connection-list"></ul>
+      </div>
+
       <ol class="library-setup-steps">
         <li>
           <h4>Create a private repository</h4>
@@ -1323,6 +1338,7 @@
           <h4>Enter the repository</h4>
           <input type="text" id="library-setup-repo" class="library-setup-input" placeholder="owner/frame_art" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="GitHub repository (owner/name)">
           <div id="library-setup-repo-error" class="library-setup-field-error" aria-live="polite"></div>
+          <p class="library-setup-note">Filled in for you once the key below is added to the repository.</p>
         </li>
         <li>
           <h4>Add this add-on's key as a deploy key</h4>
