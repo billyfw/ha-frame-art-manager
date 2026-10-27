@@ -41,18 +41,20 @@ The web interface has 4 main areas:
 
 Set the **Home** field to a nickname like `Madrone` so future automations can tell which location this add-on instance belongs to. The value is optional today but is passed to the backend for upcoming features.
 
-### Connecting Your Art Library to GitHub (First Run)
+### Connecting Your Art Library to GitHub
 
-The library (images, thumbnails and `metadata.json`) lives in a private GitHub repository,
-which backs it up and keeps every copy in sync. Images are stored with Git LFS. The add-on
-sets this up from its web UI; no terminal or SSH commands are needed.
+The library (images, thumbnails and `metadata.json`) can live in a private GitHub
+repository, which backs it up and keeps every copy in sync. Images are stored with Git LFS.
+The add-on sets this up from its web UI; no terminal or SSH commands are needed. You can do
+it on a new install, or later, after using the add-on without sync for a while.
 
-When the library folder (`frame_art_path`) is empty and not yet a git repository, opening
-the web UI shows **Connect your art library**:
+On a new install (the library folder, `frame_art_path`, is empty) the web UI opens on
+**Connect your art library**. Any time the library is not connected yet, the same screen
+opens from **Advanced → Settings → Library Sync → Set up GitHub sync**.
 
 1. **Create a private repository** on GitHub (the link opens
    `https://github.com/new?name=frame_art&visibility=private`). Leave it empty: no README,
-   no license. To share an existing Frame Art library instead, use its repository.
+   no license. To download an existing Frame Art library instead, use its repository.
 2. **Enter the repository** as `owner/name`, for example `your-user/frame_art`.
 3. **Add the add-on's key as a deploy key.** Copy the public key shown on the screen, open
    the repository's deploy keys page (the link goes to
@@ -60,21 +62,24 @@ the web UI shows **Connect your art library**:
    check **Allow write access**. Without write access the add-on can download the library
    but cannot save your changes.
 4. **Test connection.** The test tells you whether GitHub accepts the key, whether the key
-   can write, and whether the repository is empty or already holds a library.
+   can write, and what connecting will do.
 5. **Connect library.**
-   - Empty repository: the add-on creates a new library in the folder (`.gitattributes` for
-     Git LFS and an empty `metadata.json`) and pushes it to the `main` branch.
-   - Repository with a library: the add-on downloads it into the folder (the `main` branch,
-     then the images through Git LFS; a large library can take a while).
+   - Empty repository: the library in the folder becomes the repository's first commit and
+     is pushed to the `main` branch: your images, thumbnails, originals and
+     `metadata.json`, or an empty library on a new install. The add-on adds a
+     `.gitattributes` (Git LFS for images) and a `.gitignore` (desktop clutter such as
+     `.DS_Store`). A large library takes a while to upload, and counts against your GitHub
+     account's Git LFS storage.
+   - Repository that already holds a library: the add-on downloads it into the folder (the
+     `main` branch, then the images through Git LFS). This needs a library folder without
+     images of its own: merging two libraries is not supported, and the test says so.
 
 Sync works as soon as setup finishes; the page reloads into the gallery. **Set up later**
-closes the screen; **Advanced → Settings → Library Sync** opens it again.
+closes the screen.
 
-Setup never overwrites anything. It only runs when the folder is missing, empty, or holds
-just the empty folders and `metadata.json` the add-on creates at startup. A folder that is
-already a git repository never sees the screen and is left exactly as it is. A folder with
-other files (for example images added before connecting) is refused: move them out, or
-point `frame_art_path` at an empty folder, then run setup again.
+Setup never moves, replaces or deletes your files. A folder that is already a git
+repository never sees the screen and is left exactly as it is. If connecting fails, setup
+removes only what it added (`.git`, `.gitattributes`, `.gitignore`), so you can try again.
 
 #### The generated key
 

@@ -1,7 +1,8 @@
 // First-run library setup: connect an empty library folder to a GitHub repo.
 // Talks to routes/setup.js. Shown on its own only when the library folder is not a
 // git repo and holds nothing but the app's startup skeleton; a folder that is already
-// a repo never sees it. "Set up later" hides it; Advanced > Settings reopens it.
+// a repo never sees it. Advanced > Settings > Library Sync opens it any time the
+// library is not connected, including one that has been used without sync.
 (function () {
   const SETUP_API = 'api/setup';
   const DISMISS_KEY = 'frameArt.librarySetupDismissed';
@@ -101,18 +102,16 @@
 
   function render() {
     el('library-setup-path').textContent = status.frameArtPath || '';
-    const blocked = el('library-setup-blocked');
-    if (status.canConnect) {
-      blocked.classList.add('hidden');
-      blocked.textContent = '';
+    const existing = el('library-setup-existing');
+    if (status.hasLocalFiles) {
+      const images = status.imageCount === 1 ? '1 image' : `${status.imageCount} images`;
+      existing.textContent = `This library already has ${images}. Connect an empty repository to upload ` +
+        'the library to it; nothing here is moved or deleted. A repository that already holds a library ' +
+        'can only be connected to an empty library folder.';
+      existing.classList.remove('hidden');
     } else {
-      blocked.classList.remove('hidden');
-      blocked.textContent = status.reason || 'This library folder cannot be connected automatically.';
-      if (status.userFiles && status.userFiles.length) {
-        const list = document.createElement('code');
-        list.textContent = ` Found: ${status.userFiles.join(', ')}`;
-        blocked.appendChild(list);
-      }
+      existing.textContent = '';
+      existing.classList.add('hidden');
     }
     renderKey();
     renderJob();
@@ -166,9 +165,13 @@
       if (data.success) {
         testedRepo = repo;
         setResult(result, 'success', data.message);
-        el('library-setup-connect-hint').textContent = data.state === 'empty'
-          ? 'The repository is empty: a new library will be created in it.'
-          : 'The repository has a library: it will be downloaded into this add-on.';
+        let hint = 'The repository has a library: it will be downloaded into this add-on.';
+        if (data.state === 'empty') {
+          hint = status.imageCount > 0
+            ? 'The repository is empty: this library will be uploaded to it.'
+            : 'The repository is empty: a new library will be created in it.';
+        }
+        el('library-setup-connect-hint').textContent = hint;
       } else {
         setResult(result, 'error', data.message || 'The test failed.', data.detail);
       }
@@ -302,7 +305,7 @@
     if (isJobRunning()) {
       openOverlay();
       startPolling();
-    } else if (status.canConnect && !isDismissed()) {
+    } else if (status.canConnect && !status.hasLocalFiles && !isDismissed()) {
       openOverlay();
     }
   }

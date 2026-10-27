@@ -91,14 +91,14 @@ async function run() {
     const parent = tempDir('missing');
     const inspection = await setup.inspectLibraryFolder(path.join(parent, 'frame_art'));
     assert.strictEqual(inspection.exists, false);
-    assert.deepStrictEqual(setup.describeSetupState(inspection), { needsSetup: true, canConnect: true, reason: null });
+    assert.deepStrictEqual(setup.describeSetupState(inspection), { needsSetup: true, canConnect: true, hasLocalFiles: false });
   });
 
   await test('an empty folder needs setup and can be connected', async () => {
     const dir = tempDir('empty');
     const inspection = await setup.inspectLibraryFolder(dir);
     assert.deepStrictEqual(inspection.userFiles, []);
-    assert.deepStrictEqual(setup.describeSetupState(inspection), { needsSetup: true, canConnect: true, reason: null });
+    assert.deepStrictEqual(setup.describeSetupState(inspection), { needsSetup: true, canConnect: true, hasLocalFiles: false });
   });
 
   await test('the startup skeleton counts as empty', async () => {
@@ -116,20 +116,18 @@ async function run() {
     fs.writeFileSync(path.join(dir, 'metadata.json'), '{"images":{"a.jpg":{}}}');
     const inspection = await setup.inspectLibraryFolder(dir);
     assert.strictEqual(inspection.isRepo, true);
-    assert.deepStrictEqual(setup.describeSetupState(inspection), { needsSetup: false, canConnect: false, reason: null });
+    assert.deepStrictEqual(setup.describeSetupState(inspection), { needsSetup: false, canConnect: false, hasLocalFiles: false });
   });
 
-  await test('a non-empty folder that is not a repository needs setup but cannot be connected', async () => {
+  await test('a library used without sync can still be connected later', async () => {
     const dir = tempDir('userfiles');
     makeSkeleton(dir);
     fs.writeFileSync(path.join(dir, 'library', 'sunset.jpg'), 'image bytes');
     const inspection = await setup.inspectLibraryFolder(dir);
     assert.strictEqual(inspection.isRepo, false);
+    assert.strictEqual(inspection.imageCount, 1);
     assert.deepStrictEqual(inspection.userFiles, ['library/ (1 item)']);
-    const state = setup.describeSetupState(inspection);
-    assert.strictEqual(state.needsSetup, true);
-    assert.strictEqual(state.canConnect, false);
-    assert.ok(state.reason);
+    assert.deepStrictEqual(setup.describeSetupState(inspection), { needsSetup: true, canConnect: true, hasLocalFiles: true });
   });
 
   await test('metadata with images or tags, and any other file, are user files', async () => {
@@ -152,13 +150,19 @@ async function run() {
   });
 
   // --- refusal to overwrite ---------------------------------------------------
-  await test('assertCanConnect refuses a repository and a non-empty folder', async () => {
-    assert.throws(() => setup.assertCanConnect({ isRepo: true, userFiles: [], skeleton: [] }), e => e.code === 'ALREADY_REPO');
-    assert.throws(() => setup.assertCanConnect({ isRepo: false, userFiles: ['a.jpg'], skeleton: [] }), e => e.code === 'FOLDER_NOT_EMPTY');
-    assert.doesNotThrow(() => setup.assertCanConnect({ isRepo: false, userFiles: [], skeleton: ['library'] }));
+  await test('assertCanConnect refuses a repository, and a clone over existing files', async () => {
+    const repo = { isRepo: true, userFiles: [], skeleton: [] };
+    const used = { isRepo: false, userFiles: ['library/ (1 item)'], skeleton: [] };
+    const fresh = { isRepo: false, userFiles: [], skeleton: ['library'] };
+    assert.throws(() => setup.assertCanConnect(repo, 'empty'), e => e.code === 'ALREADY_REPO');
+    assert.throws(() => setup.assertCanConnect(repo, 'has_content'), e => e.code === 'ALREADY_REPO');
+    assert.throws(() => setup.assertCanConnect(used, 'has_content'), e => e.code === 'FOLDER_NOT_EMPTY');
+    assert.doesNotThrow(() => setup.assertCanConnect(used, 'empty'));
+    assert.doesNotThrow(() => setup.assertCanConnect(fresh, 'empty'));
+    assert.doesNotThrow(() => setup.assertCanConnect(fresh, 'has_content'));
   });
 
-  await test('connectLibrary leaves a non-empty folder exactly as it was', async () => {
+  await test('connectLibrary will not clone over existing files, and leaves them as they were', async () => {
     const dir = tempDir('refuse-files');
     makeSkeleton(dir);
     fs.writeFileSync(path.join(dir, 'library', 'sunset.jpg'), 'image bytes');
@@ -227,7 +231,7 @@ async function run() {
       assert.strictEqual(git(['remote', 'get-url', 'origin'], dir), remote);
       assert.strictEqual(git(['status', '--porcelain'], dir), '');
       const files = git(['ls-tree', '--name-only', 'main'], remote).split('\n').sort();
-      assert.deepStrictEqual(files, ['.gitattributes', 'metadata.json']);
+      assert.deepStrictEqual(files, ['.gitattributes', '.gitignore', 'metadata.json']);
       assert.strictEqual(git(['show', 'main:.gitattributes'], remote), setup.GITATTRIBUTES.trim());
       assert.ok(git(['config', '--get', 'user.email'], dir), 'commit identity configured for later syncs');
       assert.strictEqual(git(['rev-parse', '--abbrev-ref', 'main@{upstream}'], dir), 'origin/main');
@@ -266,6 +270,57 @@ async function run() {
       assert.ok(!fs.existsSync(path.join(dir, '.git')));
       assert.ok(!fs.existsSync(path.join(dir, '.gitattributes')));
       assert.strictEqual(setup.describeSetupState(await setup.inspectLibraryFolder(dir)).canConnect, true);
+    });
+
+    await test('a library used without sync is uploaded to an empty repository, unchanged', async () => {
+      const remote2 = path.join(root, 'remote2.git');
+      git(['init', '-q', '--bare', remote2], root);
+      const dir = path.join(root, 'used');
+      fs.mkdirSync(dir);
+      makeSkeleton(dir);
+      fs.writeFileSync(path.join(dir, 'library', 'sunset-1a2b3c4d.jpg'), 'library image bytes');
+      fs.writeFileSync(path.join(dir, 'thumbs', 'thumb_sunset-1a2b3c4d.jpg'), 'thumb bytes');
+      const metadata = JSON.stringify({ version: '1.0', images: { 'sunset-1a2b3c4d.jpg': { tags: ['beach'] } }, tags: ['beach'] }, null, 2);
+      fs.writeFileSync(path.join(dir, 'metadata.json'), metadata);
+      fs.writeFileSync(path.join(dir, '.DS_Store'), 'finder clutter');
+
+      const check = await setup.checkConnection(dir, remote2);
+      assert.strictEqual(check.ok, true, check.detail);
+      assert.strictEqual(check.state, 'empty');
+      assert.ok(check.message.includes('1 image'));
+
+      const result = await setup.connectLibrary({ frameArtPath: dir, remoteUrl: remote2, remoteState: 'empty' });
+      assert.strictEqual(result.action, 'initialized');
+      assert.strictEqual(fs.readFileSync(path.join(dir, 'library', 'sunset-1a2b3c4d.jpg'), 'utf8'), 'library image bytes');
+      assert.strictEqual(fs.readFileSync(path.join(dir, 'metadata.json'), 'utf8'), metadata);
+      assert.ok(fs.existsSync(path.join(dir, '.DS_Store')), 'local clutter is left alone, just not committed');
+      assert.strictEqual(git(['status', '--porcelain'], dir), '');
+      assert.ok(git(['log', '-1', '--format=%s', 'main'], remote2).includes('1 image'));
+      const files = git(['ls-tree', '-r', '--name-only', 'main'], remote2).split('\n').sort();
+      assert.deepStrictEqual(files, ['.gitattributes', '.gitignore', 'library/sunset-1a2b3c4d.jpg', 'metadata.json', 'thumbs/thumb_sunset-1a2b3c4d.jpg']);
+      assert.ok(git(['show', 'main:library/sunset-1a2b3c4d.jpg'], remote2).startsWith('version https://git-lfs'), 'images are stored in LFS');
+      assert.strictEqual(git(['show', 'main:metadata.json'], remote2), metadata.trim());
+    });
+
+    await test('a library with images is not merged into a repository that has one', async () => {
+      const dir = path.join(root, 'used-merge');
+      fs.mkdirSync(dir);
+      makeSkeleton(dir);
+      fs.writeFileSync(path.join(dir, 'library', 'a.jpg'), 'bytes');
+      const check = await setup.checkConnection(dir, remote);
+      assert.strictEqual(check.ok, false);
+      assert.strictEqual(check.state, 'needs_empty_folder');
+      assert.strictEqual(check.message, setup.MERGE_REFUSED);
+    });
+
+    await test('a failed upload keeps the images and leaves no repository behind', async () => {
+      const dir = path.join(root, 'used-fail');
+      fs.mkdirSync(dir);
+      makeSkeleton(dir);
+      fs.writeFileSync(path.join(dir, 'library', 'a.jpg'), 'bytes');
+      await assert.rejects(setup.connectLibrary({ frameArtPath: dir, remoteUrl: path.join(root, 'missing.git'), remoteState: 'empty' }));
+      assert.deepStrictEqual(fs.readdirSync(dir).sort(), ['library', 'metadata.json', 'originals', 'thumbs']);
+      assert.strictEqual(fs.readFileSync(path.join(dir, 'library', 'a.jpg'), 'utf8'), 'bytes');
     });
 
     await test('a repository without a main branch is refused', async () => {

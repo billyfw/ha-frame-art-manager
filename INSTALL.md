@@ -69,9 +69,11 @@ In Home Assistant:
 On a new install the web UI opens on **Connect your art library**: create a private GitHub
 repository, enter it as `owner/name`, add the key shown on the screen to the repository as a
 deploy key **with write access**, test the connection, then connect. An empty repository
-gets a new library; a repository that already holds one is downloaded. See the add-on's
-**Documentation** tab for details. Existing libraries (the folder is already a git
-repository) are not affected and never see this screen.
+gets this library (new, or with the images you already have); a repository that already
+holds one is downloaded. You can also skip this and connect later from **Advanced** →
+**Settings** → **Library Sync**. See the add-on's **Documentation** tab for details.
+Existing libraries (the folder is already a git repository) are not affected and never see
+this screen.
 
 ## Method 2: GitHub Repository Installation
 

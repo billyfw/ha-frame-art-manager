@@ -11,9 +11,12 @@ const path = require('path');
  * deploy key with write access, then the UI tests the repo and either clones it
  * (remote has commits) or starts a new library and pushes it (remote is empty).
  *
- * Safety rules: a folder that is already a git repository is never touched, and a
- * folder holding anything beyond the skeleton the app creates at startup (empty
- * library/, thumbs/, originals/ and an image-less metadata.json) is refused. User
+ * Setup can run on a fresh install or later, on a library that has been used
+ * without sync for a while. Safety rules: a folder that is already a git repository
+ * is never touched; local files are never moved, replaced or deleted, so a library
+ * with images can only start a new repository (its images are committed and pushed),
+ * and only a folder holding nothing beyond the startup skeleton (empty library/,
+ * thumbs/, originals/ and an image-less metadata.json) can receive a clone. User
  * input reaches git only as an argument array, never through a shell.
  */
 
@@ -30,6 +33,8 @@ const GITATTRIBUTES = [
   'originals/** filter=lfs diff=lfs merge=lfs -text',
   ''
 ].join('\n');
+// Desktop clutter that must not end up in a new library's history.
+const GITIGNORE = ['.DS_Store', '._*', 'Thumbs.db', ''].join('\n');
 const COMMIT_NAME = 'Frame Art Manager';
 const COMMIT_EMAIL = 'frame-art-manager@homeassistant.local';
 
@@ -97,9 +102,10 @@ async function isEmptyMetadata(filePath) {
 
 /**
  * Look at the library folder without changing it.
- * @returns {Promise<{exists: boolean, isRepo: boolean, userFiles: string[], skeleton: string[]}>}
- *   userFiles: entries that are not part of the app's startup skeleton.
- *   skeleton:  skeleton entries present (safe to remove before a clone).
+ * @returns {Promise<{exists: boolean, isRepo: boolean, userFiles: string[], skeleton: string[], imageCount: number}>}
+ *   userFiles:  entries that are not part of the app's startup skeleton.
+ *   skeleton:   skeleton entries present (safe to remove before a clone).
+ *   imageCount: entries in library/.
  */
 async function inspectLibraryFolder(frameArtPath) {
   let entries;
@@ -107,12 +113,12 @@ async function inspectLibraryFolder(frameArtPath) {
     entries = await fs.readdir(frameArtPath, { withFileTypes: true });
   } catch (error) {
     if (error.code === 'ENOENT') {
-      return { exists: false, isRepo: false, userFiles: [], skeleton: [] };
+      return { exists: false, isRepo: false, userFiles: [], skeleton: [], imageCount: 0 };
     }
     throw error;
   }
 
-  const result = { exists: true, isRepo: false, userFiles: [], skeleton: [] };
+  const result = { exists: true, isRepo: false, userFiles: [], skeleton: [], imageCount: 0 };
   for (const entry of entries) {
     if (entry.name === '.git') {
       result.isRepo = true;
@@ -121,6 +127,9 @@ async function inspectLibraryFolder(frameArtPath) {
     const fullPath = path.join(frameArtPath, entry.name);
     if (entry.isDirectory() && SKELETON_DIRS.includes(entry.name)) {
       const inner = await fs.readdir(fullPath);
+      if (entry.name === 'library') {
+        result.imageCount = inner.length;
+      }
       if (inner.length === 0) {
         result.skeleton.push(entry.name);
       } else {
@@ -139,32 +148,33 @@ async function inspectLibraryFolder(frameArtPath) {
 
 /**
  * What the UI should offer for a given folder inspection.
- * @returns {{needsSetup: boolean, canConnect: boolean, reason: string|null}}
+ * hasLocalFiles: the library has been used (images or other files), so only an
+ * empty repository can be connected, and the setup screen does not open by itself.
+ * @returns {{needsSetup: boolean, canConnect: boolean, hasLocalFiles: boolean}}
  */
 function describeSetupState(inspection) {
   if (inspection.isRepo) {
-    return { needsSetup: false, canConnect: false, reason: null };
+    return { needsSetup: false, canConnect: false, hasLocalFiles: false };
   }
-  if (inspection.userFiles.length > 0) {
-    return {
-      needsSetup: true,
-      canConnect: false,
-      reason: 'The library folder already contains files, so it cannot be connected automatically. ' +
-        'Nothing has been changed. Move the files out of the folder (or choose a different frame_art_path) to use setup.'
-    };
-  }
-  return { needsSetup: true, canConnect: true, reason: null };
+  return { needsSetup: true, canConnect: true, hasLocalFiles: inspection.userFiles.length > 0 };
 }
 
-/** Throws (error.code ALREADY_REPO or FOLDER_NOT_EMPTY) unless setup may write into the folder. */
-function assertCanConnect(inspection) {
+const MERGE_REFUSED = 'This repository already has a library, and this add-on has its own images. ' +
+  'Merging two libraries is not supported: connect an empty repository to upload the images here, ' +
+  'or empty the library folder to download the repository\'s library instead.';
+
+/**
+ * Throws unless setup may connect this folder to a remote in remoteState
+ * ('empty' or 'has_content'). error.code: ALREADY_REPO or FOLDER_NOT_EMPTY.
+ */
+function assertCanConnect(inspection, remoteState) {
   if (inspection.isRepo) {
     const error = new Error('The library folder is already a git repository; setup leaves it untouched.');
     error.code = 'ALREADY_REPO';
     throw error;
   }
-  if (inspection.userFiles.length > 0) {
-    const error = new Error(`The library folder is not empty (${inspection.userFiles.slice(0, 5).join(', ')}); setup will not overwrite it.`);
+  if (remoteState === 'has_content' && inspection.userFiles.length > 0) {
+    const error = new Error(MERGE_REFUSED);
     error.code = 'FOLDER_NOT_EMPTY';
     throw error;
   }
@@ -291,6 +301,26 @@ async function checkRemote(remoteUrl) {
   return { ok: true, state: 'has_content', message: 'Connected. The repository already has a library: "Connect library" will download it.' };
 }
 
+/**
+ * checkRemote() plus what connecting would do to this folder: an empty remote takes
+ * the folder's images, a remote with a library needs a folder without user files.
+ */
+async function checkConnection(frameArtPath, remoteUrl) {
+  const remote = await checkRemote(remoteUrl);
+  if (!remote.ok) return remote;
+  const inspection = await inspectLibraryFolder(frameArtPath);
+  try {
+    assertCanConnect(inspection, remote.state);
+  } catch (error) {
+    return { ok: false, state: error.code === 'FOLDER_NOT_EMPTY' ? 'needs_empty_folder' : error.code, message: error.message };
+  }
+  if (remote.state === 'empty' && inspection.imageCount > 0) {
+    const images = `${inspection.imageCount} image${inspection.imageCount === 1 ? '' : 's'}`;
+    return { ...remote, message: `Connected. The repository is empty: "Connect library" will upload this add-on's library (${images}) to it.` };
+  }
+  return remote;
+}
+
 async function ensureCommitIdentity(dir) {
   for (const [key, value] of [['user.name', COMMIT_NAME], ['user.email', COMMIT_EMAIL]]) {
     const configured = await runGit(['config', '--get', key], { cwd: dir }).then(r => r.stdout.trim()).catch(() => '');
@@ -314,10 +344,25 @@ async function ensureLfsUsesSsh(dir) {
   await new GitHelper(dir).ensureLfsUsesSsh();
 }
 
-/** Remote is empty: turn the skeleton folder into a library repo and push it. */
-async function initializeNewLibrary(frameArtPath, remoteUrl, onStep) {
+async function writeNewFile(filePath, content) {
+  try {
+    await fs.writeFile(filePath, content, { flag: 'wx' });
+    return true;
+  } catch (error) {
+    if (error.code === 'EEXIST') return false;
+    throw error;
+  }
+}
+
+/**
+ * Remote is empty: turn the folder into a library repo and push it. Whatever the
+ * folder already holds (images, thumbnails, originals, metadata.json) becomes the
+ * first commit; nothing in it is changed.
+ */
+async function initializeNewLibrary(frameArtPath, remoteUrl, imageCount, onStep) {
   const gitDir = path.join(frameArtPath, '.git');
   const attributesPath = path.join(frameArtPath, '.gitattributes');
+  const ignorePath = path.join(frameArtPath, '.gitignore');
   const metadataPath = path.join(frameArtPath, METADATA_FILE);
 
   onStep('Creating a new library');
@@ -325,8 +370,13 @@ async function initializeNewLibrary(frameArtPath, remoteUrl, onStep) {
   for (const dir of SKELETON_DIRS) {
     await fs.mkdir(path.join(frameArtPath, dir), { recursive: true });
   }
-  // 'wx': never replace a file this function did not create.
-  await fs.writeFile(attributesPath, GITATTRIBUTES, { flag: 'wx' });
+  // LFS must be configured before the first `git add`, or images go in as plain blobs.
+  if (!await writeNewFile(attributesPath, GITATTRIBUTES)) {
+    const error = new Error('The library folder already has a .gitattributes file. Move it out of the folder and run setup again.');
+    error.code = 'FOLDER_CONFLICT';
+    throw error;
+  }
+  const createdIgnore = await writeNewFile(ignorePath, GITIGNORE);
   try {
     if (!await pathExists(metadataPath)) {
       await fs.writeFile(metadataPath, JSON.stringify(INITIAL_METADATA, null, 2));
@@ -337,15 +387,21 @@ async function initializeNewLibrary(frameArtPath, remoteUrl, onStep) {
     await runGit(['lfs', 'install', '--local'], { cwd: frameArtPath });
     await runGit(['remote', 'add', 'origin', remoteUrl], { cwd: frameArtPath });
     await ensureLfsUsesSsh(frameArtPath);
-    await runGit(['add', '.gitattributes', METADATA_FILE], { cwd: frameArtPath });
-    await runGit(['commit', '-q', '-m', 'Initialize Frame Art library'], { cwd: frameArtPath });
+    await runGit(['add', '-A'], { cwd: frameArtPath });
+    const message = imageCount > 0
+      ? `Initialize Frame Art library with ${imageCount} image${imageCount === 1 ? '' : 's'}`
+      : 'Initialize Frame Art library';
+    await runGit(['commit', '-q', '-m', message], { cwd: frameArtPath });
 
-    onStep('Pushing the new library to GitHub');
+    onStep(imageCount > 0
+      ? `Uploading the library to GitHub (${imageCount} image${imageCount === 1 ? '' : 's'})`
+      : 'Pushing the new library to GitHub');
     await runGit(['push', '-u', 'origin', BRANCH], { cwd: frameArtPath, timeout: CLONE_TIMEOUT_MS });
   } catch (error) {
-    // Undo only what this function created, so setup can be retried from scratch.
+    // Undo only what this function created (never the user's files), so setup can be retried.
     await fs.rm(gitDir, { recursive: true, force: true });
     await fs.rm(attributesPath, { force: true });
+    if (createdIgnore) await fs.rm(ignorePath, { force: true });
     throw error;
   }
   return { action: 'initialized' };
@@ -390,16 +446,17 @@ async function cloneLibrary(frameArtPath, remoteUrl, skeleton, onStep) {
 
 /**
  * Connect the library folder to a remote that checkRemote() reported on.
- * Re-inspects the folder first and refuses anything but an empty or skeleton folder.
+ * Re-inspects the folder first: an existing repo is refused, and a folder with
+ * files can only start a new library in an empty remote.
  * @param {{frameArtPath: string, remoteUrl: string, remoteState: 'empty'|'has_content', onStep?: Function}} options
  * @returns {Promise<{action: 'initialized'|'cloned', warning?: string}>}
  */
 async function connectLibrary({ frameArtPath, remoteUrl, remoteState, onStep = () => {} }) {
   const inspection = await inspectLibraryFolder(frameArtPath);
-  assertCanConnect(inspection);
+  assertCanConnect(inspection, remoteState);
 
   if (remoteState === 'empty') {
-    return initializeNewLibrary(frameArtPath, remoteUrl, onStep);
+    return initializeNewLibrary(frameArtPath, remoteUrl, inspection.imageCount, onStep);
   }
   if (remoteState === 'has_content') {
     return cloneLibrary(frameArtPath, remoteUrl, inspection.skeleton, onStep);
@@ -419,6 +476,7 @@ async function getOriginUrl(frameArtPath) {
 module.exports = {
   REPO_PATTERN,
   GITATTRIBUTES,
+  MERGE_REFUSED,
   validateRepoName,
   remoteUrlFor,
   redactRemoteUrl,
@@ -429,6 +487,7 @@ module.exports = {
   keySource,
   classifyGitError,
   checkRemote,
+  checkConnection,
   connectLibrary,
   getOriginUrl,
   isSetupInProgress,

@@ -26,8 +26,8 @@ router.get('/status', async (req, res) => {
       origin: inspection.isRepo ? await setup.getOriginUrl(req.frameArtPath) : null,
       needsSetup: state.needsSetup,
       canConnect: state.canConnect,
-      reason: state.reason,
-      userFiles: inspection.userFiles.slice(0, 10),
+      hasLocalFiles: state.hasLocalFiles,
+      imageCount: inspection.imageCount,
       keySource,
       // Public half of the key the add-on generated; nothing else about keys leaves the server.
       publicKey: keySource === 'generated' ? await setup.readGeneratedPublicKey() : null,
@@ -39,14 +39,14 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// POST /api/setup/test {repo} - can the key reach owner/name, and is it empty
+// POST /api/setup/test {repo} - can the key reach owner/name, and can this folder connect to it
 router.post('/test', async (req, res) => {
   const validation = setup.validateRepoName(req.body && req.body.repo);
   if (!validation.valid) {
     return res.status(400).json({ success: false, state: 'invalid', message: validation.error });
   }
   try {
-    const result = await setup.checkRemote(setup.remoteUrlFor(validation.repo));
+    const result = await setup.checkConnection(req.frameArtPath, setup.remoteUrlFor(validation.repo));
     res.json({ success: result.ok, repo: validation.repo, ...result });
   } catch (error) {
     console.error('Setup test failed:', error.message);
@@ -78,17 +78,11 @@ router.post('/connect', async (req, res) => {
   };
 
   try {
-    const inspection = await setup.inspectLibraryFolder(frameArtPath);
-    try {
-      setup.assertCanConnect(inspection);
-    } catch (error) {
-      return res.status(409).json({ success: false, state: error.code, message: error.message });
-    }
-
     const remoteUrl = setup.remoteUrlFor(repo);
-    const remote = await setup.checkRemote(remoteUrl);
+    const remote = await setup.checkConnection(frameArtPath, remoteUrl);
     if (!remote.ok) {
-      return res.status(400).json({ success: false, repo, ...remote });
+      const status = ['ALREADY_REPO', 'needs_empty_folder'].includes(remote.state) ? 409 : 400;
+      return res.status(status).json({ success: false, repo, ...remote });
     }
 
     connectJob = { repo, status: 'running', step: 'Starting', startedAt: new Date().toISOString() };
