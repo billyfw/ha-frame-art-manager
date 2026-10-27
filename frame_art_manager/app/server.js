@@ -13,6 +13,8 @@ const tagsRouter = require('./routes/tags');
 const syncRouter = require('./routes/sync');
 const haRouter = require('./routes/ha');
 const analyticsRouter = require('./routes/analytics');
+const setupRouter = require('./routes/setup');
+const { isSetupInProgress } = require('./library_setup');
 
 const app = express();
 const PORT = process.env.PORT || 8099;
@@ -66,6 +68,7 @@ app.use('/api/tags', tagsRouter);
 app.use('/api/sync', syncRouter);
 app.use('/api/ha', haRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/setup', setupRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -186,6 +189,14 @@ async function verifyGitConfiguration() {
   }
 }
 
+// First-run library setup (routes/setup.js) connects the folder while the server
+// runs: re-run the startup checks so sync works without a restart.
+app.locals.onLibraryConnected = async () => {
+  await verifyGitConfiguration();
+  await initializeDirectories();
+};
+app.locals.initializeLibraryFolder = initializeDirectories;
+
 // Start server
 app.listen(PORT, async () => {
   console.log(`Frame Art Manager running on port ${PORT}`);
@@ -209,7 +220,7 @@ function startPushSweep() {
   let running = false;
 
   setInterval(async () => {
-    if (running) return;
+    if (running || isSetupInProgress()) return;
     running = true;
     try {
       const git = new GitHelper(FRAME_ART_PATH);
