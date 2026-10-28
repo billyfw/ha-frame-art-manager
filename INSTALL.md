@@ -64,6 +64,19 @@ In Home Assistant:
 - Or navigate to: `http://homeassistant.local:8099`
 - Or use the sidebar panel: **Frame Art Manager**
 
+### Step 8: Connect Your Art Library
+
+On a new install the web UI opens on **Connect your art library**. Its **GitHub connection**
+panel first shows whether the add-on has a key and can reach GitHub. Then create a private
+GitHub repository, add the key shown on the screen to it as a deploy key **with write
+access** (the panel turns green and the repository is found by itself, nothing to type), test the connection,
+then connect. An empty repository
+gets this library (new, or with the images you already have); a repository that already
+holds one is downloaded. You can also skip this and connect later from **Advanced** →
+**Settings** → **Library Sync**. See the add-on's **Documentation** tab for details.
+Existing libraries (the folder is already a git repository) are not affected and never see
+this screen.
+
 ## Method 2: GitHub Repository Installation
 
 ### Step 1: Push to GitHub
@@ -178,7 +191,8 @@ After installation:
 1. Upload some artwork via the **Upload** tab
 2. Add your Frame TVs via Home Assistant **Settings** → **Devices & Services** → **Integrations** (search for "Samsung Frame Art Shuffler")
 3. Organize with tags via the **Tags** tab
-4. Set up Git sync for backup (see main README)
+4. Connect the library to GitHub for backup and sync, if you chose **Set up later**
+   (**Advanced** → **Settings** → **Library Sync**)
 
 ## Uninstalling
 
@@ -186,6 +200,8 @@ After installation:
 2. Click **Uninstall**
 3. Your frame art files in `/config/www/frame_art/` will remain
 4. Delete manually if desired
+5. The add-on's generated SSH key is deleted with it: remove its deploy key from the
+   library repository on GitHub (**Settings** → **Deploy keys**)
 
 ## Support
 

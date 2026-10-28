@@ -15,13 +15,21 @@ else
     bashio::log.info "Home: ${HOME_NAME}"
 fi
 
-# Set up SSH keys for Git if provided
+# Set up the SSH key for Git: the configured ssh_private_key when set (existing
+# setups), otherwise a key the add-on generates once and keeps in /data, which
+# survives restarts and updates. The library setup screen shows its public half
+# so it can be added to the library repo as a deploy key.
+GENERATED_KEY_DIR=/data/ssh
+GENERATED_KEY_PATH="${GENERATED_KEY_DIR}/id_ed25519"
+KEY_PATH=""
+SSH_KEY_SOURCE="none"
+
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+
 if bashio::config.has_value 'ssh_private_key'; then
     bashio::log.info "Setting up SSH key for Git..."
-    
-    mkdir -p /root/.ssh
-    chmod 700 /root/.ssh
-    
+
     KEY_PATH=/root/.ssh/id_ed25519
     rm -f "${KEY_PATH}"
     
@@ -43,7 +51,32 @@ if bashio::config.has_value 'ssh_private_key'; then
         rm -f "${KEY_PATH}"
         bashio::exit.nok "Invalid SSH key"
     fi
-    
+    SSH_KEY_SOURCE="config"
+else
+    bashio::log.info "No SSH private key configured; using the add-on's generated key"
+    if [ ! -f "${GENERATED_KEY_PATH}" ]; then
+        mkdir -p "${GENERATED_KEY_DIR}"
+        chmod 700 "${GENERATED_KEY_DIR}"
+        if ssh-keygen -q -t ed25519 -N "" -C "frame-art-manager" -f "${GENERATED_KEY_PATH}"; then
+            bashio::log.info "Generated a new SSH key for Git (${GENERATED_KEY_PATH})"
+        else
+            bashio::log.error "Could not generate an SSH key in ${GENERATED_KEY_DIR}"
+        fi
+    fi
+    if [ -f "${GENERATED_KEY_PATH}" ] && [ ! -f "${GENERATED_KEY_PATH}.pub" ]; then
+        ssh-keygen -y -f "${GENERATED_KEY_PATH}" > "${GENERATED_KEY_PATH}.pub" 2>/dev/null || rm -f "${GENERATED_KEY_PATH}.pub"
+    fi
+    if [ -f "${GENERATED_KEY_PATH}" ] && ssh-keygen -y -f "${GENERATED_KEY_PATH}" > /dev/null 2>&1; then
+        chmod 600 "${GENERATED_KEY_PATH}"
+        KEY_PATH="${GENERATED_KEY_PATH}"
+        SSH_KEY_SOURCE="generated"
+        export FRAME_ART_GENERATED_PUBLIC_KEY="${GENERATED_KEY_PATH}.pub"
+    else
+        bashio::log.warning "The generated SSH key in ${GENERATED_KEY_DIR} is unusable"
+    fi
+fi
+
+if [ -n "${KEY_PATH}" ]; then
     # Get the git remote host alias (default: github-owner)
     GIT_HOST_ALIAS=$(bashio::config 'git_remote_host_alias')
     if bashio::var.is_empty "${GIT_HOST_ALIAS}"; then
@@ -56,7 +89,7 @@ Host ${GIT_HOST_ALIAS} github.com
     HostName ssh.github.com
     Port 443
     User git
-    IdentityFile /root/.ssh/id_ed25519
+    IdentityFile ${KEY_PATH}
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
     BatchMode yes
@@ -68,9 +101,8 @@ EOF
     # Add GitHub to known_hosts
     #ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null
     
-    bashio::log.info "✓ SSH key configured for ${GIT_HOST_ALIAS}"
+    bashio::log.info "✓ SSH key (${SSH_KEY_SOURCE}) configured for ${GIT_HOST_ALIAS}"
 else
-    bashio::log.info "No SSH private key configured"
     bashio::log.warning "Git sync will not work without an SSH key"
 fi
 
@@ -143,6 +175,7 @@ fi
 export FRAME_ART_PATH="${FRAME_ART_PATH}"
 export PORT="${PORT}"
 export FRAME_ART_HOME="${HOME_NAME}"
+export FRAME_ART_SSH_KEY_SOURCE="${SSH_KEY_SOURCE}"
 export NODE_ENV="production"
 export GIT_TERMINAL_PROMPT="0"
 export GIT_ASKPASS="/bin/true"

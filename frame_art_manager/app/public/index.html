@@ -378,6 +378,39 @@
               <code id="advanced-path-value" class="path-code">Loading...</code>
             </div>
           </div>
+          <!-- Filled in by js/library-setup.js: set up sync, or disconnect from the repository -->
+          <div id="library-sync-setup-section" class="subsection hidden">
+            <h3>Library Sync</h3>
+            <div class="github-connection" aria-live="polite">
+              <div class="github-connection-header">
+                <h4>GitHub connection</h4>
+                <button type="button" id="library-sync-check-btn" class="btn-secondary btn-small">Check again</button>
+              </div>
+              <ul id="library-sync-connection" class="github-connection-list"></ul>
+            </div>
+            <div id="library-sync-disconnected" class="hidden">
+              <p class="library-setup-settings-text">This library is not connected to a GitHub repository, so it is not backed up or synced.</p>
+              <button type="button" id="open-library-setup-btn" class="btn-primary btn-small">Set up GitHub sync</button>
+            </div>
+            <div id="library-sync-connected" class="hidden">
+              <p class="library-setup-settings-text">Synced with <code id="library-sync-repo" class="path-code"></code></p>
+              <button type="button" id="library-sync-disconnect-btn" class="btn-secondary btn-small">Disconnect…</button>
+              <div id="library-sync-disconnect-panel" class="library-sync-disconnect hidden">
+                <p>Disconnecting stops syncing with this repository. Nothing is changed or deleted on GitHub. Choose what happens to the library here:</p>
+                <div class="library-sync-option">
+                  <button type="button" id="library-sync-keep-btn" class="btn-secondary btn-small">Keep the images here</button>
+                  <p>The library keeps working on this add-on, without sync. Use this to move it to a new, empty repository: Set up GitHub sync uploads it there as a fresh start, and its history stays in the old repository.</p>
+                </div>
+                <div class="library-sync-option">
+                  <button type="button" id="library-sync-clear-btn" class="btn-danger btn-small">Remove the images from this add-on</button>
+                  <p>Only once everything is on GitHub (checked first). Empties the library folder so you can download a different repository's library, or this one again. Until then this add-on has no images.</p>
+                </div>
+                <p class="library-setup-note">GitHub allows a deploy key on one repository only: to use this add-on's key with a different repository, first delete it from this one's deploy keys.</p>
+                <button type="button" id="library-sync-cancel-btn" class="btn-secondary btn-small">Cancel</button>
+                <div id="library-sync-disconnect-result" class="library-setup-result" aria-live="polite"></div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Tags Sub-tab (Tagsets Management) -->
@@ -1274,8 +1307,72 @@
     </div>
   </div>
 
+  <!-- First-run library setup (js/library-setup.js, routes/setup.js) -->
+  <div id="library-setup" class="library-setup-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="library-setup-title">
+    <div class="library-setup-card">
+      <div class="library-setup-header">
+        <h2 id="library-setup-title">Connect your art library</h2>
+        <button type="button" id="library-setup-close" class="btn-icon close-simple" title="Set up later">✕</button>
+      </div>
+      <p class="library-setup-intro">
+        Frame Art Manager keeps your images and tags in a private GitHub repository, so the library is
+        backed up and every copy stays in sync. Library folder: <code id="library-setup-path" class="path-code"></code>
+      </p>
+      <div id="library-setup-existing" class="library-setup-existing hidden"></div>
+
+      <div class="github-connection" aria-live="polite">
+        <div class="github-connection-header">
+          <h4>GitHub connection</h4>
+          <button type="button" id="library-setup-check-btn" class="btn-secondary btn-small">Check again</button>
+        </div>
+        <ul id="library-setup-connection" class="github-connection-list"></ul>
+      </div>
+
+      <ol class="library-setup-steps">
+        <li>
+          <h4>Create a private repository</h4>
+          <p>Create an <strong>empty, private</strong> repository on GitHub (no README). To download an existing Frame Art library instead, use its repository.</p>
+          <a class="btn-secondary btn-small library-setup-link" href="https://github.com/new?name=frame_art&amp;visibility=private" target="_blank" rel="noopener noreferrer">Create a repository on GitHub ↗</a>
+        </li>
+        <li>
+          <h4>Add this add-on's key as a deploy key</h4>
+          <p>Copy the key. In the repository on GitHub, open <em>Settings → Deploy keys → Add deploy key</em>, paste it, and check <strong>Allow write access</strong> (needed to save your changes).</p>
+          <div id="library-setup-key-box" class="library-setup-key hidden">
+            <textarea id="library-setup-key" readonly rows="3" aria-label="Public SSH key"></textarea>
+            <button type="button" id="library-setup-copy" class="btn-secondary btn-small">Copy</button>
+          </div>
+          <p id="library-setup-key-note" class="library-setup-note"></p>
+          <p class="library-setup-note">If GitHub says the key is already in use, it is still a deploy key on another repository: delete it there first.</p>
+        </li>
+        <li>
+          <h4>Test the connection</h4>
+          <p class="library-setup-repo-line"><strong>Repository:</strong> <code id="library-setup-repo-label" class="path-code hidden"></code><span id="library-setup-repo-waiting" class="library-setup-note">found once the key is added on GitHub…</span></p>
+          <!-- Only for a key GitHub does not tie to one repository (an account key from ssh_private_key) -->
+          <div id="library-setup-repo-manual" class="hidden">
+            <input type="text" id="library-setup-repo" class="library-setup-input" placeholder="owner/frame_art" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="GitHub repository (owner/name)">
+            <div id="library-setup-repo-error" class="library-setup-field-error" aria-live="polite"></div>
+          </div>
+          <button type="button" id="library-setup-test" class="btn-primary btn-small" disabled>Test connection</button>
+          <div id="library-setup-test-result" class="library-setup-result" aria-live="polite"></div>
+        </li>
+        <li>
+          <h4>Connect the library</h4>
+          <p id="library-setup-connect-hint" class="library-setup-note">Test the connection first.</p>
+          <button type="button" id="library-setup-connect" class="btn-primary btn-small" disabled>Connect library</button>
+          <div id="library-setup-progress" class="library-setup-result" aria-live="polite"></div>
+          <button type="button" id="library-setup-reload" class="btn-done btn-small hidden">Open the library</button>
+        </li>
+      </ol>
+
+      <div class="library-setup-footer">
+        <button type="button" id="library-setup-later" class="btn-secondary btn-small">Set up later</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/app.js"></script>
   <script src="js/house-switcher.js"></script>
+  <script src="js/library-setup.js"></script>
   <script>
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
       window.addEventListener('load', function () {
