@@ -1335,24 +1335,23 @@
           <a class="btn-secondary btn-small library-setup-link" href="https://github.com/new?name=frame_art&amp;visibility=private" target="_blank" rel="noopener noreferrer">Create a repository on GitHub ↗</a>
         </li>
         <li>
-          <h4>Enter the repository</h4>
-          <input type="text" id="library-setup-repo" class="library-setup-input" placeholder="owner/frame_art" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="GitHub repository (owner/name)">
-          <div id="library-setup-repo-error" class="library-setup-field-error" aria-live="polite"></div>
-          <p class="library-setup-note">Filled in for you once the key below is added to the repository.</p>
-        </li>
-        <li>
           <h4>Add this add-on's key as a deploy key</h4>
-          <p>Copy the key, open the repository's <em>Deploy keys</em> page, paste it, and check <strong>Allow write access</strong> (needed to save your changes).</p>
+          <p>Copy the key. In the repository on GitHub, open <em>Settings → Deploy keys → Add deploy key</em>, paste it, and check <strong>Allow write access</strong> (needed to save your changes).</p>
           <div id="library-setup-key-box" class="library-setup-key hidden">
             <textarea id="library-setup-key" readonly rows="3" aria-label="Public SSH key"></textarea>
             <button type="button" id="library-setup-copy" class="btn-secondary btn-small">Copy</button>
           </div>
           <p id="library-setup-key-note" class="library-setup-note"></p>
           <p class="library-setup-note">If GitHub says the key is already in use, it is still a deploy key on another repository: delete it there first.</p>
-          <a id="library-setup-keys-link" class="btn-secondary btn-small library-setup-link disabled" aria-disabled="true" target="_blank" rel="noopener noreferrer">Open deploy keys on GitHub ↗</a>
         </li>
         <li>
           <h4>Test the connection</h4>
+          <p class="library-setup-repo-line"><strong>Repository:</strong> <code id="library-setup-repo-label" class="path-code hidden"></code><span id="library-setup-repo-waiting" class="library-setup-note">found once the key is added on GitHub…</span></p>
+          <!-- Only for a key GitHub does not tie to one repository (an account key from ssh_private_key) -->
+          <div id="library-setup-repo-manual" class="hidden">
+            <input type="text" id="library-setup-repo" class="library-setup-input" placeholder="owner/frame_art" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="GitHub repository (owner/name)">
+            <div id="library-setup-repo-error" class="library-setup-field-error" aria-live="polite"></div>
+          </div>
           <button type="button" id="library-setup-test" class="btn-primary btn-small" disabled>Test connection</button>
           <div id="library-setup-test-result" class="library-setup-result" aria-live="polite"></div>
         </li>

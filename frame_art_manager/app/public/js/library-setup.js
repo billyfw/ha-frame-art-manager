@@ -23,7 +23,6 @@
   let connectionRequest = 0;
   let connectionPoll = null;
   let connectionPollStartedAt = 0;
-  let autoFilledRepo = null; // repo setup filled in from the deploy key GitHub reported
   let autoTestedRepo = null; // repo setup tested on its own after filling it in
 
   const el = (id) => document.getElementById(id);
@@ -138,7 +137,7 @@
     } else if (github.state === 'account_key') {
       rows.push({ kind: 'ok', label: 'Key recognized', text: `Yes, account key of ${github.identity}` });
     } else if (forSetup) {
-      rows.push({ kind: 'warn', label: 'Key recognized', text: 'Not yet. Add it to the repository as a deploy key (step 3).' });
+      rows.push({ kind: 'warn', label: 'Key recognized', text: 'Not yet. Add it to the repository as a deploy key (step 2).' });
     } else if (!data.isRepo) {
       rows.push({ kind: 'warn', label: 'Key recognized', text: 'Not yet. Set up GitHub sync to add it to a repository.' });
     } else {
@@ -216,6 +215,7 @@
       button.disabled = connectionChecking;
       button.textContent = connectionChecking ? 'Checking…' : 'Check again';
     });
+    if (status) updateRepoDependentUi();
   }
 
   async function refreshConnection({ fresh = false } = {}) {
@@ -241,18 +241,21 @@
     }
   }
 
-  /** On the setup screen, a deploy key GitHub reports names the repository: fill it in and test it. */
+  /**
+   * On the setup screen, a deploy key GitHub reports names the repository: setup uses it
+   * and tests it. Only an account key (ssh_private_key), which reaches every repository of
+   * its account, needs the repository typed in.
+   */
   function onConnectionChecked() {
+    updateRepoDependentUi();
     if (!connection || !connection.github.recognized) return;
     stopConnectionPolling();
     if (!isOverlayOpen() || connection.github.state !== 'deploy_key' || isJobRunning()) return;
     const input = el('library-setup-repo');
     const typed = normalizeRepo(input.value);
     const found = connection.github.identity;
-    if (typed && typed !== autoFilledRepo) return; // the user's own entry wins; a mismatch row explains it
     if (typed !== found) {
       input.value = found;
-      autoFilledRepo = found;
       resetTest();
     }
     if (autoTestedRepo !== found && testedRepo !== found) {
@@ -290,23 +293,25 @@
     updateRepoDependentUi();
   }
 
+  function needsTypedRepo() {
+    return Boolean(connection && connection.github.state === 'account_key');
+  }
+
   function updateRepoDependentUi() {
     const repo = normalizeRepo(el('library-setup-repo').value);
     const valid = isValidRepo(repo);
-    const link = el('library-setup-keys-link');
-    if (valid) {
-      const [owner, name] = repo.split('/');
-      link.href = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/settings/keys/new`;
-      link.classList.remove('disabled');
-      link.removeAttribute('aria-disabled');
-    } else {
-      link.removeAttribute('href');
-      link.classList.add('disabled');
-      link.setAttribute('aria-disabled', 'true');
-    }
+    const manual = needsTypedRepo();
+    el('library-setup-repo-manual').classList.toggle('hidden', !manual);
+    const label = el('library-setup-repo-label');
+    label.textContent = valid ? repo : '';
+    label.classList.toggle('hidden', manual || !valid);
+    const waiting = el('library-setup-repo-waiting');
+    waiting.classList.toggle('hidden', manual || valid);
+    waiting.textContent = 'found once the key is added on GitHub…';
     el('library-setup-repo-error').textContent =
       repo && !valid ? 'Use the form owner/name, for example your-user/frame_art.' : '';
-    el('library-setup-test').disabled = !valid || isJobRunning();
+    // Before the repository is known, Test asks GitHub again which repository the key is on.
+    el('library-setup-test').disabled = (manual && !valid) || isJobRunning() || (!valid && connectionChecking);
     const canConnect = Boolean(status && status.canConnect) && testedRepo === repo && !isJobRunning();
     el('library-setup-connect').disabled = !canConnect;
   }
@@ -386,6 +391,17 @@
   async function testConnection() {
     const repo = normalizeRepo(el('library-setup-repo').value);
     const result = el('library-setup-test-result');
+    if (!isValidRepo(repo) && !needsTypedRepo()) {
+      setResult(result, 'pending', 'Asking GitHub which repository the key is on…');
+      await refreshConnection({ fresh: true }); // fills in the repository and tests it, once GitHub knows the key
+      if (!isValidRepo(normalizeRepo(el('library-setup-repo').value))) {
+        const github = connection && connection.github;
+        setResult(result, 'error', github && github.reachable
+          ? 'GitHub does not know the key yet. Add it as a deploy key (step 2), then test again.'
+          : (github ? github.message : 'Could not check the connection.'));
+      }
+      return;
+    }
     testedRepo = null;
     el('library-setup-test').disabled = true;
     updateRepoDependentUi();
@@ -522,7 +538,6 @@
 
   function bind() {
     el('library-setup-repo').addEventListener('input', () => {
-      autoFilledRepo = null;
       resetTest();
       renderConnection(); // the repository row compares the key with what is typed
     });
@@ -532,9 +547,6 @@
     el('library-setup-test').addEventListener('click', testConnection);
     el('library-setup-connect').addEventListener('click', connectLibrary);
     el('library-setup-copy').addEventListener('click', copyKey);
-    el('library-setup-keys-link').addEventListener('click', (event) => {
-      if (el('library-setup-keys-link').classList.contains('disabled')) event.preventDefault();
-    });
     el('library-setup-reload').addEventListener('click', () => window.location.reload());
     const later = () => {
       setDismissed(true);

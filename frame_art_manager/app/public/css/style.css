@@ -10881,6 +10881,21 @@ body.library-setup-open {
   pointer-events: none;
 }
 
+.library-setup-repo-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.library-setup-repo-line .path-code {
+  padding: 2px 6px;
+}
+
+#library-setup-repo-manual {
+  margin-bottom: 8px;
+}
+
 .library-setup-input {
   width: 100%;
   max-width: 360px;

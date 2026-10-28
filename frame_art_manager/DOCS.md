@@ -62,23 +62,21 @@ repository is involved:
   again every few seconds, so it turns green on its own once the deploy key is added.
 
 GitHub tells which repository a deploy key belongs to, so once the key is added the screen
-fills in the repository name and tests it by itself. If you typed a different repository than
-the one the key is on, the panel says so.
+shows the repository and tests it by itself.
 
 1. **Create a private repository** on GitHub (the link opens
    `https://github.com/new?name=frame_art&visibility=private`). Leave it empty: no README,
    no license. To download an existing Frame Art library instead, use its repository.
-2. **Enter the repository** as `owner/name`, for example `your-user/frame_art`. You can skip
-   this: it is filled in once the key is added (step 3), from the repository's own
-   **Settings → Deploy keys** page.
-3. **Add the add-on's key as a deploy key.** Copy the public key shown on the screen, open
-   the repository's deploy keys page (the link goes to
-   `https://github.com/<owner>/<repo>/settings/keys/new`), paste it, give it a title and
-   check **Allow write access**. Without write access the add-on can download the library
-   but cannot save your changes.
-4. **Test connection.** The test tells you whether GitHub accepts the key, whether the key
-   can write, and what connecting will do.
-5. **Connect library.**
+2. **Add the add-on's key as a deploy key.** Copy the public key shown on the screen. In
+   the repository on GitHub, open **Settings → Deploy keys → Add deploy key**, paste it,
+   give it a title and check **Allow write access**. Without write access the add-on can
+   download the library but cannot save your changes.
+3. **Test connection.** You do not type the repository: GitHub reports which repository the
+   deploy key is on, and the screen shows it as **Repository: owner/name**, then tests it.
+   The test tells you whether the key can write, and what connecting will do. With your own
+   account key in `ssh_private_key` (it reaches every repository of the account), a box to
+   type `owner/name` appears instead.
+4. **Connect library.**
    - Empty repository: the library in the folder becomes the repository's first commit and
      is pushed to the `main` branch: your images, thumbnails, originals and
      `metadata.json`, or an empty library on a new install. The add-on adds a
