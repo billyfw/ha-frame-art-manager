@@ -206,11 +206,13 @@ function startPushSweep() {
   if (!seconds || process.env.GIT_AUTO_PUSH_ON_CHANGE === 'false') return;
 
   const GitHelper = require('./git_helper');
-  let running = false;
 
   setInterval(async () => {
-    if (running) return;
-    running = true;
+    // Share the sync lock with the UI's sync (an upload ends in one). Without it
+    // a tick during that sync's push sent the same commit a second time: one
+    // push won, the other died with "cannot lock ref 'refs/heads/main': is at
+    // <the commit> but expected <its parent>" and the UI reported a failed push.
+    if (!await GitHelper.acquireSyncLock()) return;
     try {
       const git = new GitHelper(FRAME_ART_PATH);
       const status = await git.git.status();
@@ -236,7 +238,7 @@ function startPushSweep() {
     } catch (error) {
       console.warn('Push sweep error:', error.message);
     } finally {
-      running = false;
+      GitHelper.releaseSyncLock();
     }
   }, seconds * 1000).unref();
 
