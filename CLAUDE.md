@@ -155,7 +155,15 @@ packages: add `NODE_PATH=<a full npm ci install>/node_modules`.
   `fly machine update`. If it ever OOM-restarts under a big LFS sync, go back to 1 GB.
   Deploy with `fly deploy --remote-only -c fly/fly.toml --dockerfile fly/Dockerfile`
   from the repo root (no local Docker; on dev flyctl lives at `~/.fly/bin/flyctl`, logged in
-  as the owner since 2026-10-04). Tailnet-only: no `[http_service]`, no public IPs; UI at
+  as the owner). **The login lasts 30 days** (2026-10-04's expired 2026-11-03: "no access
+  token available", then "your flyctl session has expired"). dev has no browser, so the renewal
+  is `flyctl auth login` under a pseudo-terminal (`script -q -f -c "flyctl auth login" <log>`,
+  detached; without one it refuses with "requires an interactive terminal"), the printed
+  `https://fly.io/app/auth/cli/...` link to the owner (it lasts 15 minutes), and when the
+  approval page shows a code instead of completing the wait, `flyctl auth login --code <code>`
+  finishes it (flyctl 0.5.3; the first code he read before approving did not redeem). A deploy
+  token on dev (`fly tokens create deploy`) would end the monthly renewal; not made, his call.
+  Tailnet-only: no `[http_service]`, no public IPs; UI at
   `https://HOST.TAILNET.ts.net`. Machine must stay always-on (auto-stop can't wake on
   tailnet traffic).
 
