@@ -14,7 +14,7 @@ let r = explainDisplayFailure({
 });
 assert.strictEqual(r.reason, 'not_at_house');
 assert.strictEqual(r.status, 409);
-assert.strictEqual(r.text, "That picture hasn't reached the Seaside house yet. Try again in about 30 seconds.");
+assert.strictEqual(r.text, "That picture hasn't reached Seaside yet. Try again in about 30 seconds.");
 console.log('  ok  a file the house has not pulled yet');
 
 // The same error while the library has unpushed commits: the house cannot have it, and
@@ -27,7 +27,7 @@ r = explainDisplayFailure({
 assert.strictEqual(r.reason, 'not_pushed');
 assert.strictEqual(r.status, 409);
 assert.ok(r.text.includes('has not been pushed to GitHub yet'), r.text);
-assert.ok(r.text.includes('the Seaside house cannot fetch it'), r.text);
+assert.ok(r.text.includes('so Seaside cannot fetch it'), r.text);
 console.log('  ok  a file the manager has not pushed yet');
 
 // The TV is in the middle of another upload (the shuffle, or an earlier Show on TV).
@@ -64,6 +64,11 @@ console.log('  ok  an empty reason keeps the old generic text');
 r = explainDisplayFailure({ message: 'Art file not found: x.jpeg' });
 assert.strictEqual(r.text, "That picture hasn't reached the house yet. Try again in about 30 seconds.");
 console.log('  ok  no house name: "the house"');
+
+// A configured name that is already a phrase reads as one.
+r = explainDisplayFailure({ message: 'Art file not found: x.jpeg', houseName: 'the second house' });
+assert.strictEqual(r.text, "That picture hasn't reached the second house yet. Try again in about 30 seconds.");
+console.log('  ok  a house name that is already a phrase');
 
 // Display labels: add "TV" only when the name does not already say what it is.
 assert.strictEqual(displayLabel('Great Room'), 'The Great Room TV');

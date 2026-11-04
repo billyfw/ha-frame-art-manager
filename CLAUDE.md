@@ -85,7 +85,8 @@ Madrone's dark TVs beside the second house's lit displays.
   `call_service` answers an error with the service's own text and code. `display_failure.js`
   puts the two everyday states in plain words, with the house name from HOUSES_JSON and the
   display name the page sent (`tv_name`): "Art file not found" becomes "That picture hasn't
-  reached the <house> house yet. Try again in about 30 seconds." (or, when the library has
+  reached <house> yet. Try again in about 30 seconds." (the house name bare: one configured name
+  is already a phrase) (or, when the library has
   unpushed commits, that the push has not gone through: the 2026-10-20 outage looked the same);
   "another upload is already in progress" becomes "The <display> TV is busy putting up another
   picture. Try again in about 30 seconds." Every other reason shows as the shuffler worded it

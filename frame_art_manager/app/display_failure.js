@@ -32,7 +32,9 @@ function displayLabel(tvName) {
  */
 function explainDisplayFailure({ message, code, houseName, tvName, unpushed }) {
   const text = message || '';
-  const house = houseName ? `the ${houseName} house` : 'the house';
+  // The house's display name as HOUSES_JSON gives it, used bare: one configured name already
+  // reads "the second house", so "the <name> house" would double the words.
+  const house = houseName || 'the house';
 
   if (NOT_AT_HOUSE.test(text)) {
     if (unpushed) {
