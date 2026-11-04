@@ -8980,9 +8980,14 @@ function initTvModal() {
   });
 }
 
+// The displays the Show on TV modal lists, as last rendered: displayOnTv names the chosen one
+// in its request (tv_name) so a failure can say which TV is busy.
+let tvModalTvs = [];
+
 function renderTvList(tvs) {
   const container = document.getElementById('tv-list-container');
   if (!container) return;
+  tvModalTvs = tvs;
 
   if (tvs.length === 0) {
     container.innerHTML = '<div class="empty-state">No Frame TVs found.</div>';
@@ -9098,6 +9103,9 @@ window.displayOnTv = async function(id, type) {
     } else {
       payload.entity_id = id;
     }
+
+    const chosenTv = (tvModalTvs || []).find(tv => (tv.device_id || tv.entity_id) === id);
+    if (chosenTv) payload.tv_name = chosenTv.device_name || chosenTv.name;
 
     const response = await fetch(`${API_BASE}/ha/display${houseQuery(type === 'device_id' ? houseOfDevice(id) : null)}`, {
       method: 'POST',

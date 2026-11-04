@@ -30,6 +30,8 @@ const testSuites = [
   { name: 'Commit Message Tests', file: 'commit-message.test.js' },
   { name: 'Validation Tests', file: 'validation.test.js' },
   { name: 'Display Payload Tests', file: 'display-payload.test.js' },
+  { name: 'Display Failure Wording Tests', file: 'display-failure.test.js' },
+  { name: 'Home Assistant WebSocket Tests', file: 'ha-ws.test.js' },
   { name: 'Last Displays Tests', file: 'last-displays.test.js' }
 ];
 

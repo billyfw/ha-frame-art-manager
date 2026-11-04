@@ -35,7 +35,8 @@
     "sharp": "^0.34.4",
     "simple-git": "^3.28.0",
     "socks-proxy-agent": "^10.1.0",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "ws": "^8.22.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

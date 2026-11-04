@@ -75,6 +75,27 @@ Madrone's dark TVs beside the second house's lit displays.
   them. That call waits 120 s (`DISPLAY_TIMEOUT_MS`): HA holds the POST until the TV has the
   picture, 33 s for the fireplace, and the 30 s house default would fail it on the clock.
   `pokeHouses` never logs curl's error message: it is the command line, token included.
+- **Show on TV goes over HA's WebSocket API and says why it failed** (2026-11-03). HA's REST
+  service endpoint answers every error a service raises with a bare 500 (HA 2026.9
+  `helpers/http.py` translates only vol.Invalid, ServiceNotFound and Unauthorized), so every
+  failed Show on TV read "Request failed with status code 500": three in one afternoon at the
+  second house, two for a picture added 10 s earlier, one against the 15-minute shuffle.
+  `ha_ws.js` makes the `display_image` call over `/api/websocket` instead (same token, base
+  URL and SOCKS agent as REST; one connection per call; the `ws` package), where
+  `call_service` answers an error with the service's own text and code. `display_failure.js`
+  puts the two everyday states in plain words, with the house name from HOUSES_JSON and the
+  display name the page sent (`tv_name`): "Art file not found" becomes "That picture hasn't
+  reached the <house> house yet. Try again in about 30 seconds." (or, when the library has
+  unpushed commits, that the push has not gone through: the 2026-10-20 outage looked the same);
+  "another upload is already in progress" becomes "The <display> TV is busy putting up another
+  picture. Try again in about 30 seconds." Every other reason shows as the shuffler worded it
+  (a TV unreachable, an upload error). The matching keys on those two phrases of the
+  shuffler's messages (frame-art-shuffler CLAUDE.md names them as a contract). The other
+  service calls (tagsets, recency windows) still go over REST and lose their reason;
+  `callService` is a one-line switch for any of them. Not built: a pre-check against the
+  house's `sensor.frame_art_library_sync` (`last_synced_commit`); the shuffler's own file
+  check is the truth, the sensor a proxy. Tests: `tests/ha-ws.test.js` (a fake HA on
+  localhost), `tests/display-failure.test.js`.
 - **A failed push makes every house stale, and only the Fly log says so** (2026-10-20): the
   machine's crash restart on 2026-10-16 ran the entrypoint's `ssh-keyscan github.com ... || true`
   before the network was up, `/root/.ssh/known_hosts` stayed empty, and for four days the push

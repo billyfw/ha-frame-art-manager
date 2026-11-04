@@ -21,6 +21,9 @@ const HA_API_BASE = process.env.HA_URL || 'http://supervisor/core/api';
 // Supervisor path below remains for the legacy add-on deployment.
 const houses = require('../houses');
 const { displayPayload } = require('../display_payload');
+const { explainDisplayFailure } = require('../display_failure');
+const { callService, HAServiceError } = require('../ha_ws');
+const GitHelper = require('../git_helper');
 const lastDisplays = require('../last_displays');
 
 // Middleware: attach the target house (?house=<id>, default first) and ensure
@@ -376,9 +379,28 @@ router.get('/tvs', requireHA, async (req, res) => {
   }
 });
 
+// True when the library has commits GitHub does not have yet (a push failing or still
+// running): then no house can have a just-added picture, whatever it waits.
+async function libraryHasUnpushedCommits(frameArtPath) {
+  try {
+    const status = await new GitHelper(frameArtPath).getStatus();
+    return status.ahead > 0;
+  } catch (error) {
+    console.warn('Display error: could not read the library push state:', error.message);
+    return false;
+  }
+}
+
 // POST /api/ha/display - Display image on TV
+// Body: device_id or entity_id, filename, optional matte, filter and tv_name (the display's
+// name as the page shows it, for the failure wording).
+// Central deployment (a house): the call goes over HA's WebSocket API (ha_ws.js) so that a
+// failure comes back with the shuffler's reason, which display_failure.js puts in plain words
+// (`error`, with `reason` and the shuffler's `detail`). Over REST, HA answers every raised
+// error with a bare 500 and the page could only say "Request failed with status code 500"
+// (2026-11-03). The add-on and dev paths keep the REST call.
 router.post('/display', requireHA, async (req, res) => {
-  const { device_id, entity_id, filename, matte, filter } = req.body;
+  const { device_id, entity_id, filename, matte, filter, tv_name } = req.body;
 
   if ((!device_id && !entity_id) || !filename) {
     return res.status(400).json({ error: 'Missing device_id/entity_id or filename' });
@@ -397,12 +419,37 @@ router.post('/display', requireHA, async (req, res) => {
       entity_id,
     });
 
-    await haRequest('POST', `/services/frame_art_shuffler/display_image`, payload, req.house, {
-      timeout: DISPLAY_TIMEOUT_MS,
-    });
+    if (req.house) {
+      await callService(req.house, 'frame_art_shuffler', 'display_image', payload, {
+        timeout: DISPLAY_TIMEOUT_MS,
+      });
+    } else {
+      await haRequest('POST', `/services/frame_art_shuffler/display_image`, payload, req.house, {
+        timeout: DISPLAY_TIMEOUT_MS,
+      });
+    }
 
     res.json({ success: true, message: 'Command sent to TV' });
   } catch (error) {
+    if (error instanceof HAServiceError) {
+      const unpushed = /Art file not found/i.test(error.message)
+        ? await libraryHasUnpushedCommits(req.frameArtPath)
+        : false;
+      const explained = explainDisplayFailure({
+        message: error.message,
+        code: error.code,
+        houseName: req.house && req.house.name,
+        tvName: typeof tv_name === 'string' ? tv_name.slice(0, 80) : undefined,
+        unpushed,
+      });
+      console.error(`Display error (${req.house.id}, ${explained.reason}): ${error.message}`);
+      return res.status(explained.status).json({
+        success: false,
+        error: explained.text,
+        reason: explained.reason,
+        detail: error.message,
+      });
+    }
     // Extract meaningful error message from HA response
     let errorMessage = 'Failed to send command to TV';
     if (error.response?.data?.message) {
