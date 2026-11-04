@@ -154,18 +154,22 @@ packages: add `NODE_PATH=<a full npm ci install>/node_modules`.
   machine to fly.toml's `[[vm]]` + `swap_size_mb`, so change size THERE, not only with
   `fly machine update`. If it ever OOM-restarts under a big LFS sync, go back to 1 GB.
   Deploy with `fly deploy --remote-only -c fly/fly.toml --dockerfile fly/Dockerfile`
-  from the repo root (no local Docker; on dev flyctl lives at `~/.fly/bin/flyctl`, logged in
-  as the owner). **The login expires** (Fly's docs call the login token "very short-lived" and
-  give no number; 2026-10-04's still deployed on 2026-10-23 and was dead by 2026-11-03: "no
-  access token available", then "your flyctl session has expired"; bd's 2026-09-03 login had
-  died too). dev has no browser, so the renewal
-  is `flyctl auth login` under a pseudo-terminal (`script -q -f -c "flyctl auth login" <log>`,
-  detached; without one it refuses with "requires an interactive terminal"), the printed
-  `https://fly.io/app/auth/cli/...` link to the owner (it lasts 15 minutes), and when the
-  approval page shows a code instead of completing the wait, `flyctl auth login --code <code>`
-  finishes it (flyctl 0.5.3; the first code he read before approving did not redeem). A deploy
-  token on dev (`fly tokens create deploy`: app-scoped, 20 years by default per Fly's docs)
-  would end the renewals; not made, his call.
+  from the repo root (no local Docker; on dev flyctl lives at `~/.fly/bin/flyctl`). **On dev,
+  deploy with the app's deploy token, not a login** (2026-11-04):
+  `FLY_API_TOKEN="$(cat ~/.config/fly/frame-art-manager.token)" ~/.fly/bin/flyctl deploy ...`.
+  Made with `fly tokens create deploy -a frame-art-manager` (named "dev deploy
+  (frame-art-manager)" in Fly's dashboard, where it is revoked): app-scoped, it cannot see any
+  other app (checked), Fly's 20-year default expiry, 0600, never in git or chat.
+  It exists because **the login expires**: Fly's docs call the login token "very short-lived"
+  and give no number; 2026-10-04's still deployed on 2026-10-23 and was dead by 2026-11-03
+  ("no access token available", then "your flyctl session has expired"; bd's 2026-09-03 login
+  had died too). For anything the token cannot do (another app, secrets of the org), a login
+  from dev, which has no browser: `flyctl auth login` under a pseudo-terminal (`script -q -f -c
+  "flyctl auth login" <log>`, detached; without one it refuses with "requires an interactive
+  terminal"), the printed `https://fly.io/app/auth/cli/...` link to the owner (it lasts 15
+  minutes), and when the approval page shows a code instead of completing the wait, `flyctl
+  auth login --code <code>` finishes it (flyctl 0.5.3; a code read before approving does not
+  redeem). network-management `dev-box.md` has the named-pipe variant from the first login.
   Tailnet-only: no `[http_service]`, no public IPs; UI at
   `https://HOST.TAILNET.ts.net`. Machine must stay always-on (auto-stop can't wake on
   tailnet traffic).
