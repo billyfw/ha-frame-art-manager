@@ -11817,7 +11817,24 @@ function updateTagsetDropdownForTV(deviceId, preserveTagset) {
   renderTagsetsTable();
 }
 
-// Format override time compact for tagsets table: "until 3:00pm (45m)"
+// The moment an override ends, as text: "3:00 PM" today, "tomorrow 3:00 PM", then
+// "Sat, Nov 21, 3:00 PM". An override can run up to a week, and a week out the weekday
+// alone names today, so past tomorrow the date goes with it.
+function formatOverrideExpiryStamp(expiry, now = new Date()) {
+  const timeStr = expiry.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (expiry.toDateString() === now.toDateString()) return timeStr;
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (expiry.toDateString() === tomorrow.toDateString()) return `tomorrow ${timeStr}`;
+
+  return expiry.toLocaleString([], {
+    weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+  });
+}
+
+// Format override time compact for tagsets table: "until 3:00 PM (45m)",
+// "until Sat, Nov 21, 3:00 PM (6d23h)"
 function formatOverrideTimeCompact(expiryTime) {
   if (!expiryTime) return '';
   
@@ -11831,18 +11848,17 @@ function formatOverrideTimeCompact(expiryTime) {
   const hours = Math.floor(diffMins / 60);
   const mins = diffMins % 60;
   
-  // Format remaining time
+  // Format remaining time (days and hours from a day up)
   let remaining;
-  if (hours > 0) {
+  if (hours >= 24) {
+    remaining = `${Math.floor(hours / 24)}d${hours % 24 > 0 ? (hours % 24) + 'h' : ''}`;
+  } else if (hours > 0) {
     remaining = `${hours}h${mins > 0 ? mins + 'm' : ''}`;
   } else {
     remaining = `${mins}m`;
   }
   
-  // Format expiry time
-  const timeStr = expiry.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  
-  return `until ${timeStr} (${remaining})`;
+  return `until ${formatOverrideExpiryStamp(expiry, now)} (${remaining})`;
 }
 
 // Format override time remaining with expiry
@@ -11859,32 +11875,17 @@ function formatOverrideTimeDisplay(expiryTime) {
   const hours = Math.floor(diffMins / 60);
   const mins = diffMins % 60;
   
-  // Format remaining time
+  // Format remaining time (days and hours from a day up)
   let remaining;
-  if (hours > 0) {
+  if (hours >= 24) {
+    remaining = `${Math.floor(hours / 24)}d ${hours % 24}h`;
+  } else if (hours > 0) {
     remaining = `${hours}h ${mins}m`;
   } else {
     remaining = `${mins}m`;
   }
   
-  // Format expiry time
-  const isToday = expiry.toDateString() === now.toDateString();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const isTomorrow = expiry.toDateString() === tomorrow.toDateString();
-  
-  const timeStr = expiry.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  
-  let expiryStr;
-  if (isToday) {
-    expiryStr = timeStr;
-  } else if (isTomorrow) {
-    expiryStr = `tomorrow ${timeStr}`;
-  } else {
-    expiryStr = `${expiry.toLocaleDateString([], { weekday: 'short' })} ${timeStr}`;
-  }
-  
-  return `${remaining} (until ${expiryStr})`;
+  return `${remaining} (until ${formatOverrideExpiryStamp(expiry, now)})`;
 }
 
 // Render the "TV Tagset Assignments" section as a table
@@ -13421,24 +13422,11 @@ async function selectTagset(deviceId, tagsetName, skipRender = false) {
   }
 }
 
-// Format expiry time for display
+// Format expiry time for display: when an override of this many minutes, started now, would end
 function formatExpiryTime(minutes) {
   const now = new Date();
   const expiry = new Date(now.getTime() + minutes * 60 * 1000);
-  const isToday = expiry.toDateString() === now.toDateString();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const isTomorrow = expiry.toDateString() === tomorrow.toDateString();
-  
-  const timeStr = expiry.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  
-  if (isToday) {
-    return `(${timeStr})`;
-  } else if (isTomorrow) {
-    return `(tomorrow ${timeStr})`;
-  } else {
-    return `(${expiry.toLocaleDateString([], { weekday: 'short' })} ${timeStr})`;
-  }
+  return `(${formatOverrideExpiryStamp(expiry, now)})`;
 }
 
 // Open the override modal
@@ -13478,6 +13466,10 @@ function openOverrideModal(deviceId) {
     { value: '480', label: '8 hours' },
     { value: '720', label: '12 hours' },
     { value: '1440', label: '24 hours' },
+    { value: '2880', label: '2 days' },
+    { value: '4320', label: '3 days' },
+    { value: '7200', label: '5 days' },
+    { value: '10080', label: '1 week' },
     { value: 'custom', label: 'Custom...' }
   ];
   

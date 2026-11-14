@@ -52,6 +52,33 @@ first, now-on-a-dark-screen next, then everything else by last displayed time; t
 screen off" for a dark one. Before, every showing-now picture tied at "now" and the added-date tiebreak put
 Madrone's dark TVs beside the second house's lit displays.
 
+## Tagset override durations (2026-11-14, the owner)
+
+The override modal offers 30 minutes, 1, 2, 4 (the default), 8, 12 and 24 hours, 2, 3 and 5 days and
+1 week, then Custom. The list lives twice: the `durations` array in `openOverrideModal` (app.js), which
+is what the page shows (it adds each choice's end time when the modal opens), and the static options of
+`#override-duration-select` in `public/index.html`, replaced before anyone sees them; change both. A week
+(10080 minutes) is the longest by convention, not by a check: the Custom box's `max` here and the
+shuffler's `services.yaml` selector (HA's own form only) say 10080, while the route here and the
+shuffler's service take any positive number.
+
+Every label that says when an override ends goes through `formatOverrideExpiryStamp` (app.js): the
+time for today, "tomorrow <time>", then weekday, date and time ("Sat, Nov 21, 12:15 PM"), because a week
+out the weekday alone names today. The time left reads in days and hours from a day up ("6d 23h"). The
+three callers are the modal's choices, the Override Time column and the tagsets table's "Overrides
+<display> until ..." line. No kept test covers the page's script; these were checked in a headless
+browser with the clock pinned (day boundaries, a month end, the choices, what Apply posts) and read at
+1400, 500 and 390 px.
+
+An override outlives an HA restart. The shuffler keeps `override_tagset` and `override_expiry_time` in
+the display's config entry data and, at setup, re-arms the timer from the stored time, or clears an
+override that ran out while HA was down (`__init__.py`, "Restore any pending override timers").
+Rehearsed 2026-11-14 through the shuffler's code inside HA 2026.9 on a wall tablet target: a week-long
+override reached HA's config entry store, a fresh setup picked it up, and it ended at its stored time,
+not before. One cosmetic leftover there, untouched: a reload of the integration (not a restart) during
+an override leaves the old timer armed beside the restored one, so the expiry writes a second activity
+line reading "Override 'None' expired"; the override still ends once, on time.
+
 ## Key backend facts
 
 - Fully env-driven: `FRAME_ART_PATH`, `PORT` (8099), `NODE_ENV`,
