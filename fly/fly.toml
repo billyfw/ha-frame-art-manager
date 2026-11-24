@@ -19,6 +19,9 @@
 
 app = "frame-art-manager"
 primary_region = "lax"
+# A top-level key: it must stay above the first [table]. From 2026-09-02 to 2026-11-24 it sat
+# after [env], so TOML made it an environment variable and the machine ran with no swap.
+swap_size_mb = 256
 
 [mounts]
   source = "frame_art_data"
@@ -46,11 +49,9 @@ primary_region = "lax"
 
 # 1gb -> 512mb on 2026-09-02 (the owner: ~$2.50/mo). Measured steady RSS inside the machine
 # after 34 days up: node 107M + tailscaled 43M + hallpass 21M ~= 180M, so 512 keeps ~2.5x
-# headroom; the swap file absorbs a git-lfs/sharp spike instead of an OOM restart.
-# `fly deploy` reconciles the machine to THIS block, so size changes must land here,
-# not only via `fly machine update`.
-swap_size_mb = 256
-
+# headroom; the swap file (swap_size_mb, at the top) absorbs a git-lfs/sharp spike instead
+# of an OOM restart. `fly deploy` reconciles the machine to THIS block and swap_size_mb, so
+# size changes must land here, not only via `fly machine update`.
 [[vm]]
   size = "shared-cpu-1x"
   memory = "512mb"
