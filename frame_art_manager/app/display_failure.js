@@ -32,8 +32,8 @@ function displayLabel(tvName) {
  */
 function explainDisplayFailure({ message, code, houseName, tvName, unpushed }) {
   const text = message || '';
-  // The house's display name as HOUSES_JSON gives it, used bare: one configured name already
-  // reads "the second house", so "the <name> house" would double the words.
+  // The house's display name as HOUSES_JSON gives it, used bare: "hasn't reached <name> yet"
+  // reads right for any name, where "the <name> house" doubles the words of a name like "the beach house".
   const house = houseName || 'the house';
 
   if (NOT_AT_HOUSE.test(text)) {

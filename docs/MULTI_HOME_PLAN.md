@@ -452,7 +452,8 @@ Verification:
 
 ### 6.1 Houses config (manager)
 
-Env `HOUSES_JSON` (Fly secret or fly.toml env), e.g.:
+Env `HOUSES_JSON`, a Fly secret only since 2026-11-24 (the names are place names and this repo is
+public; CLAUDE.md, Deployment), e.g.:
 
 ```json
 [{"id":"madrone","name":"Madrone","ha_url":"http://100.81.0.118:8123","token_env":"HA_TOKEN_MADRONE"},
@@ -507,7 +508,8 @@ Env `HOUSES_JSON` (Fly secret or fly.toml env), e.g.:
   `docs/TABLET_TARGETS.md`).
 - First sync: seeded from Madrone's copy box to box, then `sync_library` adopted 660 files by size,
   0 bytes downloaded (no LFS bandwidth used).
-- Manager: `HOUSES_JSON` in `fly/fly.toml` gained `lau` at **`http://100.87.218.7`** (ha-lau's own
+- Manager: `HOUSES_JSON` (then in `fly/fly.toml`, a Fly secret since 2026-11-24) gained `lau` at
+  **`http://100.87.218.7`** (ha-lau's own
   tailnet address, **port 80**, not 8123 and not a LAN IP through a subnet router), Fly secret
   `HA_TOKEN_LAU` (a long-lived token on ha-lau, "frame-art manager on Fly (house Lau)"); deployed on
   the running image (no rebuild). Verified: `/api/ha/houses` lists both; `/api/ha/tvs?house=lau`

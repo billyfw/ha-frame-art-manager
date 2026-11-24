@@ -41,7 +41,7 @@ home (a rename only where the old name exists), a delete to every home that has 
 selecting a tagset for a display first copies it into that display's home if missing
 (`ensureTagsetInHouse`). Statistics, display logs and recency settings stay per home: the `house`
 cookie, chosen by the Home picker on the Statistics header and the Recency tab (house-switcher.js).
-House labels come from `HOUSES_JSON` names (Madrone, the second house). **A home that does not answer is a red
+House labels come from the `HOUSES_JSON` names, a Fly secret (Deployment, below). **A home that does not answer is a red
 dot after the display dots** (2026-10-10): its hover reads "<Home>: unreachable (<its displays>)",
 the displays as the manager last saw them (`last_displays.js`, in memory: after a restart the names
 come back with that home's first answer). With no home answering the row is red dots only.
@@ -112,8 +112,7 @@ line reading "Override 'None' expired"; the override still ends once, on time.
   `call_service` answers an error with the service's own text and code. `display_failure.js`
   puts the two everyday states in plain words, with the house name from HOUSES_JSON and the
   display name the page sent (`tv_name`): "Art file not found" becomes "That picture hasn't
-  reached <house> yet. Try again in about 30 seconds." (the house name bare: one configured name
-  is already a phrase) (or, when the library has
+  reached <house> yet. Try again in about 30 seconds." (the house name bare) (or, when the library has
   unpushed commits, that the push has not gone through: the 2026-10-20 outage looked the same);
   "another upload is already in progress" becomes "The <display> TV is busy putting up another
   picture. Try again in about 30 seconds." Every other reason shows as the shuffler worded it
@@ -200,6 +199,18 @@ packages: add `NODE_PATH=<a full npm ci install>/node_modules`.
   Tailnet-only: no `[http_service]`, no public IPs; UI at
   `https://HOST.TAILNET.ts.net`. Machine must stay always-on (auto-stop can't wake on
   tailnet traffic).
+- **The house names live in the Fly secret `HOUSES_JSON`; the tab title is plain** (2026-11-24, the
+  owner). The 2026-10-24 history rewrite replaced the place names and the owner's domain prefix with
+  placeholders in every file, live configuration included: `HOUSES_JSON` in fly.toml's `[env]` named
+  lau "the second house", and the page title read "EXAMPLE Frame Art Manager". The first deploys after
+  it (2026-11-04) put both on screen, in the display labels ("GreatRoom (the second house)") and the Home
+  picker. A display name is a place name, which this public repo cannot hold (the private markers
+  flag it), so `HOUSES_JSON` (ids, display names, HA URLs, token env var names, no token) is now only
+  a secret and a deploy from this tree cannot touch it. Read it with `fly ssh console -C 'printenv
+  HOUSES_JSON'`; change it with `fly secrets set HOUSES_JSON='<the whole list>'` (a restart); never put
+  it back in `[env]`. The title is "Frame Art Manager" in `public/index.html`, add-on installs too.
+  Placeholders still read oddly in docs and comments ("the second house"); a future rewrite checks what
+  it replaces in config and on-screen strings before it is pushed.
 
 ## Gotchas
 
