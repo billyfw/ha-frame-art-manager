@@ -52,6 +52,33 @@ first, now-on-a-dark-screen next, then everything else by last displayed time; t
 screen off" for a dark one. Before, every showing-now picture tied at "now" and the added-date tiebreak put
 Madrone's dark TVs beside the second house's lit displays.
 
+## Tagset override durations (2026-11-14, the owner)
+
+The override modal offers 30 minutes, 1, 2, 4 (the default), 8, 12 and 24 hours, 2, 3 and 5 days and
+1 week, then Custom. The list lives twice: the `durations` array in `openOverrideModal` (app.js), which
+is what the page shows (it adds each choice's end time when the modal opens), and the static options of
+`#override-duration-select` in `public/index.html`, replaced before anyone sees them; change both. A week
+(10080 minutes) is the longest by convention, not by a check: the Custom box's `max` here and the
+shuffler's `services.yaml` selector (HA's own form only) say 10080, while the route here and the
+shuffler's service take any positive number.
+
+Every label that says when an override ends goes through `formatOverrideExpiryStamp` (app.js): the
+time for today, "tomorrow <time>", then weekday, date and time ("Sat, Nov 21, 12:15 PM"), because a week
+out the weekday alone names today. The time left reads in days and hours from a day up ("6d 23h"). The
+three callers are the modal's choices, the Override Time column and the tagsets table's "Overrides
+<display> until ..." line. No kept test covers the page's script; these were checked in a headless
+browser with the clock pinned (day boundaries, a month end, the choices, what Apply posts) and read at
+1400, 500 and 390 px.
+
+An override outlives an HA restart. The shuffler keeps `override_tagset` and `override_expiry_time` in
+the display's config entry data and, at setup, re-arms the timer from the stored time, or clears an
+override that ran out while HA was down (`__init__.py`, "Restore any pending override timers").
+Rehearsed 2026-11-14 through the shuffler's code inside HA 2026.9 on a wall tablet target: a week-long
+override reached HA's config entry store, a fresh setup picked it up, and it ended at its stored time,
+not before. One cosmetic leftover there, untouched: a reload of the integration (not a restart) during
+an override leaves the old timer armed beside the restored one, so the expiry writes a second activity
+line reading "Override 'None' expired"; the override still ends once, on time.
+
 ## Key backend facts
 
 - Fully env-driven: `FRAME_ART_PATH`, `PORT` (8099), `NODE_ENV`,
@@ -75,6 +102,28 @@ Madrone's dark TVs beside the second house's lit displays.
   them. That call waits 120 s (`DISPLAY_TIMEOUT_MS`): HA holds the POST until the TV has the
   picture, 33 s for the fireplace, and the 30 s house default would fail it on the clock.
   `pokeHouses` never logs curl's error message: it is the command line, token included.
+- **Show on TV goes over HA's WebSocket API and says why it failed** (2026-11-03). HA's REST
+  service endpoint answers every error a service raises with a bare 500 (HA 2026.9
+  `helpers/http.py` translates only vol.Invalid, ServiceNotFound and Unauthorized), so every
+  failed Show on TV read "Request failed with status code 500": three in one afternoon at the
+  second house, two for a picture added 10 s earlier, one against the 15-minute shuffle.
+  `ha_ws.js` makes the `display_image` call over `/api/websocket` instead (same token, base
+  URL and SOCKS agent as REST; one connection per call; the `ws` package), where
+  `call_service` answers an error with the service's own text and code. `display_failure.js`
+  puts the two everyday states in plain words, with the house name from HOUSES_JSON and the
+  display name the page sent (`tv_name`): "Art file not found" becomes "That picture hasn't
+  reached <house> yet. Try again in about 30 seconds." (the house name bare: one configured name
+  is already a phrase) (or, when the library has
+  unpushed commits, that the push has not gone through: the 2026-10-20 outage looked the same);
+  "another upload is already in progress" becomes "The <display> TV is busy putting up another
+  picture. Try again in about 30 seconds." Every other reason shows as the shuffler worded it
+  (a TV unreachable, an upload error). The matching keys on those two phrases of the
+  shuffler's messages (frame-art-shuffler CLAUDE.md names them as a contract). The other
+  service calls (tagsets, recency windows) still go over REST and lose their reason;
+  `callService` is a one-line switch for any of them. Not built: a pre-check against the
+  house's `sensor.frame_art_library_sync` (`last_synced_commit`); the shuffler's own file
+  check is the truth, the sensor a proxy. Tests: `tests/ha-ws.test.js` (a fake HA on
+  localhost), `tests/display-failure.test.js`.
 - **A failed push makes every house stale, and only the Fly log says so** (2026-10-20): the
   machine's crash restart on 2026-10-16 ran the entrypoint's `ssh-keyscan github.com ... || true`
   before the network was up, `/root/.ssh/known_hosts` stayed empty, and for four days the push
@@ -132,8 +181,23 @@ packages: add `NODE_PATH=<a full npm ci install>/node_modules`.
   machine to fly.toml's `[[vm]]` + `swap_size_mb`, so change size THERE, not only with
   `fly machine update`. If it ever OOM-restarts under a big LFS sync, go back to 1 GB.
   Deploy with `fly deploy --remote-only -c fly/fly.toml --dockerfile fly/Dockerfile`
-  from the repo root (no local Docker; on dev flyctl lives at `~/.fly/bin/flyctl`, logged in
-  as the owner since 2026-10-04). Tailnet-only: no `[http_service]`, no public IPs; UI at
+  from the repo root (no local Docker; on dev flyctl lives at `~/.fly/bin/flyctl`). **On dev,
+  deploy with the app's deploy token, not a login** (2026-11-04):
+  `FLY_API_TOKEN="$(cat ~/.config/fly/frame-art-manager.token)" ~/.fly/bin/flyctl deploy ...`.
+  Made with `fly tokens create deploy -a frame-art-manager` (named "dev deploy
+  (frame-art-manager)" in Fly's dashboard, where it is revoked): app-scoped, it cannot see any
+  other app (checked), Fly's 20-year default expiry, 0600, never in git or chat.
+  It exists because **the login expires**: Fly's docs call the login token "very short-lived"
+  and give no number; 2026-10-04's still deployed on 2026-10-23 and was dead by 2026-11-03
+  ("no access token available", then "your flyctl session has expired"; bd's 2026-09-03 login
+  had died too). For anything the token cannot do (another app, secrets of the org), a login
+  from dev, which has no browser: `flyctl auth login` under a pseudo-terminal (`script -q -f -c
+  "flyctl auth login" <log>`, detached; without one it refuses with "requires an interactive
+  terminal"), the printed `https://fly.io/app/auth/cli/...` link to the owner (it lasts 15
+  minutes), and when the approval page shows a code instead of completing the wait, `flyctl
+  auth login --code <code>` finishes it (flyctl 0.5.3; a code read before approving does not
+  redeem). network-management `dev-box.md` has the named-pipe variant from the first login.
+  Tailnet-only: no `[http_service]`, no public IPs; UI at
   `https://HOST.TAILNET.ts.net`. Machine must stay always-on (auto-stop can't wake on
   tailnet traffic).
 
