@@ -822,3 +822,5 @@ async function clearSyncLogs() {
 }
 
 module.exports = router;
+// For the library sync summary in Settings (routes/setup.js).
+module.exports.getSyncLogs = getSyncLogs;

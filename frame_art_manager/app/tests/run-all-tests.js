@@ -32,7 +32,8 @@ const testSuites = [
   { name: 'Display Payload Tests', file: 'display-payload.test.js' },
   { name: 'Display Failure Wording Tests', file: 'display-failure.test.js' },
   { name: 'Home Assistant WebSocket Tests', file: 'ha-ws.test.js' },
-  { name: 'Last Displays Tests', file: 'last-displays.test.js' }
+  { name: 'Last Displays Tests', file: 'last-displays.test.js' },
+  { name: 'Library Setup Tests', file: 'library-setup.test.js' }
 ];
 
 // Results tracking
